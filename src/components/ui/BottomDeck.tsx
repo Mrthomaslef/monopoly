@@ -23,7 +23,8 @@ export const BottomDeck: React.FC = () => {
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
 
   const buyIsland = useGameStore((s) => s.buyIsland);
-  const fortifyIsland = useGameStore((s) => s.fortifyIsland);
+  const setShowFortifyModal = useGameStore((s) => s.setShowFortifyModal);
+  const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const triggerManualNavalBattle = useGameStore((s) => s.triggerManualNavalBattle);
   const endTurn = useGameStore((s) => s.endTurn);
 
@@ -46,29 +47,21 @@ export const BottomDeck: React.FC = () => {
     currentTile.ownerId === null &&
     (currentTile.price ?? 0) <= activePlayer.gold;
 
-  // Can fortify current tile (or inspected tile if owned by activePlayer)?
-  const targetFortifyTile =
-    inspectedTile.type === 'island' &&
-    inspectedTile.ownerId === activePlayer?.id &&
-    inspectedTile.level < 4
-      ? inspectedTile
-      : currentTile.type === 'island' &&
-        currentTile.ownerId === activePlayer?.id &&
-        currentTile.level < 4
-      ? currentTile
-      : tiles.find(
-          (t) =>
-            t.type === 'island' &&
-            t.ownerId === activePlayer?.id &&
-            t.level < 4 &&
-            (t.upgradeCost ?? 0) <= (activePlayer?.gold ?? 0)
-        ) ?? null;
+  // Find all islands owned by activePlayer that can be fortified
+  const fortifiableIslands = activePlayer
+    ? tiles.filter(
+        (t) =>
+          t.type === 'island' &&
+          t.ownerId === activePlayer.id &&
+          t.level < 4 &&
+          (t.upgradeCost ?? 0) <= activePlayer.gold
+      )
+    : [];
 
   const canFortify =
     isHumanTurn &&
     (phase === 'TILE_ACTION' || phase === 'END_TURN') &&
-    targetFortifyTile !== null &&
-    (targetFortifyTile.upgradeCost ?? 0) <= activePlayer.gold &&
+    fortifiableIslands.length > 0 &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
 
   // Rivals on the active player's tile for "Tirer au Canon" (only 1 attack allowed per turn)
@@ -205,9 +198,7 @@ export const BottomDeck: React.FC = () => {
             whileTap={canFortify ? { scale: 0.95 } : undefined}
             type="button"
             disabled={!canFortify}
-            onClick={() =>
-              targetFortifyTile && fortifyIsland(targetFortifyTile.id)
-            }
+            onClick={() => setShowFortifyModal(!showFortifyModal)}
             className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-black text-xs transition ${
               canFortify
                 ? 'text-cyan-200 ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.45)] brightness-115 cursor-pointer'
@@ -216,8 +207,10 @@ export const BottomDeck: React.FC = () => {
           >
             <Castle className="w-4 h-4 shrink-0 text-cyan-400" />
             <span className="truncate">
-              {targetFortifyTile
-                ? `Fortifier (${targetFortifyTile.upgradeCost} Or + ${FORTIFY_MATERIAL_COST} 🪵)`
+              {canFortify
+                ? `Fortifier (${fortifiableIslands.length} île${
+                    fortifiableIslands.length > 1 ? 's' : ''
+                  } • 1 🪵)`
                 : 'Fortifier (Or + 1 🪵)'}
             </span>
           </motion.button>

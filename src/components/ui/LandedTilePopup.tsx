@@ -212,16 +212,24 @@ export const LandedTilePopup: React.FC = () => {
   const phase = useGameStore((s) => s.phase);
   const activeCard = useGameStore((s) => s.activeCard);
   const navalBattle = useGameStore((s) => s.navalBattle);
+  const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
 
   const buyIsland = useGameStore((s) => s.buyIsland);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
+  const setShowFortifyModal = useGameStore((s) => s.setShowFortifyModal);
   const triggerManualNavalBattle = useGameStore(
     (s) => s.triggerManualNavalBattle
   );
 
-  // Yield screen space if a Drawn Card modal or Naval Battle modal is active
-  if (!landedTilePopup || activeCard || navalBattle?.active || phase === 'GAME_OVER') {
+  // Yield screen space if a Drawn Card modal, Naval Battle modal, or Fortify Selector modal is active
+  if (
+    !landedTilePopup ||
+    activeCard ||
+    navalBattle?.active ||
+    showFortifyModal ||
+    phase === 'GAME_OVER'
+  ) {
     return null;
   }
 
@@ -239,12 +247,14 @@ export const LandedTilePopup: React.FC = () => {
       ? players.find((p) => p.id === tile.ownerId) ?? null
       : null;
 
-  const isHumanActiveOnThisTile =
+  const isHumanTurnActive =
     Boolean(activePlayer) &&
     !activePlayer.isAI &&
     !activePlayer.bankrupt &&
-    activePlayer.position === tile.id &&
     (phase === 'TILE_ACTION' || phase === 'END_TURN');
+
+  const isHumanActiveOnThisTile =
+    isHumanTurnActive && activePlayer.position === tile.id;
 
   const canBuy =
     isHumanActiveOnThisTile &&
@@ -252,13 +262,26 @@ export const LandedTilePopup: React.FC = () => {
     tile.ownerId === null &&
     (tile.price ?? 0) <= activePlayer.gold;
 
+  // Player can fortify ANY of their owned islands during their turn (or open the location selector)
   const canFortify =
-    isHumanActiveOnThisTile &&
+    isHumanTurnActive &&
     tile.type === 'island' &&
     tile.ownerId === activePlayer.id &&
     tile.level < 4 &&
     (tile.upgradeCost ?? 0) <= activePlayer.gold &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
+
+  const hasOtherFortifiableIslands =
+    isHumanTurnActive &&
+    activePlayer.materials >= FORTIFY_MATERIAL_COST &&
+    tiles.some(
+      (t) =>
+        t.id !== tile.id &&
+        t.type === 'island' &&
+        t.ownerId === activePlayer.id &&
+        t.level < 4 &&
+        (t.upgradeCost ?? 0) <= activePlayer.gold
+    );
 
   const rivalsOnTile = activePlayer
     ? players.filter(
@@ -468,7 +491,21 @@ export const LandedTilePopup: React.FC = () => {
                   className="flex-1 wood-plank wood-nails py-2.5 px-3 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider text-cyan-200 ring-2 ring-cyan-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Castle className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span>Fortifier ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)</span>
+                  <span>Fortifier ici ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)</span>
+                </motion.button>
+              )}
+
+              {hasOtherFortifiableIslands && !canBuy && !canFireCannon && (
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => {
+                    setShowFortifyModal(true);
+                  }}
+                  className="flex-1 wood-plank wood-nails py-2.5 px-2.5 rounded-xl font-cinzel text-[11px] font-black uppercase tracking-wider text-amber-200 ring-1 ring-cyan-400/70 shadow-lg flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <Castle className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Choisir l’île à fortifier</span>
                 </motion.button>
               )}
 

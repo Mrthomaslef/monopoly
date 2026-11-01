@@ -585,6 +585,7 @@ interface GameState {
   players: Player[];
   slotConfigs: PlayerSlotConfig[];
   showSetupModal: boolean;
+  showFortifyModal: boolean;
   tiles: TileData[];
   currentPlayerIndex: number;
   phase: TurnPhase;
@@ -607,6 +608,7 @@ interface GameState {
 
   // Actions
   setShowSetupModal: (show: boolean) => void;
+  setShowFortifyModal: (show: boolean) => void;
   dismissLandedTilePopup: () => void;
   inspectTileCard: (tileId: number) => void;
   startCustomGame: (slots: PlayerSlotConfig[]) => void;
@@ -631,6 +633,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   players: buildPlayersFromSlots(DEFAULT_CAPTAIN_ROSTER),
   slotConfigs: DEFAULT_CAPTAIN_ROSTER.map((s) => ({ ...s })),
   showSetupModal: true,
+  showFortifyModal: false,
   tiles: INITIAL_TILES.map((t) => ({ ...t })),
   currentPlayerIndex: 0,
   phase: 'IDLE',
@@ -657,11 +660,22 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setShowSetupModal: (show) => set({ showSetupModal: show }),
 
+  setShowFortifyModal: (show) =>
+    set((state) => ({
+      showFortifyModal: show,
+      landedTilePopup: show ? null : state.landedTilePopup,
+    })),
+
   dismissLandedTilePopup: () => set({ landedTilePopup: null }),
 
   inspectTileCard: (tileId) => {
     const state = get();
     const activePlayer = state.players[state.currentPlayerIndex];
+    // If the player is in fortification location-picker mode, clicking a tile on the 3D board selects it in the picker
+    if (state.showFortifyModal) {
+      set({ focusedTileIndex: tileId });
+      return;
+    }
     set({
       focusedTileIndex: tileId,
       landedTilePopup: {
@@ -992,10 +1006,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       players: updatedPlayers,
       tiles: updatedTiles,
       phase: 'END_TURN',
+      showFortifyModal: false,
+      focusedTileIndex: tile.id,
       landedTilePopup: {
         tileId: tile.id,
         playerId: player.id,
-        eventSummary: `🏰 ${buildLabel} érigé (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} 🪵)`,
+        eventSummary: `🏰 ${buildLabel} érigé sur ${tile.name} (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} 🪵)`,
       },
     });
   },

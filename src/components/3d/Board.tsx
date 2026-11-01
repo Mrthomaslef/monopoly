@@ -208,6 +208,7 @@ export const Board: React.FC = () => {
   const players = useGameStore((s) => s.players);
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
+  const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const floatingTexts = useGameStore((s) => s.floatingTexts);
 
   const activePlayer = players[currentPlayerIndex];
@@ -232,6 +233,14 @@ export const Board: React.FC = () => {
           tile.ownerId !== null
             ? players.find((p) => p.id === tile.ownerId) ?? null
             : null;
+        const isFortifyCandidate =
+          showFortifyModal &&
+          Boolean(activePlayer) &&
+          tile.type === 'island' &&
+          tile.ownerId === activePlayer.id &&
+          tile.level < 4 &&
+          (tile.upgradeCost ?? 0) <= activePlayer.gold;
+
         return (
           <Tile
             key={tile.id}
@@ -239,6 +248,7 @@ export const Board: React.FC = () => {
             currentRent={rentsByTile[idx]}
             owner={owner}
             isFocused={focusedTileIndex === tile.id}
+            isFortifyCandidate={isFortifyCandidate}
             onSelectTile={handleSelectTile}
           />
         );

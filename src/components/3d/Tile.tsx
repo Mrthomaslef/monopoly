@@ -12,6 +12,7 @@ interface TileProps {
   currentRent: number;
   owner: Player | null;
   isFocused: boolean;
+  isFortifyCandidate?: boolean;
   onSelectTile?: (tileId: number) => void;
 }
 
@@ -369,12 +370,19 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Sculpted Golden-Brown ("Brun Doré") Metallic Frame
+    // Sculpted Golden-Brown ("Brun Doré") Metallic Frame (tinted with owner's color when owned!)
     const frameGrad = ctx.createLinearGradient(0, 75, 0, 355);
-    frameGrad.addColorStop(0.0, '#fde047');
-    frameGrad.addColorStop(0.32, '#d97706');
-    frameGrad.addColorStop(0.68, '#78350f');
-    frameGrad.addColorStop(1.0, '#f59e0b');
+    if (ownerColor) {
+      frameGrad.addColorStop(0.0, '#fef08a');
+      frameGrad.addColorStop(0.35, ownerColor);
+      frameGrad.addColorStop(0.75, '#78350f');
+      frameGrad.addColorStop(1.0, ownerColor);
+    } else {
+      frameGrad.addColorStop(0.0, '#fde047');
+      frameGrad.addColorStop(0.32, '#d97706');
+      frameGrad.addColorStop(0.68, '#78350f');
+      frameGrad.addColorStop(1.0, '#f59e0b');
+    }
 
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
@@ -401,22 +409,31 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.strokeStyle = tile.color;
     ctx.stroke();
 
+    // Owner Color Accent Stripe along the bottom outer curve when owned
+    if (ownerColor) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, bandRadius + 76, startAngle + 0.02, endAngle - 0.02);
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = ownerColor;
+      ctx.stroke();
+    }
+
     // Subtle Golden Filigree Divider between Tile Name and Price/Rent
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius + 18, startAngle + 0.03, endAngle - 0.03);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+    ctx.strokeStyle = ownerColor ?? 'rgba(245, 158, 11, 0.5)';
     ctx.stroke();
 
-    // Left & Right 3D Embossed Golden-Brown Rivets
+    // Left & Right 3D Embossed Rivets (colored in Captain's Color if owned!)
     for (const sign of [-1, 1]) {
       const rAlpha = sign * (arcHalfSpan - 0.012);
       const rx = cx - bandRadius * Math.sin(rAlpha);
       const ry = cy + bandRadius * Math.cos(rAlpha);
       const rivGrad = ctx.createRadialGradient(rx - 4, ry - 4, 2, rx, ry, 18);
-      rivGrad.addColorStop(0.0, '#fef9c3');
-      rivGrad.addColorStop(0.55, '#d97706');
-      rivGrad.addColorStop(1.0, '#451a03');
+      rivGrad.addColorStop(0.0, '#ffffff');
+      rivGrad.addColorStop(0.55, ownerColor ?? '#d97706');
+      rivGrad.addColorStop(1.0, '#1c0701');
       ctx.beginPath();
       ctx.arc(rx, ry, 16, 0, Math.PI * 2);
       ctx.fillStyle = rivGrad;
@@ -456,7 +473,7 @@ const CurvedGoldenReliefBanner: React.FC<{
       'title'
     );
 
-    // 3. Curved Embossed Subtitle (Price / Rent / Bonus) along the lower concentric arc
+    // 3. Curved Embossed Subtitle (Owner Name + Rent OR Price / Bonus) along the lower concentric arc
     drawCurvedEmbossedText(
       ctx,
       bCtx,
@@ -464,10 +481,10 @@ const CurvedGoldenReliefBanner: React.FC<{
       cx,
       cy,
       bandRadius + 48, // Subtitle arc radius = 1108
-      48,
-      arcHalfSpan * 1.8,
+      46,
+      arcHalfSpan * 1.84,
       'subtitle',
-      ownerColor ? '#4ade80' : '#fde047'
+      ownerColor ?? '#fde047'
     );
 
     const cTex = new THREE.CanvasTexture(colorCanvas);
@@ -544,7 +561,14 @@ const CurvedGoldenReliefBanner: React.FC<{
 };
 
 export const Tile: React.FC<TileProps> = React.memo(
-  ({ tile, currentRent, owner, isFocused, onSelectTile }) => {
+  ({
+    tile,
+    currentRent,
+    owner,
+    isFocused,
+    isFortifyCandidate = false,
+    onSelectTile,
+  }) => {
     const { position, rotationY, side } = getTileTransform(tile.id);
     const isCorner = side === 'corner';
 
@@ -574,6 +598,10 @@ export const Tile: React.FC<TileProps> = React.memo(
     }, [isCorner, tile.id]);
     const propOffsetZ = isCorner ? -0.52 : -0.46;
 
+    // Opposite back corner for the 3D Captain Ownership Flag & Fortification Towers
+    const flagOffsetX = -propOffsetX * 0.95;
+    const flagOffsetZ = propOffsetZ * 0.88;
+
     const baseRadius = isCorner ? 0.88 : 0.78;
     const propSize = isCorner ? 0.78 : 0.68;
 
@@ -584,10 +612,12 @@ export const Tile: React.FC<TileProps> = React.memo(
         ? ` ${'★'.repeat(tile.level)}`
         : '';
 
+    const ownerShortName = owner ? owner.name.split(' ')[0] : '';
+
     const subtitleText =
       tile.type === 'island'
         ? owner
-          ? `Loyer ${currentRent} Or${levelStars}`
+          ? `⚑ ${ownerShortName} • ${currentRent} Or`
           : `${tile.price} Or`
         : tile.type === 'start'
         ? '+200 Or & +1 🪵'
@@ -612,18 +642,42 @@ export const Tile: React.FC<TileProps> = React.memo(
           onSelectTile?.(tile.id);
         }}
       >
-        {/* 1. Shoreline Sea-Foam Ring */}
+        {/* 1. Shoreline Ring (Vibrant Captain Territory Halo when owned, or Cyan Fortify Target!) */}
         <mesh
-          position={[0, -0.09, 0]}
+          position={[0, -0.08, 0]}
           rotation={[-Math.PI / 2, 0, islandSeedAngle]}
         >
-          <ringGeometry args={[baseRadius * 0.88, baseRadius * 1.12, 20]} />
+          <ringGeometry
+            args={[
+              baseRadius * 0.86,
+              baseRadius * (owner || isFortifyCandidate ? 1.18 : 1.12),
+              20,
+            ]}
+          />
           <meshStandardMaterial
-            color={isFocused ? '#fde047' : '#e0f2fe'}
-            emissive={isFocused ? '#f59e0b' : '#38bdf8'}
-            emissiveIntensity={isFocused ? 0.95 : 0.45}
+            color={
+              isFortifyCandidate
+                ? '#22d3ee'
+                : owner
+                ? owner.color
+                : isFocused
+                ? '#fde047'
+                : '#e0f2fe'
+            }
+            emissive={
+              isFortifyCandidate
+                ? '#06b6d4'
+                : owner
+                ? owner.color
+                : isFocused
+                ? '#f59e0b'
+                : '#38bdf8'
+            }
+            emissiveIntensity={
+              isFortifyCandidate ? 1.35 : owner ? 1.05 : isFocused ? 0.95 : 0.45
+            }
             transparent
-            opacity={0.9}
+            opacity={owner || isFortifyCandidate ? 0.96 : 0.88}
           />
         </mesh>
 
@@ -650,20 +704,35 @@ export const Tile: React.FC<TileProps> = React.memo(
           />
         </mesh>
 
-        {/* Ownership Glowing Ring around the Island Perimeter */}
+        {/* Prominent Raised Captain Ownership Territory Border Ring around the Island Terrace */}
         {owner && (
-          <mesh position={[0, 0.135, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[baseRadius * 0.84, baseRadius * 0.93, 20]} />
+          <mesh position={[0, 0.145, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[baseRadius * 0.76, baseRadius * 0.96, 24]} />
             <meshStandardMaterial
               color={owner.color}
               emissive={owner.color}
-              emissiveIntensity={0.95}
+              emissiveIntensity={1.15}
               side={THREE.DoubleSide}
             />
           </mesh>
         )}
 
-        {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop & Curved Golden-Brown Relief Title */}
+        {/* Glowing Cyan/Gold Fortification Target Ring when player is choosing an island to fortify */}
+        {isFortifyCandidate && (
+          <mesh position={[0, 0.19, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[baseRadius * 0.64, baseRadius * 1.05, 24]} />
+            <meshStandardMaterial
+              color="#67e8f9"
+              emissive="#22d3ee"
+              emissiveIntensity={1.5}
+              transparent
+              opacity={0.92}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        )}
+
+        {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop, 3D Ownership Flag & Curved Banner */}
         <group rotation={[0, -rotationY, 0]}>
           {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
           <mesh position={[0, 0.125, -0.02]} receiveShadow>
@@ -740,13 +809,132 @@ export const Tile: React.FC<TileProps> = React.memo(
             </mesh>
           </group>
 
+          {/* 3D CAPTAIN OWNERSHIP FLAG MAST & FORTIFICATION BASTION TOWERS */}
+          {owner && (
+            <group position={[flagOffsetX, 0.16, flagOffsetZ]}>
+              {/* Captain Color Octagonal Pedestal Base */}
+              <mesh position={[0, 0.04, 0]}>
+                <cylinderGeometry args={[0.17, 0.21, 0.08, 8]} />
+                <meshStandardMaterial
+                  color={owner.color}
+                  emissive={owner.color}
+                  emissiveIntensity={0.65}
+                  roughness={0.35}
+                />
+              </mesh>
+
+              {/* Tall Wooden Flagstaff Mast */}
+              <mesh position={[0, 0.38, 0]}>
+                <cylinderGeometry args={[0.022, 0.032, 0.68, 8]} />
+                <meshStandardMaterial color="#451a03" roughness={0.7} />
+              </mesh>
+
+              {/* Golden Finial Sphere at the top of the Mast */}
+              <mesh position={[0, 0.74, 0]}>
+                <sphereGeometry args={[0.048, 8, 8]} />
+                <meshStandardMaterial
+                  color="#fde047"
+                  emissive="#f59e0b"
+                  emissiveIntensity={0.6}
+                  metalness={0.8}
+                  roughness={0.2}
+                />
+              </mesh>
+
+              {/* Large Vibrant 3D Captain Flag / Pennant in Owner's Color */}
+              <group position={[0.16, 0.58, 0]}>
+                {/* Golden Flag Border */}
+                <mesh position={[0, 0, -0.008]}>
+                  <boxGeometry args={[0.32, 0.22, 0.014]} />
+                  <meshStandardMaterial
+                    color="#fde047"
+                    emissive="#f59e0b"
+                    emissiveIntensity={0.45}
+                  />
+                </mesh>
+                {/* Owner Colored Flag Cloth */}
+                <mesh>
+                  <boxGeometry args={[0.29, 0.18, 0.024]} />
+                  <meshStandardMaterial
+                    color={owner.color}
+                    emissive={owner.color}
+                    emissiveIntensity={0.85}
+                    roughness={0.3}
+                  />
+                </mesh>
+              </group>
+
+              {/* 3D Fortification Bastion Towers (Levels 1 to 4) */}
+              {tile.level >= 1 && (
+                <group position={[-0.14, 0.14, 0.06]}>
+                  <mesh>
+                    <cylinderGeometry args={[0.085, 0.105, 0.24, 8]} />
+                    <meshStandardMaterial color="#e7e5e4" roughness={0.75} />
+                  </mesh>
+                  <mesh position={[0, 0.17, 0]}>
+                    <coneGeometry args={[0.115, 0.14, 8]} />
+                    <meshStandardMaterial
+                      color={owner.color}
+                      emissive={owner.color}
+                      emissiveIntensity={0.55}
+                    />
+                  </mesh>
+                </group>
+              )}
+              {tile.level >= 2 && (
+                <group position={[0.14, 0.16, 0.06]}>
+                  <mesh>
+                    <cylinderGeometry args={[0.09, 0.11, 0.28, 8]} />
+                    <meshStandardMaterial color="#e7e5e4" roughness={0.75} />
+                  </mesh>
+                  <mesh position={[0, 0.19, 0]}>
+                    <coneGeometry args={[0.12, 0.15, 8]} />
+                    <meshStandardMaterial
+                      color={owner.color}
+                      emissive={owner.color}
+                      emissiveIntensity={0.55}
+                    />
+                  </mesh>
+                </group>
+              )}
+              {tile.level >= 3 && (
+                <group position={[0, 0.19, -0.11]}>
+                  <mesh>
+                    <cylinderGeometry args={[0.1, 0.12, 0.34, 8]} />
+                    <meshStandardMaterial color="#f5f5f4" roughness={0.7} />
+                  </mesh>
+                  <mesh position={[0, 0.22, 0]}>
+                    <coneGeometry args={[0.135, 0.16, 8]} />
+                    <meshStandardMaterial
+                      color={owner.color}
+                      emissive={owner.color}
+                      emissiveIntensity={0.6}
+                    />
+                  </mesh>
+                </group>
+              )}
+              {tile.level >= 4 && (
+                <mesh position={[0, 0.44, -0.11]}>
+                  <octahedronGeometry args={[0.09, 0]} />
+                  <meshStandardMaterial
+                    color="#fde047"
+                    emissive="#f59e0b"
+                    emissiveIntensity={1.1}
+                    metalness={0.85}
+                    roughness={0.15}
+                  />
+                </mesh>
+              )}
+            </group>
+          )}
+
           {/* 4. CURVED GOLDEN-BROWN 3D RELIEF BANNER HUGGING THE ROUNDED TILE EDGE */}
           <CurvedGoldenReliefBanner
             tile={tile}
             subtitleText={subtitleText}
             levelStars={levelStars}
             ownerColor={owner?.color ?? null}
-            isFocused={isFocused}
+            isFocused={isFocused || isFortifyCandidate}
             isCorner={isCorner}
             baseRadius={baseRadius}
           />
@@ -759,5 +947,6 @@ export const Tile: React.FC<TileProps> = React.memo(
     prev.currentRent === next.currentRent &&
     prev.owner?.id === next.owner?.id &&
     prev.owner?.color === next.owner?.color &&
-    prev.isFocused === next.isFocused
+    prev.isFocused === next.isFocused &&
+    prev.isFortifyCandidate === next.isFortifyCandidate
 );

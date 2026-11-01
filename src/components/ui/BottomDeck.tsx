@@ -249,7 +249,7 @@ export const BottomDeck: React.FC = () => {
       <div className="bg-black/55 border border-amber-500/25 rounded-lg px-3 py-1.5 flex items-center gap-2">
         <ScrollText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
         <div className="text-xs font-bold text-amber-100 truncate">
-          {actionLogs[0] ?? '⚓ Bienvenue dans Pirate’s Plunder !'}
+          {actionLogs[0] ?? '⚓ Bienvenue dans Jolly Roger’s !'}
         </div>
       </div>
     </section>

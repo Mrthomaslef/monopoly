@@ -97,13 +97,13 @@ export const GameSetupModal: React.FC = () => {
             <div className="wood-plank wood-nails rounded-xl px-4 py-2.5 text-center mb-3 flex items-center justify-center gap-3">
               <img
                 src="./assets/pirate_logo.png"
-                alt="Pirate's Plunder"
-                className="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.85)] shrink-0"
+                alt="Jolly Roger's"
+                className="w-14 h-14 sm:w-16 sm:h-16 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.85)] shrink-0"
               />
               <div className="text-left">
                 <div className="text-[11px] font-extrabold uppercase tracking-widest text-amber-300 flex items-center gap-1.5">
                   <Anchor className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Conseil des Frères de la Côte</span>
+                  <span>Jolly Roger&apos;s</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black text-amber-100 drop-shadow mt-0.5">
                   Composer l&apos;Équipage

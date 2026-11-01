@@ -107,11 +107,11 @@ export const TopHUD: React.FC = () => {
         <div className="wood-plank wood-nails px-2.5 py-0.5 rounded-lg flex items-center gap-2">
           <img
             src="./assets/pirate_logo.png"
-            alt="Pirate's Plunder Logo"
-            className="w-6 h-6 sm:w-7 sm:h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] shrink-0"
+            alt="Jolly Roger's Logo"
+            className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] shrink-0"
           />
           <span className="font-cinzel text-amber-200 text-xs sm:text-sm font-black tracking-wider drop-shadow">
-            PIRATE&apos;S PLUNDER
+            JOLLY ROGER&apos;S
           </span>
         </div>
 

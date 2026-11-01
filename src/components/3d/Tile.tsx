@@ -352,7 +352,7 @@ const CurvedGoldenReliefBanner: React.FC<{
     const startAngle = Math.PI / 2 - arcHalfSpan;
     const endAngle = Math.PI / 2 + arcHalfSpan;
 
-    // 1. Curved Dark Espresso & Burnished Golden-Brown Plaque following the island rim
+    // 1. Sleek Single-Line Curved Dark Espresso & Burnished Golden-Brown Plaque
     ctx.save();
     ctx.lineCap = 'round';
 
@@ -362,7 +362,7 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.shadowOffsetY = 5;
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    ctx.lineWidth = 188;
+    ctx.lineWidth = 142;
     ctx.strokeStyle = '#120501';
     ctx.stroke();
 
@@ -371,7 +371,7 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.shadowOffsetY = 0;
 
     // Sculpted Golden-Brown ("Brun Doré") Metallic Frame (tinted with owner's color when owned!)
-    const frameGrad = ctx.createLinearGradient(0, 75, 0, 355);
+    const frameGrad = ctx.createLinearGradient(0, 95, 0, 325);
     if (ownerColor) {
       frameGrad.addColorStop(0.0, '#fef08a');
       frameGrad.addColorStop(0.35, ownerColor);
@@ -386,59 +386,52 @@ const CurvedGoldenReliefBanner: React.FC<{
 
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    ctx.lineWidth = 172;
+    ctx.lineWidth = 128;
     ctx.strokeStyle = frameGrad;
     ctx.stroke();
 
-    // Inner Recessed Dark Roasted Walnut Plaque (high contrast backdrop for golden-brown relief text)
-    const innerGrad = ctx.createLinearGradient(0, 90, 0, 340);
+    // Inner Recessed Dark Roasted Walnut Plaque
+    const innerGrad = ctx.createLinearGradient(0, 105, 0, 315);
     innerGrad.addColorStop(0.0, '#2a1004');
     innerGrad.addColorStop(0.5, '#170701');
     innerGrad.addColorStop(1.0, '#260e03');
 
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    ctx.lineWidth = 148;
+    ctx.lineWidth = 106;
     ctx.strokeStyle = innerGrad;
     ctx.stroke();
 
     // Property Color-Group Accent Ribbon along the upper inner curve
     ctx.beginPath();
-    ctx.arc(cx, cy, bandRadius - 68, startAngle + 0.015, endAngle - 0.015);
-    ctx.lineWidth = 14;
+    ctx.arc(cx, cy, bandRadius - 48, startAngle + 0.015, endAngle - 0.015);
+    ctx.lineWidth = 12;
     ctx.strokeStyle = tile.color;
     ctx.stroke();
 
     // Owner Color Accent Stripe along the bottom outer curve when owned
     if (ownerColor) {
       ctx.beginPath();
-      ctx.arc(cx, cy, bandRadius + 76, startAngle + 0.02, endAngle - 0.02);
-      ctx.lineWidth = 14;
+      ctx.arc(cx, cy, bandRadius + 54, startAngle + 0.02, endAngle - 0.02);
+      ctx.lineWidth = 12;
       ctx.strokeStyle = ownerColor;
       ctx.stroke();
     }
-
-    // Subtle Golden Filigree Divider between Tile Name and Price/Rent
-    ctx.beginPath();
-    ctx.arc(cx, cy, bandRadius + 18, startAngle + 0.03, endAngle - 0.03);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = ownerColor ?? 'rgba(245, 158, 11, 0.5)';
-    ctx.stroke();
 
     // Left & Right 3D Embossed Rivets (colored in Captain's Color if owned!)
     for (const sign of [-1, 1]) {
       const rAlpha = sign * (arcHalfSpan - 0.012);
       const rx = cx - bandRadius * Math.sin(rAlpha);
       const ry = cy + bandRadius * Math.cos(rAlpha);
-      const rivGrad = ctx.createRadialGradient(rx - 4, ry - 4, 2, rx, ry, 18);
+      const rivGrad = ctx.createRadialGradient(rx - 4, ry - 4, 2, rx, ry, 16);
       rivGrad.addColorStop(0.0, '#ffffff');
       rivGrad.addColorStop(0.55, ownerColor ?? '#d97706');
       rivGrad.addColorStop(1.0, '#1c0701');
       ctx.beginPath();
-      ctx.arc(rx, ry, 16, 0, Math.PI * 2);
+      ctx.arc(rx, ry, 14, 0, Math.PI * 2);
       ctx.fillStyle = rivGrad;
       ctx.fill();
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 3;
       ctx.strokeStyle = '#140601';
       ctx.stroke();
     }
@@ -449,17 +442,17 @@ const CurvedGoldenReliefBanner: React.FC<{
     bCtx.lineCap = 'round';
     bCtx.beginPath();
     bCtx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    bCtx.lineWidth = 172;
+    bCtx.lineWidth = 128;
     bCtx.strokeStyle = '#909090';
     bCtx.stroke();
     bCtx.beginPath();
     bCtx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    bCtx.lineWidth = 148;
+    bCtx.lineWidth = 106;
     bCtx.strokeStyle = '#404040';
     bCtx.stroke();
     bCtx.restore();
 
-    // 2. Prominent Curved Embossed Golden-Brown Tile Name ("Texte brun doré en relief")
+    // 2. Centered Curved Embossed Golden-Brown Tile Name (Clean, no price clutter)
     const fullTitle = `${tile.name.toUpperCase()}${levelStars}`;
     drawCurvedEmbossedText(
       ctx,
@@ -467,24 +460,10 @@ const CurvedGoldenReliefBanner: React.FC<{
       fullTitle,
       cx,
       cy,
-      bandRadius - 18, // Main title arc radius = 1042
-      isCorner ? 82 : 78,
+      bandRadius + 24,
+      isCorner ? 84 : 80,
       arcHalfSpan * 1.9,
       'title'
-    );
-
-    // 3. Curved Embossed Subtitle (Owner Name + Rent OR Price / Bonus) along the lower concentric arc
-    drawCurvedEmbossedText(
-      ctx,
-      bCtx,
-      subtitleText.toUpperCase(),
-      cx,
-      cy,
-      bandRadius + 48, // Subtitle arc radius = 1108
-      46,
-      arcHalfSpan * 1.84,
-      'subtitle',
-      ownerColor ?? '#fde047'
     );
 
     const cTex = new THREE.CanvasTexture(colorCanvas);

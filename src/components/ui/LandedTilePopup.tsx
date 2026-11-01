@@ -315,7 +315,7 @@ export const LandedTilePopup: React.FC = () => {
           </button>
 
           {/* Header Banner with the Tile's Higgsfield Ground Terrain Texture & 3D Landmark Prop */}
-          <div className="relative h-28 w-full overflow-hidden border-b-2 border-black/30">
+          <div className="relative h-24 w-full overflow-hidden border-b-2 border-black/30">
             <img
               src={styleCfg.terrainImg}
               alt={tile.name}
@@ -327,30 +327,17 @@ export const LandedTilePopup: React.FC = () => {
             />
 
             {/* Captain Arrival Badge (Top Left) */}
-            {landingPlayer && (
-              <div className="absolute top-2 left-2.5 z-10 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/65 border border-white/25 backdrop-blur-xs">
+            {landingPlayer && !landedTilePopup.isInspect && (
+              <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/70 border border-white/25 backdrop-blur-xs">
                 <span
                   className="w-2.5 h-2.5 rounded-full border border-white/80 shrink-0"
                   style={{ backgroundColor: landingPlayer.color }}
                 />
-                <span className="font-cinzel text-[10px] font-bold tracking-wider text-amber-100 uppercase">
-                  {landedTilePopup.isInspect
-                    ? `Inspection • Case #${tile.id}`
-                    : `${landingPlayer.name} accoste`}
+                <span className="text-[11px] font-extrabold text-amber-100">
+                  {landingPlayer.name}
                 </span>
               </div>
             )}
-
-            {/* Biome & Group Pill (Bottom Left of Header) */}
-            <div className="absolute bottom-2 left-2.5 z-10 flex items-center gap-1.5">
-              <span
-                className={`font-cinzel text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${styleCfg.badgeBg}`}
-              >
-                {tile.group === 'Corner' || tile.group === 'Event' || tile.group === 'Tax'
-                  ? styleCfg.biomeLabel
-                  : `${tile.group} • ${styleCfg.biomeLabel}`}
-              </span>
-            </div>
 
             {/* 3D Higgsfield Landmark Cutout Prop popping on the Right of the Header */}
             <motion.img
@@ -359,26 +346,26 @@ export const LandedTilePopup: React.FC = () => {
               initial={{ scale: 0.7, rotate: -6, y: 10 }}
               animate={{ scale: 1, rotate: 0, y: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-              className="absolute right-2 bottom-0.5 w-24 h-24 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
+              className="absolute right-2.5 bottom-0.5 w-22 h-22 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
             />
           </div>
 
-          {/* Card Body styled after the Tile */}
+          {/* Minimalist, High-Clarity Card Body */}
           <div className="p-3.5 text-center">
-            {/* Tile Name in Pirata One Font */}
+            {/* Tile Name + Group Dot */}
             <div className="flex items-center justify-center gap-2">
               <span
                 className="w-3 h-3 rounded-full border border-black/40 shadow-sm shrink-0"
                 style={{ backgroundColor: tile.color }}
               />
               <h2
-                className={`font-pirata text-2xl sm:text-[26px] leading-none tracking-wide ${styleCfg.titleColor} drop-shadow-xs`}
+                className={`font-pirata text-2xl leading-none tracking-wide ${styleCfg.titleColor}`}
               >
                 {tile.name}
               </h2>
             </div>
 
-            {/* Animated Enemy Island Rent Payment Transfer (Payer -> Owner) */}
+            {/* 1. If Rent Payment just occurred: show ONLY the animated Payer -> Owner transfer */}
             {landedTilePopup.rentPayment ? (
               (() => {
                 const payer = players.find(
@@ -398,7 +385,7 @@ export const LandedTilePopup: React.FC = () => {
                     className="mt-2.5 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2.5 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
                   >
                     <div className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-1.5">
-                      ⚓ Droit de Mouillage — Paiement du Loyer !
+                      ⚓ Droit de Mouillage
                     </div>
                     <div className="flex items-center justify-between gap-1.5">
                       {/* Payer (Losses Gold) */}
@@ -479,104 +466,69 @@ export const LandedTilePopup: React.FC = () => {
                   </motion.div>
                 );
               })()
-            ) : (
-              /* Event / Arrival Summary Banner with Gold Gain/Loss Highlight */
-              landedTilePopup.eventSummary && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className={`mt-2 px-3 py-1.5 rounded-xl border-2 text-xs font-black shadow-md ${
-                    landedTilePopup.eventSummary.includes('+')
-                      ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
-                      : landedTilePopup.eventSummary.includes('-')
-                      ? 'bg-rose-950/90 border-rose-400 text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
-                      : `${styleCfg.statBoxBg} ${styleCfg.textColor}`
-                  }`}
+            ) : tile.type === 'island' ? (
+              /* 2. Clean, Single-Pill Island Summary (no redundant price box when already owned or when Buy button shows price) */
+              <div className="mt-2.5 space-y-2">
+                <div
+                  className={`rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${styleCfg.statBoxBg}`}
                 >
-                  {landedTilePopup.eventSummary}
-                </motion.div>
-              )
-            )}
+                  {tileOwner ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-full text-white shadow border border-white/40 truncate"
+                      style={{ backgroundColor: tileOwner.color }}
+                    >
+                      {FORTRESS_LEVEL_IMAGES[tile.level] && (
+                        <img
+                          src={FORTRESS_LEVEL_IMAGES[tile.level]!}
+                          alt={FORTRESS_LEVEL_NAMES[tile.level]}
+                          className="w-4 h-4 object-contain shrink-0"
+                        />
+                      )}
+                      <span className="truncate">{tileOwner.name}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-block text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-800 text-white shadow">
+                      Île Libre
+                    </span>
+                  )}
 
-            {/* Island Statistics Grid OR Special Tile Description */}
-            {tile.type === 'island' ? (
-              <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-center">
-                <div className={`rounded-xl p-1.5 border ${styleCfg.statBoxBg}`}>
-                  <div
-                    className={`font-cinzel text-[9px] uppercase tracking-wider ${styleCfg.subTextColor}`}
-                  >
-                    Prix d’Achat
-                  </div>
-                  <div
-                    className={`text-xs font-black mt-0.5 flex items-center justify-center gap-1 ${styleCfg.textColor}`}
-                  >
-                    <Coins className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>{tile.price} Or</span>
+                  <div className={`text-xs font-black flex items-center gap-2 ${styleCfg.textColor}`}>
+                    {!tileOwner && !canBuy && (
+                      <span>Prix : {tile.price} Or •</span>
+                    )}
+                    <span>Loyer : {currentRent} Or</span>
                   </div>
                 </div>
 
-                <div className={`rounded-xl p-1.5 border ${styleCfg.statBoxBg}`}>
-                  <div
-                    className={`font-cinzel text-[9px] uppercase tracking-wider ${styleCfg.subTextColor}`}
-                  >
-                    Loyer Actuel
-                  </div>
-                  <div className={`text-xs font-black mt-0.5 ${styleCfg.textColor}`}>
-                    {currentRent} Or
-                  </div>
-                </div>
-
-                <div className={`rounded-xl p-1.5 border ${styleCfg.statBoxBg}`}>
-                  <div
-                    className={`font-cinzel text-[9px] uppercase tracking-wider ${styleCfg.subTextColor}`}
-                  >
-                    Statut
-                  </div>
-                  <div
-                    className={`text-[11px] font-black mt-0.5 truncate ${styleCfg.textColor}`}
-                  >
-                    {tileOwner ? tileOwner.name : 'Île Vierge'}
-                  </div>
-                </div>
+                {/* Show confirmation banner only when an island was just bought or fortified */}
+                {landedTilePopup.eventSummary &&
+                  (landedTilePopup.eventSummary.startsWith('🏴‍☠️') ||
+                    landedTilePopup.eventSummary.startsWith('🏰 Votre') === false &&
+                      landedTilePopup.eventSummary.startsWith('🏰')) && (
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="px-3 py-1.5 rounded-xl border-2 border-emerald-400 bg-emerald-950/90 text-emerald-200 text-xs font-black shadow-md"
+                    >
+                      {landedTilePopup.eventSummary}
+                    </motion.div>
+                  )}
               </div>
             ) : (
-              <p
-                className={`mt-2 text-xs font-semibold leading-relaxed ${styleCfg.subTextColor}`}
+              /* 3. Special Tile (Port Royal, Tortuga, Tax, Kraken, Cale) — Single Clean Banner */
+              <motion.div
+                initial={{ scale: 0.92, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={`mt-2.5 px-3 py-2 rounded-xl border-2 text-xs font-black shadow-md ${
+                  landedTilePopup.eventSummary?.includes('+')
+                    ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                    : landedTilePopup.eventSummary?.includes('-')
+                    ? 'bg-rose-950/90 border-rose-400 text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
+                    : `${styleCfg.statBoxBg} ${styleCfg.textColor}`
+                }`}
               >
-                {tile.description}
-              </p>
-            )}
-
-            {/* Fortification Level Indicator for Islands */}
-            {tile.type === 'island' && (
-              <div className="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-black/15 text-[11px] gap-2">
-                <span className={`font-bold flex items-center gap-1.5 min-w-0 ${styleCfg.subTextColor}`}>
-                  {FORTRESS_LEVEL_IMAGES[tile.level] && (
-                    <img
-                      src={FORTRESS_LEVEL_IMAGES[tile.level]!}
-                      alt={FORTRESS_LEVEL_NAMES[tile.level]}
-                      className="w-6 h-6 object-contain shrink-0 drop-shadow"
-                    />
-                  )}
-                  {tileOwner && (
-                    <span
-                      className="w-2.5 h-2.5 rounded-[2px] border border-white/70 shrink-0"
-                      style={{ backgroundColor: tileOwner.color }}
-                    />
-                  )}
-                  <span className="truncate">
-                    Défense :{' '}
-                    <strong className={styleCfg.textColor}>
-                      {FORTRESS_LEVEL_NAMES[tile.level] ?? 'Forteresse'}
-                    </strong>
-                  </span>
-                </span>
-                <span className={`font-bold shrink-0 ${styleCfg.subTextColor}`}>
-                  {tile.level < MAX_FORTIFY_LEVEL
-                    ? `Fortif. : ${tile.upgradeCost} Or + ${FORTIFY_MATERIAL_COST} 🪵`
-                    : 'Max ★★★'}
-                </span>
-              </div>
+                {landedTilePopup.eventSummary ?? tile.description}
+              </motion.div>
             )}
 
             {/* Direct Action Buttons inside the Card (Clean & Non-Redundant) */}

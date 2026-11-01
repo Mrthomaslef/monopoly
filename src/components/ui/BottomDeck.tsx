@@ -102,22 +102,31 @@ export const BottomDeck: React.FC = () => {
               <span className="text-sm sm:text-base font-black text-slate-950 truncate leading-tight">
                 {inspectedTile.name}
               </span>
-              <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-950/15 text-amber-950 shrink-0">
-                {inspectedTile.group}
-              </span>
             </div>
 
             {inspectedTile.type === 'island' ? (
               <div className="mt-0.5 text-xs font-extrabold text-amber-950 flex flex-wrap items-center gap-x-2">
-                <span>Prix : {inspectedTile.price} Or</span>
-                <span>•</span>
-                <span>Loyer : {calculateIslandRent(inspectedTile, tiles)} Or</span>
-                {inspectedTile.level > 0 && (
+                {tileOwner ? (
                   <>
-                    <span>•</span>
-                    <span className="text-amber-900">
-                      {FORTRESS_LEVEL_NAMES[inspectedTile.level]}
-                    </span>
+                    <span>Loyer : {calculateIslandRent(inspectedTile, tiles)} Or</span>
+                    {inspectedTile.level > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-amber-900">
+                          {FORTRESS_LEVEL_NAMES[inspectedTile.level]}
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {!(canBuyCurrent && inspectedTile.id === currentTile.id) && (
+                      <>
+                        <span>Prix : {inspectedTile.price} Or</span>
+                        <span>•</span>
+                      </>
+                    )}
+                    <span>Loyer : {calculateIslandRent(inspectedTile, tiles)} Or</span>
                   </>
                 )}
               </div>

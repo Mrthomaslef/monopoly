@@ -106,6 +106,7 @@ export type CameraMode = 'GLOBAL' | 'FOLLOW';
 
 export const BOARD_SPACING = 1.65;
 export const FORTIFY_MATERIAL_COST = 1;
+export const INITIAL_MATERIALS = 2;
 export const MAX_FORTIFY_LEVEL = 3;
 
 export const FORTRESS_LEVEL_NAMES = [
@@ -582,7 +583,7 @@ function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
     accentColor: s.accentColor,
     isAI: s.isAI,
     gold: 1500,
-    materials: 0,
+    materials: INITIAL_MATERIALS,
     position: 0,
     inJail: false,
     jailTurns: 0,
@@ -613,6 +614,7 @@ interface GameState {
   dice: [number, number];
   isRollingDice: boolean;
   hasAttackedThisTurn: boolean;
+  hasFortifiedThisTurn: boolean;
   cameraMode: CameraMode;
   focusedTileIndex: number;
   cameraShake: number;
@@ -663,13 +665,14 @@ export const useGameStore = create<GameState>()(
   dice: [2, 3],
   isRollingDice: false,
   hasAttackedThisTurn: false,
+  hasFortifiedThisTurn: false,
   cameraMode: 'GLOBAL',
   focusedTileIndex: 0,
   cameraShake: 0,
   tortugaJackpot: 150,
   actionLogs: [
-    '⚓ Bienvenue dans Pirate’s Plunder !',
-    '🪵 Obtenez des Matériaux (Port Royal, Coffre, Set complet, Abordage) pour fortifier vos îles !',
+    '⚓ Bienvenue dans Jolly Roger’s !',
+    '🪵 Chaque tour, vous pouvez fortifier 1 de vos îles depuis n’importe où sur la carte !',
     '💥 Tombez sur la case d’un rival pour lancer 1 Abordage (+150 Or & +1 Matériau) !',
   ],
   floatingTexts: [],
@@ -725,6 +728,7 @@ export const useGameStore = create<GameState>()(
       dice: [2, 2],
       isRollingDice: false,
       hasAttackedThisTurn: false,
+      hasFortifiedThisTurn: false,
       focusedTileIndex: 0,
       cameraShake: 0,
       tortugaJackpot: 150,
@@ -737,7 +741,7 @@ export const useGameStore = create<GameState>()(
       aiCount: aiTotal,
       actionLogs: [
         `⚓ Flotte en mer : ${humanTotal} Joueur(s) et ${aiTotal} Capitaine(s) IA !`,
-        '🪵 Fortifier coûte de l’Or + 1 Matériau (obtenu via Port Royal, Coffres, Set complet ou Abordage).',
+        '🪵 Chaque tour, fortifiez 1 île depuis n’importe où sur la map (Or + 1 Matériau) !',
         '💥 1 seule attaque possible lorsque vous tombez sur la même case qu’un navire adverse !',
       ],
     });
@@ -986,7 +990,14 @@ export const useGameStore = create<GameState>()(
 
   fortifyIsland: (tileId) => {
     const state = get();
-    if (state.phase !== 'TILE_ACTION' && state.phase !== 'END_TURN') return;
+    if (
+      state.phase !== 'IDLE' &&
+      state.phase !== 'TILE_ACTION' &&
+      state.phase !== 'END_TURN'
+    ) {
+      return;
+    }
+    if (state.hasFortifiedThisTurn) return;
 
     const player = state.players[state.currentPlayerIndex];
     const targetTileId = tileId !== undefined ? tileId : player.position;
@@ -1017,23 +1028,24 @@ export const useGameStore = create<GameState>()(
 
     state.addFloatingText(
       tile.id,
-      `🏰 ${buildLabel} (-1 🪵)`,
+      `🏰 ${buildLabel} (-1 Matériau 🪵)`,
       '#38bdf8'
     );
     state.addLog(
-      `🛠️ ${player.name} construit une ${buildLabel} (drapeau ${player.name}) sur ${tile.name} (-${tile.upgradeCost} Or, -${FORTIFY_MATERIAL_COST} Matériau 🪵).`
+      `🛠️ ${player.name} construit ${buildLabel} sur ${tile.name} (-${tile.upgradeCost} Or, -${FORTIFY_MATERIAL_COST} Matériau 🪵).`
     );
 
     set({
       players: updatedPlayers,
       tiles: updatedTiles,
-      phase: 'END_TURN',
+      hasFortifiedThisTurn: true,
+      phase: state.phase === 'IDLE' ? 'IDLE' : 'END_TURN',
       showFortifyModal: false,
       focusedTileIndex: tile.id,
       landedTilePopup: {
         tileId: tile.id,
         playerId: player.id,
-        eventSummary: `🏰 ${buildLabel} érigée sur ${tile.name} avec le pavillon de ${player.name} (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} 🪵)`,
+        eventSummary: `🏰 ${buildLabel} érigée sur ${tile.name} (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} Matériau 🪵)`,
       },
     });
   },
@@ -1334,6 +1346,7 @@ export const useGameStore = create<GameState>()(
       currentPlayerIndex: nextIndex,
       phase: 'IDLE',
       hasAttackedThisTurn: false,
+      hasFortifiedThisTurn: false,
       focusedTileIndex: nextPlayer.position,
       activeCard: null,
       landedTilePopup: null,
@@ -1359,6 +1372,7 @@ export const useGameStore = create<GameState>()(
         phase: state.phase,
         dice: state.dice,
         hasAttackedThisTurn: state.hasAttackedThisTurn,
+        hasFortifiedThisTurn: state.hasFortifiedThisTurn,
         cameraMode: state.cameraMode,
         focusedTileIndex: state.focusedTileIndex,
         tortugaJackpot: state.tortugaJackpot,
@@ -1640,7 +1654,7 @@ function evaluateLandedTile(): void {
             eventSummary:
               tile.level < MAX_FORTIFY_LEVEL
                 ? `🏰 Votre île — Fortifier (${FORTRESS_LEVEL_NAMES[tile.level + 1]}) : ${tile.upgradeCost} Or + 1 Matériau 🪵`
-                : '🏰 Forteresse en Pierre Taillée (Max) !',
+                : '🏰 Château Pirate 3D (Niveau Max) !',
           },
         });
         if (player.isAI) {
@@ -1649,6 +1663,7 @@ function evaluateLandedTile(): void {
             const ai = st.players[st.currentPlayerIndex];
             const t = st.tiles[ai.position];
             if (
+              !st.hasFortifiedThisTurn &&
               t.upgradeCost &&
               t.level < MAX_FORTIFY_LEVEL &&
               ai.materials >= FORTIFY_MATERIAL_COST &&
@@ -1725,23 +1740,48 @@ function afterTileActionCheckNavalBattle(): void {
     return;
   }
 
-  const rivals = state.players.filter(
-    (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
+  // AI can fortify 1 owned island anywhere on the map during its turn if it hasn't yet
+  if (
+    player.isAI &&
+    !state.hasFortifiedThisTurn &&
+    player.materials >= FORTIFY_MATERIAL_COST
+  ) {
+    const aiUpgradable = state.tiles.filter(
+      (t) =>
+        t.type === 'island' &&
+        t.ownerId === player.id &&
+        t.level < MAX_FORTIFY_LEVEL &&
+        (t.upgradeCost ?? 0) + 200 <= player.gold
+    );
+    if (aiUpgradable.length > 0) {
+      const target = aiUpgradable[aiUpgradable.length - 1];
+      state.fortifyIsland(target.id);
+    }
+  }
+
+  const latestState = useGameStore.getState();
+  const latestPlayer = latestState.players[latestState.currentPlayerIndex];
+
+  const rivals = latestState.players.filter(
+    (p) =>
+      p.id !== latestPlayer.id &&
+      !p.bankrupt &&
+      p.position === latestPlayer.position
   );
 
-  if (rivals.length > 0 && !state.hasAttackedThisTurn) {
+  if (rivals.length > 0 && !latestState.hasAttackedThisTurn) {
     const defender = rivals[0];
-    state.addLog(
-      `⚔️ BATAILLE NAVALE sur ${state.tiles[player.position].name} : ${player.name} aborde ${defender.name} !`
+    latestState.addLog(
+      `⚔️ BATAILLE NAVALE sur ${latestState.tiles[latestPlayer.position].name} : ${latestPlayer.name} aborde ${defender.name} !`
     );
     useGameStore.setState({
       phase: 'NAVAL_BATTLE',
       hasAttackedThisTurn: true,
-      focusedTileIndex: player.position,
+      focusedTileIndex: latestPlayer.position,
       navalBattle: {
         active: true,
-        tileIndex: player.position,
-        attackerId: player.id,
+        tileIndex: latestPlayer.position,
+        attackerId: latestPlayer.id,
         defenderId: defender.id,
         attackerRoll: null,
         defenderRoll: null,

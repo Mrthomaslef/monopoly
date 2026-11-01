@@ -210,6 +210,7 @@ export const LandedTilePopup: React.FC = () => {
   const navalBattle = useGameStore((s) => s.navalBattle);
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
+  const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
 
   const buyIsland = useGameStore((s) => s.buyIsland);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
@@ -248,6 +249,12 @@ export const LandedTilePopup: React.FC = () => {
     !activePlayer.bankrupt &&
     (phase === 'TILE_ACTION' || phase === 'END_TURN');
 
+  const isHumanAnyPhaseActive =
+    Boolean(activePlayer) &&
+    !activePlayer.isAI &&
+    !activePlayer.bankrupt &&
+    (phase === 'IDLE' || phase === 'TILE_ACTION' || phase === 'END_TURN');
+
   const isHumanActiveOnThisTile =
     isHumanTurnActive && activePlayer.position === tile.id;
 
@@ -257,9 +264,10 @@ export const LandedTilePopup: React.FC = () => {
     tile.ownerId === null &&
     (tile.price ?? 0) <= activePlayer.gold;
 
-  // Player can fortify this island directly if they own it and have Gold + 1 Material
+  // Player can fortify 1 owned island per turn from anywhere on the map if they have Gold + 1 Material
   const canFortify =
-    isHumanTurnActive &&
+    isHumanAnyPhaseActive &&
+    !hasFortifiedThisTurn &&
     tile.type === 'island' &&
     tile.ownerId === activePlayer.id &&
     tile.level < MAX_FORTIFY_LEVEL &&

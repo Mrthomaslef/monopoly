@@ -10,7 +10,7 @@ import {
   Skull,
   Users,
 } from 'lucide-react';
-import { useGameStore } from '../../store/useGameStore';
+import { useGameStore, INITIAL_MATERIALS } from '../../store/useGameStore';
 import { soundEffects } from '../../utils/soundEffects';
 import { CaptainAvatar } from './CaptainAvatar';
 
@@ -34,10 +34,15 @@ export const TopHUD: React.FC = () => {
 
   useEffect(() => {
     const prev = prevStatsRef.current;
-    // Detect if a brand new game was initialized (all players back to 1500 gold & position 0)
+    // Detect if a brand new game was initialized
     const isFreshReset =
       players.length > 0 &&
-      players.every((p) => p.gold === 1500 && p.materials === 0 && p.position === 0);
+      players.every(
+        (p) =>
+          p.gold === 1500 &&
+          p.materials === INITIAL_MATERIALS &&
+          p.position === 0
+      );
 
     if (isFreshReset) {
       const nextSnap: Record<number, { gold: number; materials: number }> = {};
@@ -182,7 +187,7 @@ export const TopHUD: React.FC = () => {
               parts.push(`${d.goldDelta > 0 ? '+' : ''}${d.goldDelta} Or`);
             }
             if (d.matDelta !== 0) {
-              parts.push(`${d.matDelta > 0 ? '+' : ''}${d.matDelta} 🪵`);
+              parts.push(`${d.matDelta > 0 ? '+' : ''}${d.matDelta} Mat. 🪵`);
             }
             return parts.join(' ');
           };
@@ -294,10 +299,10 @@ export const TopHUD: React.FC = () => {
                   </motion.span>
                   <span
                     className="flex items-center gap-0.5 font-extrabold text-orange-200"
-                    title="Matériaux"
+                    title="Matériaux de construction"
                   >
                     <span className="text-[10px]">🪵</span>
-                    {player.materials}
+                    <span>{player.materials} Mat.</span>
                   </span>
                   <span
                     className="flex items-center gap-0.5 font-extrabold text-cyan-300"

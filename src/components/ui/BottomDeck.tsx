@@ -26,6 +26,7 @@ export const BottomDeck: React.FC = () => {
   const phase = useGameStore((s) => s.phase);
   const actionLogs = useGameStore((s) => s.actionLogs);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
+  const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
   const showSetupModal = useGameStore((s) => s.showSetupModal);
 
   const rollDice = useGameStore((s) => s.rollDice);
@@ -55,24 +56,32 @@ export const BottomDeck: React.FC = () => {
   const isPostMovePhase =
     isHumanTurn && (phase === 'TILE_ACTION' || phase === 'END_TURN');
 
+  const isAnyTurnActionPhase =
+    isHumanTurn && (phase === 'IDLE' || phase === 'TILE_ACTION' || phase === 'END_TURN');
+
   const canBuyCurrent =
     isPostMovePhase &&
     currentTile.type === 'island' &&
     currentTile.ownerId === null &&
     (currentTile.price ?? 0) <= (activePlayer?.gold ?? 0);
 
-  const fortifiableIslands = activePlayer
+  // All owned islands across the entire map that haven't reached max fortification level yet
+  const ownedUpgradableIslands = activePlayer
     ? tiles.filter(
         (t) =>
           t.type === 'island' &&
           t.ownerId === activePlayer.id &&
-          t.level < MAX_FORTIFY_LEVEL &&
-          (t.upgradeCost ?? 0) <= activePlayer.gold
+          t.level < MAX_FORTIFY_LEVEL
       )
     : [];
 
+  const fortifiableIslands = ownedUpgradableIslands.filter(
+    (t) => (t.upgradeCost ?? 0) <= (activePlayer?.gold ?? 0)
+  );
+
   const canFortify =
-    isPostMovePhase &&
+    isAnyTurnActionPhase &&
+    !hasFortifiedThisTurn &&
     fortifiableIslands.length > 0 &&
     (activePlayer?.materials ?? 0) >= FORTIFY_MATERIAL_COST;
 
@@ -169,7 +178,7 @@ export const BottomDeck: React.FC = () => {
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={rollDice}
-              className="flex-1 py-3 px-4 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-100 shadow-[0_4px_18px_rgba(251,191,36,0.55)] flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-100 shadow-[0_4px_18px_rgba(251,191,36,0.55)] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Dices className="w-5 h-5 shrink-0 animate-bounce" />
               <span
@@ -180,6 +189,19 @@ export const BottomDeck: React.FC = () => {
               </span>
               <span className="truncate">Lancer les Dés — {activePlayer.name}</span>
             </motion.button>
+
+            {canFortify && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={() => setShowFortifyModal(!showFortifyModal)}
+                className="py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                title="Fortifier 1 de vos îles n'importe où sur la carte"
+              >
+                <Castle className="w-4 h-4 shrink-0" />
+                <span>Fortifier ({fortifiableIslands.length})</span>
+              </motion.button>
+            )}
 
             {canPayBail && (
               <motion.button
@@ -225,6 +247,7 @@ export const BottomDeck: React.FC = () => {
                 type="button"
                 onClick={() => setShowFortifyModal(!showFortifyModal)}
                 className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Fortifier 1 de vos îles n'importe où sur la carte"
               >
                 <Castle className="w-4 h-4 shrink-0" />
                 <span className="truncate">
@@ -260,12 +283,33 @@ export const BottomDeck: React.FC = () => {
         )}
       </div>
 
-      {/* 3. Bandeau Journal de Bord (1 ligne claire et lisible) */}
-      <div className="bg-black/55 border border-amber-500/25 rounded-lg px-3 py-1.5 flex items-center gap-2">
-        <ScrollText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-        <div className="text-xs font-bold text-amber-100 truncate">
-          {actionLogs[0] ?? '⚓ Bienvenue dans Jolly Roger’s !'}
+      {/* 3. Bandeau Matériaux & Journal de Bord */}
+      <div className="bg-black/65 border border-amber-500/30 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <ScrollText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <div className="text-xs font-bold text-amber-100 truncate">
+            {actionLogs[0] ?? '⚓ Bienvenue dans Jolly Roger’s !'}
+          </div>
         </div>
+
+        {activePlayer && (
+          <div className="shrink-0 flex items-center gap-1.5">
+            <span className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-orange-400/50 text-[11px] font-black text-orange-200 whitespace-nowrap">
+              🪵 Matériaux : {activePlayer.materials}
+            </span>
+            {ownedUpgradableIslands.length > 0 && (
+              <span
+                className={`px-2 py-0.5 rounded-md border text-[10px] font-black whitespace-nowrap ${
+                  hasFortifiedThisTurn
+                    ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-300'
+                    : 'bg-cyan-950/80 border-cyan-400/50 text-cyan-200'
+                }`}
+              >
+                {hasFortifiedThisTurn ? '🏰 1/1 Fortifiée' : '🏰 1 Fortif./tour'}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

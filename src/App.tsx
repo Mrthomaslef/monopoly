@@ -52,7 +52,7 @@ export const App: React.FC = () => {
 
         {/* Compact Turn Pill at Top of 3D Canvas */}
         {activePlayer && (
-          <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2 z-10 wood-plank flex items-center gap-2 px-3.5 py-1 rounded-full shadow-xl border border-amber-500/40 whitespace-nowrap">
+          <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2 z-10 wood-plank flex items-center gap-2 px-3 py-1 rounded-full shadow-xl border border-amber-500/40 whitespace-nowrap">
             <span
               className="px-1.5 py-0.5 rounded text-[10px] font-black text-white border border-white/60 shrink-0 leading-none"
               style={{ backgroundColor: activePlayer.color }}
@@ -60,16 +60,14 @@ export const App: React.FC = () => {
               {activePlayer.isAI ? 'IA' : `J${currentPlayerIndex + 1}`}
             </span>
             <span className="text-xs font-black text-white drop-shadow">
-              Tour de {activePlayer.name}
+              {activePlayer.name}
+            </span>
+            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-amber-950/80 text-orange-200 border border-orange-400/50">
+              🪵 Matériaux : {activePlayer.materials}
             </span>
             <span className="text-xs font-black px-2 py-0.5 rounded-full bg-black/55 text-amber-300 border border-amber-500/40">
-              🎲 {dice[0]} + {dice[1]} = {dice[0] + dice[1]}
+              🎲 {dice[0]}+{dice[1]}
             </span>
-            {isLocalMultiplayer && !activePlayer.isAI && (
-              <span className="text-[10px] font-extrabold text-emerald-300 uppercase">
-                • Multi Local
-              </span>
-            )}
           </div>
         )}
 

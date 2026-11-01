@@ -18,11 +18,12 @@ export const FortifySelectorModal: React.FC = () => {
   const players = useGameStore((s) => s.players);
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
+  const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
 
   const activePlayer = players[currentPlayerIndex];
 
-  if (!showFortifyModal || !activePlayer) {
+  if (!showFortifyModal || !activePlayer || hasFortifiedThisTurn) {
     return null;
   }
 
@@ -48,6 +49,7 @@ export const FortifySelectorModal: React.FC = () => {
     null;
 
   const canFortifyTile = (tile: TileData) =>
+    !hasFortifiedThisTurn &&
     tile.level < MAX_FORTIFY_LEVEL &&
     (tile.upgradeCost ?? 0) <= activePlayer.gold &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
@@ -75,12 +77,12 @@ export const FortifySelectorModal: React.FC = () => {
               </div>
               <div className="min-w-0">
                 <h2 className="font-pirata text-lg leading-none tracking-wide text-amber-100 truncate">
-                  Choisir l’Île à Fortifier
+                  Fortifier 1 Île (Partout sur la Map)
                 </h2>
                 <div className="text-[10px] font-bold text-cyan-200/90 flex items-center gap-2 mt-0.5">
                   <span>💰 {activePlayer.gold} Or</span>
                   <span>•</span>
-                  <span>🪵 {activePlayer.materials} Matériau(x)</span>
+                  <span>🪵 Matériaux : {activePlayer.materials}</span>
                 </div>
               </div>
             </div>
@@ -99,7 +101,7 @@ export const FortifySelectorModal: React.FC = () => {
           <div className="px-3 py-1.5 bg-black/45 border-b border-amber-900/50 text-[10px] font-semibold text-amber-200/90 flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
             <span>
-              Mur en Bois à Pics → Remparts en Pierre Taillée → Château Pirate 3D :
+              1 case par tour • Mur Bois à Pics → Pierre Taillée → Château 3D :
             </span>
           </div>
 

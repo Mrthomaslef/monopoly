@@ -33,16 +33,16 @@ const PIRATA_FONT_URL = './assets/fonts/PirataOne-Regular.ttf';
 const CINZEL_FONT_URL = './assets/fonts/Cinzel-Bold.ttf';
 
 const TERRAIN_TEXTURE_MAP: Record<TerrainTheme, string> = {
-  plage: './assets/tile_plage.jpg',
-  lagon: './assets/tile_lagon.jpg',
-  falaise: './assets/tile_falaise.jpg',
-  temple: './assets/tile_temple.jpg',
-  volcan: './assets/tile_volcan.jpg',
-  eldorado: './assets/tile_eldorado.jpg',
-  port: './assets/tile_port.jpg',
-  taverne: './assets/tile_taverne.jpg',
-  tresor: './assets/tile_tresor.jpg',
-  malediction: './assets/tile_malediction.jpg',
+  plage: './assets/tile_plage.jpg?v=terrain2',
+  lagon: './assets/tile_lagon.jpg?v=terrain2',
+  falaise: './assets/tile_falaise.jpg?v=terrain2',
+  temple: './assets/tile_temple.jpg?v=terrain2',
+  volcan: './assets/tile_volcan.jpg?v=terrain2',
+  eldorado: './assets/tile_eldorado.jpg?v=terrain2',
+  port: './assets/tile_port.jpg?v=terrain2',
+  taverne: './assets/tile_taverne.jpg?v=terrain2',
+  tresor: './assets/tile_tresor.jpg?v=terrain2',
+  malediction: './assets/tile_malediction.jpg?v=terrain2',
 };
 
 const PROP_TEXTURE_MAP: Record<TerrainTheme, string> = {
@@ -233,19 +233,19 @@ export const Tile: React.FC<TileProps> = ({
         {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
         <mesh position={[0, 0.125, -0.02]} receiveShadow castShadow>
           <cylinderGeometry
-            args={[baseRadius * 0.76, baseRadius * 0.86, 0.07, 28]}
+            args={[baseRadius * 0.8, baseRadius * 0.89, 0.07, 28]}
           />
           <meshStandardMaterial
             map={tileArtTexture}
             bumpMap={tileArtTexture}
             bumpScale={0.035}
-            roughness={0.62}
+            roughness={0.68}
           />
         </mesh>
 
         {/* Off-Center Coastal Outcrop Lobe on the Back Rim supporting the 3D Landmark */}
         <mesh
-          position={[propOffsetX, 0.09, propOffsetZ]}
+          position={[propOffsetX, 0.095, propOffsetZ]}
           receiveShadow
           castShadow
         >
@@ -258,11 +258,10 @@ export const Tile: React.FC<TileProps> = ({
             ]}
           />
           <meshStandardMaterial
-            map={isRockyShore || isMixedCove ? rockTexture : sandTexture}
-            bumpMap={isRockyShore || isMixedCove ? rockTexture : sandTexture}
+            map={tileArtTexture}
+            bumpMap={tileArtTexture}
             bumpScale={0.035}
-            color={isRockyShore || isMixedCove ? '#cbd5e1' : '#fef08a'}
-            roughness={0.82}
+            roughness={0.75}
           />
         </mesh>
 

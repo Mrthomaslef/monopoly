@@ -16,64 +16,64 @@ IMAGE_MODEL_PATH = "/higgsfield-ai/soul/v2/standard"
 
 TILE_PROMPTS = {
     "tile_plage.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a sunny Caribbean sandy beach cove, "
-        "golden sand shore with gentle turquoise waves and white sea foam around a circular island, "
-        "two leaning coconut palm trees, a small weathered wooden pirate shipwreck hull on the sand, "
-        "stylized hand-painted video game art like Sea of Thieves, vibrant colors, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of a sunny Caribbean sandy beach terrain, "
+        "warm golden sand with soft wind ripples, a few tiny seashells and wet sand at the edges, "
+        "flat walkable ground surface filling the entire frame, Sea of Thieves stylized hand-painted texture, "
+        "NO buildings, NO palm trees, NO objects, NO ships, NO text."
     ),
     "tile_lagon.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a tropical coral atoll island, "
-        "golden ring of sand enclosing a glowing crystal-clear turquoise inner lagoon pool, vibrant pink and "
-        "cyan coral reefs, a giant open clam shell with a glowing white pearl, surrounded by turquoise sea foam, "
-        "stylized hand-painted Sea of Thieves game art, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of a shallow tropical coral lagoon floor, "
+        "crystal-clear turquoise shallow water over white coral sand, small colorful pink and cyan coral pebbles, "
+        "caustic sunlight ripples, flat walkable ground surface filling the entire frame, Sea of Thieves stylized "
+        "hand-painted texture, NO giant clam, NO buildings, NO objects, NO text."
     ),
     "tile_falaise.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a rugged dark slate rocky cliff island, "
-        "jagged coastal boulders and sea stacks battered by white ocean surf, a weathered stone pirate bastion "
-        "with iron cannons on the cliff top, stylized hand-painted Sea of Thieves game art, dramatic lighting, "
-        "clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of rugged dark slate coastal cliff rock terrain, "
+        "weathered grey-blue stone slabs, natural rock cracks and coastal pebbles, flat walkable rock surface "
+        "filling the entire frame, Sea of Thieves stylized hand-painted texture, NO buildings, NO towers, "
+        "NO cannons, NO objects, NO text."
     ),
     "tile_temple.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a lush tropical jungle island with "
-        "a stepped ancient moss-covered jade stone temple sanctuary in the center, glowing golden brazier, "
-        "tropical palm fronds and exotic ferns, sandy and rocky shore surrounded by turquoise water, "
-        "stylized hand-painted Sea of Thieves game art, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of ancient jungle temple courtyard flagstones, "
+        "weathered jade-green stone floor tiles overgrown with lush green moss and small tropical fern leaves "
+        "in the cracks, flat walkable ground surface filling the entire frame, Sea of Thieves stylized "
+        "hand-painted texture, NO pyramid, NO buildings, NO objects, NO text."
     ),
     "tile_volcan.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a dark basalt volcanic island, "
-        "a dramatic volcano cone in the center with a glowing emerald-green lava crater and fissures, "
-        "black volcanic rock coastline surrounded by steaming turquoise sea foam, stylized hand-painted "
-        "Sea of Thieves game art, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of dark volcanic basalt ground terrain, "
+        "cracked black obsidian and charcoal lava rock surface with subtle glowing emerald-green magma fissures "
+        "in the cracks, flat walkable ground surface filling the entire frame, Sea of Thieves stylized "
+        "hand-painted texture, NO volcano cone, NO buildings, NO objects, NO text."
     ),
     "tile_eldorado.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a legendary El Dorado golden citadel island, "
-        "an ornate stepped golden pyramid temple gleaming in warm sunlight, piles of gold doubloons and red rubies, "
-        "golden palm trees on a sandy cove with rocky headlands, stylized hand-painted Sea of Thieves game art, "
-        "clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of legendary El Dorado golden courtyard pavement, "
+        "ornate sun-warmed sandstone and carved golden floor flagstones with ancient geometric gold inlays "
+        "and golden sand dust, flat walkable ground surface filling the entire frame, Sea of Thieves stylized "
+        "hand-painted texture, NO pyramid, NO buildings, NO chests, NO objects, NO text."
     ),
     "tile_port.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of Port Royal pirate harbor island, "
-        "a classic red-and-white striped stone lighthouse with a glowing golden beacon, cobblestone quay, "
-        "wooden pier and harbor arch on a sandy bay, stylized hand-painted Sea of Thieves game art, "
-        "clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of Port Royal pirate harbor quay ground, "
+        "weathered colonial stone cobblestones blended with aged oak harbor pier planks, flat walkable ground "
+        "surface filling the entire frame, Sea of Thieves stylized hand-painted texture, NO lighthouse, "
+        "NO buildings, NO boats, NO objects, NO text."
     ),
     "tile_taverne.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of Tortuga pirate tavern island, "
-        "a warm wooden timber pirate inn with glowing amber tavern windows, oak rum barrels on a wooden deck, "
-        "coconut palms on a golden sandy beach surrounded by turquoise water, stylized hand-painted "
-        "Sea of Thieves game art, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of a pirate tavern boardwalk deck floor, "
+        "warm weathered mahogany and oak wooden planks with brass nails and golden sand in the seams, "
+        "flat walkable floor surface filling the entire frame, Sea of Thieves stylized hand-painted texture, "
+        "NO buildings, NO barrels, NO furniture, NO objects, NO text."
     ),
     "tile_tresor.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a small Caribbean treasure islet, "
-        "a single large ornate wooden and brass pirate treasure chest wide open and overflowing with gleaming "
-        "gold coins and jewels in the center of a clean golden sandbank with one palm tree, "
-        "stylized hand-painted Sea of Thieves game art, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of a golden Caribbean treasure island sandbank, "
+        "warm shimmering amber-gold beach sand with a few tiny half-buried gold doubloons and small shells "
+        "scattered flat in the sand, flat walkable ground surface filling the entire frame, Sea of Thieves "
+        "stylized hand-painted texture, NO treasure chest, NO palm trees, NO large objects, NO text."
     ),
     "tile_malediction.jpg": (
-        "Top-down 3/4 isometric board game island tile illustration of a mysterious cursed sea reef island, "
-        "dark jagged obsidian rocks rising from swirling purple and turquoise water, a glowing levitating "
-        "violet voodoo crystal monolith and giant purple Kraken tentacles coiling around the rocky shore, "
-        "stylized hand-painted Sea of Thieves game art, clean uncluttered composition, no text."
+        "Pure top-down 90-degree overhead game ground texture of a cursed dark abyssal reef rock floor, "
+        "dark jagged obsidian stone ground etched with faint glowing violet mystic cracks and eerie purple mist, "
+        "flat walkable ground surface filling the entire frame, Sea of Thieves stylized hand-painted texture, "
+        "NO monolith, NO tentacles, NO buildings, NO objects, NO text."
     ),
 }
 

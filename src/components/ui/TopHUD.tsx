@@ -116,15 +116,19 @@ export const TopHUD: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Crew / Players & AI Setup Button */}
+          {/* Crew / Players, Solo & Local Multiplayer Setup Button */}
           <button
             type="button"
             onClick={() => setShowSetupModal(true)}
-            className="wood-plank flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-amber-100 hover:brightness-110 active:scale-95 transition cursor-pointer"
-            title="Équipage & Partie"
+            className="wood-plank flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold text-amber-100 hover:brightness-110 active:scale-95 transition cursor-pointer border border-emerald-400/40"
+            title="Mode Solo ou Multijoueur Local (2 à 4 joueurs)"
           >
-            <Users className="w-3.5 h-3.5 text-amber-400" />
-            <span>Partie</span>
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>
+              {players.filter((p) => !p.isAI).length >= 2
+                ? `Multi (${players.filter((p) => !p.isAI).length}J)`
+                : 'Modes / Multi'}
+            </span>
           </button>
 
           {/* Camera Mode Toggle Icon Button */}
@@ -229,7 +233,7 @@ export const TopHUD: React.FC = () => {
                 )}
               </AnimatePresence>
 
-              {/* Captain Color Dot + Portrait */}
+              {/* Captain Color Badge (J1..J4 or IA) + Portrait */}
               <div className="relative shrink-0">
                 <CaptainAvatar
                   captainId={player.id}
@@ -237,9 +241,11 @@ export const TopHUD: React.FC = () => {
                   size="sm"
                 />
                 <span
-                  className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-950 shadow"
-                  style={{ backgroundColor: player.color }}
-                />
+                  className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded text-[8px] font-black text-white border border-slate-950 shadow leading-none"
+                  style={{ backgroundColor: player.isAI ? '#0f172a' : player.color }}
+                >
+                  {player.isAI ? 'IA' : `J${index + 1}`}
+                </span>
               </div>
 
               <div className="min-w-0 flex-1">

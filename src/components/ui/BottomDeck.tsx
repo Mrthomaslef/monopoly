@@ -169,10 +169,16 @@ export const BottomDeck: React.FC = () => {
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={rollDice}
-              className="flex-1 py-3 px-4 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-100 shadow-[0_4px_18px_rgba(251,191,36,0.55)] flex items-center justify-center gap-2.5 cursor-pointer"
+              className="flex-1 py-3 px-4 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-100 shadow-[0_4px_18px_rgba(251,191,36,0.55)] flex items-center justify-center gap-2 cursor-pointer"
             >
               <Dices className="w-5 h-5 shrink-0 animate-bounce" />
-              <span>Lancer les Dés — {activePlayer.name}</span>
+              <span
+                className="px-1.5 py-0.5 rounded text-xs font-black text-white border border-black/30 shadow-xs shrink-0"
+                style={{ backgroundColor: activePlayer.color }}
+              >
+                J{currentPlayerIndex + 1}
+              </span>
+              <span className="truncate">Lancer les Dés — {activePlayer.name}</span>
             </motion.button>
 
             {canPayBail && (

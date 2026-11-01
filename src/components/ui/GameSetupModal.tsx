@@ -35,14 +35,28 @@ export const GameSetupModal: React.FC = () => {
   const enabledCount = slots.filter((s) => s.enabled).length;
   const aiCount = slots.filter((s) => s.enabled && s.isAI).length;
   const humanCount = slots.filter((s) => s.enabled && !s.isAI).length;
+  const isLocalMultiMode = humanCount >= 2;
 
-  const setTotalPlayers = (count: number) => {
+  const selectGameMode = (mode: 'solo' | 'local_multi') => {
     setSlots((prev) =>
       prev.map((s, idx) => ({
         ...s,
-        enabled: idx < count,
+        isAI: mode === 'solo' ? idx > 0 : false,
       }))
     );
+  };
+
+  const setTotalPlayers = (count: number) => {
+    setSlots((prev) => {
+      const currentlyLocalMulti =
+        prev.filter((s) => s.enabled && !s.isAI).length >= 2 &&
+        prev.filter((s) => s.enabled && s.isAI).length === 0;
+      return prev.map((s, idx) => ({
+        ...s,
+        enabled: idx < count,
+        isAI: currentlyLocalMulti ? false : idx === 0 ? false : s.isAI,
+      }));
+    });
   };
 
   const setPlayerRole = (index: number, isAI: boolean) => {
@@ -54,17 +68,6 @@ export const GameSetupModal: React.FC = () => {
   const setPlayerName = (index: number, name: string) => {
     setSlots((prev) =>
       prev.map((s, idx) => (idx === index ? { ...s, name } : s))
-    );
-  };
-
-  const applyPreset = (humans: number, ais: number) => {
-    const total = Math.min(4, Math.max(2, humans + ais));
-    setSlots((prev) =>
-      prev.map((s, idx) => ({
-        ...s,
-        enabled: idx < total,
-        isAI: idx >= humans,
-      }))
     );
   };
 
@@ -87,7 +90,7 @@ export const GameSetupModal: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowSetupModal(false)}
-              className="absolute top-3 right-3 wood-plank p-1.5 rounded-lg text-amber-200 hover:text-white active:scale-95"
+              className="absolute top-3 right-3 wood-plank p-1.5 rounded-lg text-amber-200 hover:text-white active:scale-95 cursor-pointer"
               title="Fermer et reprendre la partie"
             >
               <X className="w-4 h-4" />
@@ -106,15 +109,59 @@ export const GameSetupModal: React.FC = () => {
                   <span>Jolly Roger&apos;s</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black text-amber-100 drop-shadow mt-0.5">
-                  Composer l&apos;Équipage
+                  Mode de Jeu &amp; Équipage
                 </h2>
               </div>
             </div>
 
-            {/* Section 1: Number of Players (2, 3, or 4 Ships) */}
+            {/* Section 1: Prominent Game Mode Selector (Solo vs Local Multiplayer) */}
             <div className="mb-3">
               <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-300 mb-1.5">
-                1. Nombre total de Navires en mer :
+                1. Choisir le Mode de Jeu :
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => selectGameMode('solo')}
+                  className={`wood-plank wood-nails py-2.5 px-3 rounded-xl text-left transition flex flex-col gap-1 cursor-pointer ${
+                    !isLocalMultiMode
+                      ? 'ring-2 ring-amber-400 bg-amber-950/80 brightness-120 shadow-[0_0_15px_rgba(251,191,36,0.4)]'
+                      : 'opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm text-amber-200">
+                    <Bot className="w-4 h-4 text-cyan-300 shrink-0" />
+                    <span>Solo vs IA</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-amber-100/80 leading-tight">
+                    Affrontez 1 à 3 capitaines contrôlés par l&apos;IA
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => selectGameMode('local_multi')}
+                  className={`wood-plank wood-nails py-2.5 px-3 rounded-xl text-left transition flex flex-col gap-1 cursor-pointer ${
+                    isLocalMultiMode
+                      ? 'ring-2 ring-emerald-400 bg-emerald-950/80 brightness-120 shadow-[0_0_15px_rgba(16,185,129,0.45)]'
+                      : 'opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm text-emerald-300">
+                    <Users className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Multijoueur Local</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-amber-100/80 leading-tight">
+                    2 à 4 joueurs humains sur le même écran
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Section 2: Number of Players (2, 3, or 4 Ships) */}
+            <div className="mb-3">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-300 mb-1.5">
+                2. Nombre de Joueurs / Navires :
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[2, 3, 4].map((count) => (
@@ -128,52 +175,19 @@ export const GameSetupModal: React.FC = () => {
                         : 'text-amber-100/70 opacity-80 hover:opacity-100'
                     }`}
                   >
-                    <span className="text-sm">{count} Navires</span>
+                    <span className="text-sm">{count} Joueurs</span>
                     <span className="text-[10px] text-amber-300/80 font-semibold">
-                      {count === 2 ? 'Duel Rapide' : count === 3 ? 'Trio Corsaire' : 'Grande Flotte'}
+                      {count === 2 ? 'Duel (2)' : count === 3 ? 'Trio (3)' : '4 Capitaines'}
                     </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Quick Mode Presets (1 Player vs AI or Local Multi) */}
-            <div className="mb-3">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-300 mb-1.5">
-                2. Presets Rapides (Joueurs vs IA) :
-              </label>
-              <div className="grid grid-cols-2 gap-1.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => applyPreset(1, enabledCount - 1)}
-                  className={`wood-plank py-1.5 px-2.5 rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
-                    humanCount === 1 && aiCount >= 1
-                      ? 'ring-2 ring-amber-400 text-amber-200'
-                      : 'text-amber-100/80'
-                  }`}
-                >
-                  <Bot className="w-3.5 h-3.5 text-cyan-300" />
-                  <span>1 Joueur vs {enabledCount - 1} IA</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset(enabledCount, 0)}
-                  className={`wood-plank py-1.5 px-2.5 rounded-lg font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
-                    aiCount === 0
-                      ? 'ring-2 ring-amber-400 text-amber-200'
-                      : 'text-amber-100/80'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>{enabledCount} Joueurs (Sans IA)</span>
-                </button>
-              </div>
-            </div>
-
             {/* Section 3: Detailed Captain Slots (Human vs AI toggle per ship) */}
             <div className="mb-3">
               <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-300 mb-1.5">
-                3. Rôle de chaque Capitaine (Humain ou IA) :
+                3. Capitaines ({humanCount} Humain{humanCount > 1 ? 's' : ''}{aiCount > 0 ? ` • ${aiCount} IA` : ' en Local'}) :
               </label>
               <div className="space-y-2">
                 {slots.map((slot, idx) => {
@@ -185,7 +199,7 @@ export const GameSetupModal: React.FC = () => {
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <div
-                          className="w-9 h-9 rounded-lg shrink-0 border-2 shadow overflow-hidden"
+                          className="w-9 h-9 rounded-lg shrink-0 border-2 shadow overflow-hidden relative"
                           style={{
                             borderColor: slot.color,
                             backgroundImage: 'url(./assets/captains_sheet.jpg)',
@@ -199,17 +213,25 @@ export const GameSetupModal: React.FC = () => {
                                 ? '4% 96%'
                                 : '96% 96%',
                           }}
-                        />
+                        >
+                          <span
+                            className="absolute bottom-0 right-0 px-1 text-[8px] font-black text-white rounded-tl"
+                            style={{ backgroundColor: slot.color }}
+                          >
+                            J{idx + 1}
+                          </span>
+                        </div>
                         <div className="min-w-0 flex-1">
                           <input
                             type="text"
                             value={slot.name}
                             onChange={(e) => setPlayerName(idx, e.target.value)}
+                            placeholder={`Joueur ${idx + 1}`}
                             maxLength={16}
-                            className="w-full bg-black/30 border border-amber-700/60 rounded px-2 py-0.5 text-xs font-black text-amber-100 focus:outline-none focus:border-amber-400"
+                            className="w-full bg-black/35 border border-amber-700/60 rounded px-2 py-0.5 text-xs font-black text-amber-100 focus:outline-none focus:border-amber-400"
                           />
                           <div className="text-[10px] text-amber-300/80 truncate mt-0.5">
-                            {slot.title}
+                            {!slot.isAI ? `Joueur ${idx + 1} • ${slot.title}` : `IA • ${slot.title}`}
                           </div>
                         </div>
                       </div>
@@ -221,7 +243,7 @@ export const GameSetupModal: React.FC = () => {
                           onClick={() => setPlayerRole(idx, false)}
                           className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-extrabold transition cursor-pointer ${
                             !slot.isAI
-                              ? 'bg-amber-500 text-slate-950 shadow'
+                              ? 'bg-emerald-500 text-slate-950 shadow'
                               : 'text-amber-200/70 hover:text-amber-100'
                           }`}
                         >

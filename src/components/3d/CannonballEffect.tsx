@@ -46,11 +46,12 @@ export const CannonballEffect: React.FC = () => {
     progressRef.current = Math.min(1, progressRef.current + delta * 1.85);
     const t = progressRef.current;
 
-    const tilePos = getTileTransform(cannonShot.fromTile).position;
-    const startX = tilePos[0] + cannonShot.fromOffset[0];
-    const startZ = tilePos[2] + cannonShot.fromOffset[2];
-    const endX = tilePos[0] + cannonShot.toOffset[0];
-    const endZ = tilePos[2] + cannonShot.toOffset[2];
+    const fromPos = getTileTransform(cannonShot.fromTile).position;
+    const toPos = getTileTransform(cannonShot.toTile).position;
+    const startX = fromPos[0] + cannonShot.fromOffset[0];
+    const startZ = fromPos[2] + cannonShot.fromOffset[2];
+    const endX = toPos[0] + cannonShot.toOffset[0];
+    const endZ = toPos[2] + cannonShot.toOffset[2];
 
     const curX = THREE.MathUtils.lerp(startX, endX, t);
     const curZ = THREE.MathUtils.lerp(startZ, endZ, t);

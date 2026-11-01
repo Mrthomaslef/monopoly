@@ -8,6 +8,8 @@ import {
   X,
   Compass,
   ArrowRight,
+  Sparkles,
+  Flame,
 } from 'lucide-react';
 import {
   useGameStore,
@@ -17,6 +19,9 @@ import {
   MAX_FORTIFY_LEVEL,
   FORTRESS_LEVEL_NAMES,
   FORTRESS_LEVEL_IMAGES,
+  CULVERIN_RANGE,
+  canAccessUpgradesShop,
+  getTileDistance,
 } from '../../store/useGameStore';
 import { getTileTerrainTheme, TerrainTheme } from '../3d/Tile';
 import { CaptainAvatar } from './CaptainAvatar';
@@ -209,21 +214,26 @@ export const LandedTilePopup: React.FC = () => {
   const activeCard = useGameStore((s) => s.activeCard);
   const navalBattle = useGameStore((s) => s.navalBattle);
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
+  const showUpgradesModal = useGameStore((s) => s.showUpgradesModal);
+  const setShowUpgradesModal = useGameStore((s) => s.setShowUpgradesModal);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
   const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
+  const hasFiredCulverinThisTurn = useGameStore((s) => s.hasFiredCulverinThisTurn);
 
   const buyIsland = useGameStore((s) => s.buyIsland);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
+  const fireCulverin = useGameStore((s) => s.fireCulverin);
   const triggerManualNavalBattle = useGameStore(
     (s) => s.triggerManualNavalBattle
   );
 
-  // Yield screen space if a Drawn Card modal, Naval Battle modal, or Fortify Selector modal is active
+  // Yield screen space if a Drawn Card modal, Naval Battle modal, Fortify Selector, or Upgrades modal is active
   if (
     !landedTilePopup ||
     activeCard ||
     navalBattle?.active ||
     showFortifyModal ||
+    showUpgradesModal ||
     phase === 'GAME_OVER'
   ) {
     return null;
@@ -274,6 +284,23 @@ export const LandedTilePopup: React.FC = () => {
     (tile.upgradeCost ?? 0) <= activePlayer.gold &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
 
+  const canShopOnThisTile =
+    isHumanAnyPhaseActive &&
+    canAccessUpgradesShop(activePlayer, tiles) &&
+    (tile.type === 'start' ||
+      tile.type === 'free_parking' ||
+      (tile.type === 'island' && tile.ownerId === activePlayer.id));
+
+  const canShootThisWithCulverin =
+    isHumanAnyPhaseActive &&
+    Boolean(activePlayer.hasCulverin) &&
+    !hasFiredCulverinThisTurn &&
+    tile.type === 'island' &&
+    tile.ownerId !== null &&
+    tile.ownerId !== activePlayer.id &&
+    tile.level >= 1 &&
+    getTileDistance(activePlayer.position, tile.id) <= CULVERIN_RANGE;
+
   const rivalsOnTile = activePlayer
     ? players.filter(
         (p) =>
@@ -292,7 +319,7 @@ export const LandedTilePopup: React.FC = () => {
   return (
     <AnimatePresence>
       <motion.div
-        key={`tile-popup-${tile.id}-${landedTilePopup.playerId}-${tile.ownerId ?? 'free'}-${tile.level}`}
+        key={`tile-popup-${tile.id}-${landedTilePopup.playerId}-${tile.ownerId ?? 'free'}-${tile.level}-${tile.trapped ? 'trap' : 'clean'}`}
         initial={{ opacity: 0, scale: 0.72, y: 28 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -371,6 +398,11 @@ export const LandedTilePopup: React.FC = () => {
               >
                 {tile.name}
               </h2>
+              {tile.trapped && tile.level > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-orange-600 text-white text-[10px] font-black uppercase shadow">
+                  💣 Piégée
+                </span>
+              )}
             </div>
 
             {/* 1. If Rent Payment just occurred: show ONLY the animated Payer -> Owner transfer */}
@@ -393,7 +425,9 @@ export const LandedTilePopup: React.FC = () => {
                     className="mt-2.5 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2.5 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
                   >
                     <div className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-1.5">
-                      ⚓ Droit de Mouillage
+                      {tile.trapped && tile.level > 0
+                        ? '💣 Forteresse Piégée (-50% Or) & Loyer'
+                        : '⚓ Droit de Mouillage'}
                     </div>
                     <div className="flex items-center justify-between gap-1.5">
                       {/* Payer (Losses Gold) */}
@@ -467,7 +501,7 @@ export const LandedTilePopup: React.FC = () => {
                           transition={{ type: 'spring', stiffness: 400 }}
                           className="mt-0.5 px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 font-black text-xs border border-white shadow"
                         >
-                          +{amount} Or
+                          +{currentRent} Or
                         </motion.span>
                       </motion.div>
                     </div>
@@ -475,7 +509,7 @@ export const LandedTilePopup: React.FC = () => {
                 );
               })()
             ) : tile.type === 'island' ? (
-              /* 2. Clean, Single-Pill Island Summary (no redundant price box when already owned or when Buy button shows price) */
+              /* 2. Clean, Single-Pill Island Summary */
               <div className="mt-2.5 space-y-2">
                 <div
                   className={`rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${styleCfg.statBoxBg}`}
@@ -508,15 +542,20 @@ export const LandedTilePopup: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Show confirmation banner only when an island was just bought or fortified */}
+                {/* Show confirmation banner when an island was just bought, fortified, or hit by Culverin */}
                 {landedTilePopup.eventSummary &&
                   (landedTilePopup.eventSummary.startsWith('🏴‍☠️') ||
-                    landedTilePopup.eventSummary.startsWith('🏰 Votre') === false &&
-                      landedTilePopup.eventSummary.startsWith('🏰')) && (
+                    landedTilePopup.eventSummary.startsWith('💥') ||
+                    (landedTilePopup.eventSummary.startsWith('🏰 Votre') === false &&
+                      landedTilePopup.eventSummary.startsWith('🏰'))) && (
                     <motion.div
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="px-3 py-1.5 rounded-xl border-2 border-emerald-400 bg-emerald-950/90 text-emerald-200 text-xs font-black shadow-md"
+                      className={`px-3 py-1.5 rounded-xl border-2 text-xs font-black shadow-md ${
+                        landedTilePopup.eventSummary.startsWith('💥')
+                          ? 'border-red-400 bg-red-950/90 text-red-200'
+                          : 'border-emerald-400 bg-emerald-950/90 text-emerald-200'
+                      }`}
                     >
                       {landedTilePopup.eventSummary}
                     </motion.div>
@@ -539,8 +578,8 @@ export const LandedTilePopup: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Direct Action Buttons inside the Card (Clean & Non-Redundant) */}
-            <div className="mt-3 flex items-center gap-2">
+            {/* Direct Action Buttons inside the Card */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {canBuy && (
                 <motion.button
                   whileTap={{ scale: 0.95 }}
@@ -571,6 +610,34 @@ export const LandedTilePopup: React.FC = () => {
                 </motion.button>
               )}
 
+              {canShootThisWithCulverin && (
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => {
+                    fireCulverin(tile.id);
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-red-500 to-red-700 text-white border-2 border-red-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Flame className="w-4 h-4 shrink-0" />
+                  <span>Coulevrine (-1 Étage)</span>
+                </motion.button>
+              )}
+
+              {canShopOnThisTile && (
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => {
+                    setShowUpgradesModal(true);
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-purple-400 to-indigo-600 text-white border-2 border-purple-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span>Améliorations (1000 Or)</span>
+                </motion.button>
+              )}
+
               {canFireCannon && (
                 <motion.button
                   whileTap={{ scale: 0.95 }}
@@ -591,10 +658,20 @@ export const LandedTilePopup: React.FC = () => {
                 type="button"
                 onClick={dismissLandedTilePopup}
                 className={`${
-                  canBuy || canFortify || canFireCannon ? 'px-4' : 'w-full'
+                  canBuy ||
+                  canFortify ||
+                  canFireCannon ||
+                  canShopOnThisTile ||
+                  canShootThisWithCulverin
+                    ? 'px-4'
+                    : 'w-full'
                 } py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-slate-950/85 hover:bg-slate-950 text-amber-200 border border-amber-400/50 shadow flex items-center justify-center gap-1.5 cursor-pointer`}
               >
-                {canBuy || canFortify || canFireCannon ? (
+                {canBuy ||
+                canFortify ||
+                canFireCannon ||
+                canShopOnThisTile ||
+                canShootThisWithCulverin ? (
                   <span>Fermer</span>
                 ) : (
                   <>

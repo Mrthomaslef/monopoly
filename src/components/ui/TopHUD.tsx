@@ -254,10 +254,20 @@ export const TopHUD: React.FC = () => {
               </div>
 
               <div className="min-w-0 flex-1">
-                {/* Captain Name + Jail / Bankrupt Icon */}
+                {/* Captain Name + Upgrade Badges + Jail / Bankrupt Icon */}
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-black text-white truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] leading-tight">
-                    {player.name}
+                  <span className="text-xs font-black text-white truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] leading-tight flex items-center gap-0.5">
+                    <span className="truncate">{player.name}</span>
+                    {player.hasPerfectBoarding && (
+                      <span className="text-[10px] shrink-0" title="Abordage Parfait (50% Or)">
+                        ⚔️
+                      </span>
+                    )}
+                    {player.hasCulverin && (
+                      <span className="text-[10px] shrink-0" title="Tir de Coulevrine (≤3 cases)">
+                        🎯
+                      </span>
+                    )}
                   </span>
                   {player.bankrupt ? (
                     <Skull className="w-3 h-3 text-rose-400 shrink-0" />

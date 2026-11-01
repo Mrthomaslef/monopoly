@@ -9,6 +9,8 @@ import {
   Dices,
   KeyRound,
   Bot,
+  Sparkles,
+  Flame,
 } from 'lucide-react';
 import {
   useGameStore,
@@ -16,6 +18,8 @@ import {
   FORTIFY_MATERIAL_COST,
   MAX_FORTIFY_LEVEL,
   FORTRESS_LEVEL_NAMES,
+  canAccessUpgradesShop,
+  getCulverinTargets,
 } from '../../store/useGameStore';
 
 export const BottomDeck: React.FC = () => {
@@ -27,6 +31,7 @@ export const BottomDeck: React.FC = () => {
   const actionLogs = useGameStore((s) => s.actionLogs);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
   const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
+  const hasFiredCulverinThisTurn = useGameStore((s) => s.hasFiredCulverinThisTurn);
   const showSetupModal = useGameStore((s) => s.showSetupModal);
 
   const rollDice = useGameStore((s) => s.rollDice);
@@ -34,6 +39,8 @@ export const BottomDeck: React.FC = () => {
   const buyIsland = useGameStore((s) => s.buyIsland);
   const setShowFortifyModal = useGameStore((s) => s.setShowFortifyModal);
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
+  const setShowUpgradesModal = useGameStore((s) => s.setShowUpgradesModal);
+  const showUpgradesModal = useGameStore((s) => s.showUpgradesModal);
   const triggerManualNavalBattle = useGameStore((s) => s.triggerManualNavalBattle);
   const endTurn = useGameStore((s) => s.endTurn);
 
@@ -85,6 +92,20 @@ export const BottomDeck: React.FC = () => {
     fortifiableIslands.length > 0 &&
     (activePlayer?.materials ?? 0) >= FORTIFY_MATERIAL_COST;
 
+  const canShopUpgrades =
+    isAnyTurnActionPhase &&
+    Boolean(activePlayer && canAccessUpgradesShop(activePlayer, tiles));
+
+  const culverinTargets =
+    isAnyTurnActionPhase &&
+    activePlayer?.hasCulverin &&
+    !hasFiredCulverinThisTurn
+      ? getCulverinTargets(activePlayer, tiles)
+      : [];
+
+  const canUseCulverinNow = culverinTargets.length > 0;
+  const showArsenalButton = canShopUpgrades || canUseCulverinNow;
+
   const rivalsOnCurrentTile = activePlayer
     ? players.filter(
         (p) =>
@@ -111,6 +132,11 @@ export const BottomDeck: React.FC = () => {
               <span className="text-sm sm:text-base font-black text-slate-950 truncate leading-tight">
                 {inspectedTile.name}
               </span>
+              {inspectedTile.trapped && inspectedTile.level > 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-orange-600 text-white text-[10px] font-black uppercase shrink-0">
+                  💣 Piégée
+                </span>
+              )}
             </div>
 
             {inspectedTile.type === 'island' ? (
@@ -195,11 +221,37 @@ export const BottomDeck: React.FC = () => {
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => setShowFortifyModal(!showFortifyModal)}
-                className="py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                className="py-3 px-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1 shrink-0 cursor-pointer"
                 title="Fortifier une île"
               >
                 <Castle className="w-4 h-4 shrink-0" />
                 <span>Fortifier</span>
+              </motion.button>
+            )}
+
+            {showArsenalButton && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={() => setShowUpgradesModal(!showUpgradesModal)}
+                className={`py-3 px-2.5 rounded-xl font-black text-xs uppercase tracking-wider border-2 flex items-center justify-center gap-1 shrink-0 cursor-pointer ${
+                  canUseCulverinNow
+                    ? 'bg-gradient-to-b from-red-500 to-red-700 text-white border-red-200 shadow-[0_4px_15px_rgba(239,68,68,0.55)]'
+                    : 'bg-gradient-to-b from-purple-400 to-indigo-600 text-white border-purple-200 shadow-[0_4px_15px_rgba(147,51,234,0.45)]'
+                }`}
+                title="Arsenal & Améliorations (1000 Or) / Coulevrine"
+              >
+                {canUseCulverinNow ? (
+                  <>
+                    <Flame className="w-4 h-4 shrink-0" />
+                    <span>Tirer</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    <span>Arsenal</span>
+                  </>
+                )}
               </motion.button>
             )}
 
@@ -222,7 +274,7 @@ export const BottomDeck: React.FC = () => {
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={buyIsland}
-                className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-[0_4px_15px_rgba(16,185,129,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 py-3 px-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-[0_4px_15px_rgba(16,185,129,0.45)] flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Flag className="w-4 h-4 shrink-0" />
                 <span className="truncate">Acheter ({currentTile.price} Or)</span>
@@ -234,7 +286,7 @@ export const BottomDeck: React.FC = () => {
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={triggerManualNavalBattle}
-                className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-rose-500 to-red-700 text-white border-2 border-rose-300 shadow-[0_4px_15px_rgba(244,63,94,0.5)] flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 py-3 px-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-rose-500 to-red-700 text-white border-2 border-rose-300 shadow-[0_4px_15px_rgba(244,63,94,0.5)] flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Crosshair className="w-4 h-4 shrink-0" />
                 <span className="truncate">Aborder !</span>
@@ -246,7 +298,7 @@ export const BottomDeck: React.FC = () => {
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => setShowFortifyModal(!showFortifyModal)}
-                className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 py-3 px-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1 cursor-pointer"
                 title="Fortifier une île"
               >
                 <Castle className="w-4 h-4 shrink-0" />
@@ -254,11 +306,37 @@ export const BottomDeck: React.FC = () => {
               </motion.button>
             )}
 
+            {showArsenalButton && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={() => setShowUpgradesModal(!showUpgradesModal)}
+                className={`py-3 px-2.5 rounded-xl font-black text-xs uppercase tracking-wider border-2 flex items-center justify-center gap-1 shrink-0 cursor-pointer ${
+                  canUseCulverinNow
+                    ? 'bg-gradient-to-b from-red-500 to-red-700 text-white border-red-200 shadow-[0_4px_15px_rgba(239,68,68,0.55)]'
+                    : 'bg-gradient-to-b from-purple-400 to-indigo-600 text-white border-purple-200 shadow-[0_4px_15px_rgba(147,51,234,0.45)]'
+                }`}
+                title="Arsenal & Améliorations (1000 Or) / Coulevrine"
+              >
+                {canUseCulverinNow ? (
+                  <>
+                    <Flame className="w-4 h-4 shrink-0" />
+                    <span>Tirer</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    <span>Arsenal</span>
+                  </>
+                )}
+              </motion.button>
+            )}
+
             <motion.button
               whileTap={{ scale: 0.96 }}
               type="button"
               onClick={endTurn}
-              className="flex-1 py-3 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-2 border-amber-200 shadow-[0_4px_15px_rgba(249,115,22,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+              className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-2 border-amber-200 shadow-[0_4px_15px_rgba(249,115,22,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <SkipForward className="w-4 h-4 shrink-0" />
               <span className="truncate">Fin du Tour</span>

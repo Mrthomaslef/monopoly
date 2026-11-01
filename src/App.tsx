@@ -9,6 +9,7 @@ import { CardModal } from './components/ui/CardModal';
 import { GameSetupModal } from './components/ui/GameSetupModal';
 import { LandedTilePopup } from './components/ui/LandedTilePopup';
 import { FortifySelectorModal } from './components/ui/FortifySelectorModal';
+import { UpgradesModal } from './components/ui/UpgradesModal';
 import { CaptainAvatar } from './components/ui/CaptainAvatar';
 import { useGameStore } from './store/useGameStore';
 
@@ -179,6 +180,7 @@ export const App: React.FC = () => {
       {/* Modales */}
       <LandedTilePopup />
       <FortifySelectorModal />
+      <UpgradesModal />
       <GameSetupModal />
       <NavalBattleModal />
       <CardModal />

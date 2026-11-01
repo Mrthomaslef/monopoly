@@ -992,10 +992,12 @@ export const Tile: React.FC<TileProps> = React.memo(
 
     const ownerShortName = owner ? owner.name.split(' ')[0] : '';
 
+    const trapBadge = tile.trapped && tile.level > 0 ? ' 💣' : '';
+
     const subtitleText =
       tile.type === 'island'
         ? owner
-          ? `⚑ ${ownerShortName} • ${currentRent} Or`
+          ? `⚑ ${ownerShortName} • ${currentRent} Or${trapBadge}`
           : `${tile.price} Or`
         : tile.type === 'start'
         ? '+200 Or & +1 🪵'

@@ -22,7 +22,8 @@ export interface TileData {
   baseRent?: number;
   upgradeCost?: number;
   ownerId: number | null;
-  level: number; // 0 = base, 1..3 = Avant-poste de contrebandiers, 4 = Forteresse Pirate
+  level: number;
+  trapped?: boolean;
   description?: string;
 }
 
@@ -40,6 +41,8 @@ export interface Player {
   inJail: boolean;
   jailTurns: number;
   bankrupt: boolean;
+  hasPerfectBoarding?: boolean;
+  hasCulverin?: boolean;
 }
 
 export interface PlayerSlotConfig {
@@ -108,6 +111,8 @@ export const BOARD_SPACING = 1.65;
 export const FORTIFY_MATERIAL_COST = 1;
 export const INITIAL_MATERIALS = 2;
 export const MAX_FORTIFY_LEVEL = 3;
+export const UPGRADE_COST = 1000;
+export const CULVERIN_RANGE = 3;
 
 export const FORTRESS_LEVEL_NAMES = [
   'Mouillage',
@@ -566,6 +571,40 @@ export function calculateIslandRent(tile: TileData, allTiles: TileData[]): numbe
   return rent;
 }
 
+export function getTileDistance(tileA: number, tileB: number): number {
+  const diff = Math.abs(tileA - tileB) % 24;
+  return Math.min(diff, 24 - diff);
+}
+
+export function canAccessUpgradesShop(
+  player: Player | undefined,
+  tiles: TileData[]
+): boolean {
+  if (!player || player.bankrupt) return false;
+  const currentTile = tiles[player.position];
+  if (!currentTile) return false;
+  return (
+    currentTile.type === 'start' ||
+    currentTile.type === 'free_parking' ||
+    (currentTile.type === 'island' && currentTile.ownerId === player.id)
+  );
+}
+
+export function getCulverinTargets(
+  player: Player | undefined,
+  tiles: TileData[]
+): TileData[] {
+  if (!player || player.bankrupt || !player.hasCulverin) return [];
+  return tiles.filter(
+    (t) =>
+      t.type === 'island' &&
+      t.ownerId !== null &&
+      t.ownerId !== player.id &&
+      t.level >= 1 &&
+      getTileDistance(player.position, t.id) <= CULVERIN_RANGE
+  );
+}
+
 function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
   const activeSlots = slots.filter((s) => s.enabled);
   const finalSlots = activeSlots.length >= 2 ? activeSlots : slots.slice(0, 2);
@@ -583,6 +622,8 @@ function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
     inJail: false,
     jailTurns: 0,
     bankrupt: false,
+    hasPerfectBoarding: false,
+    hasCulverin: false,
   }));
 }
 
@@ -595,6 +636,7 @@ export interface LandedTilePopupData {
     payerId: number;
     ownerId: number;
     amount: number;
+    isTrap?: boolean;
   };
 }
 
@@ -603,6 +645,7 @@ interface GameState {
   slotConfigs: PlayerSlotConfig[];
   showSetupModal: boolean;
   showFortifyModal: boolean;
+  showUpgradesModal: boolean;
   tiles: TileData[];
   currentPlayerIndex: number;
   phase: TurnPhase;
@@ -610,6 +653,7 @@ interface GameState {
   isRollingDice: boolean;
   hasAttackedThisTurn: boolean;
   hasFortifiedThisTurn: boolean;
+  hasFiredCulverinThisTurn: boolean;
   cameraMode: CameraMode;
   focusedTileIndex: number;
   cameraShake: number;
@@ -627,6 +671,7 @@ interface GameState {
   // Actions
   setShowSetupModal: (show: boolean) => void;
   setShowFortifyModal: (show: boolean) => void;
+  setShowUpgradesModal: (show: boolean) => void;
   dismissLandedTilePopup: () => void;
   inspectTileCard: (tileId: number) => void;
   startCustomGame: (slots: PlayerSlotConfig[]) => void;
@@ -639,6 +684,10 @@ interface GameState {
   rollDice: () => void;
   buyIsland: () => void;
   fortifyIsland: (tileId?: number) => void;
+  buyPerfectBoarding: () => void;
+  buyTrappedFortress: (tileId: number) => void;
+  buyCulverin: () => void;
+  fireCulverin: (targetTileId: number) => void;
   payBailAndRoll: () => void;
   resolveCardModal: () => void;
   triggerManualNavalBattle: () => void;
@@ -654,6 +703,7 @@ export const useGameStore = create<GameState>()(
   slotConfigs: DEFAULT_CAPTAIN_ROSTER.map((s) => ({ ...s })),
   showSetupModal: true,
   showFortifyModal: false,
+  showUpgradesModal: false,
   tiles: INITIAL_TILES.map((t) => ({ ...t })),
   currentPlayerIndex: 0,
   phase: 'IDLE',
@@ -661,6 +711,7 @@ export const useGameStore = create<GameState>()(
   isRollingDice: false,
   hasAttackedThisTurn: false,
   hasFortifiedThisTurn: false,
+  hasFiredCulverinThisTurn: false,
   cameraMode: 'GLOBAL',
   focusedTileIndex: 0,
   cameraShake: 0,
@@ -668,7 +719,7 @@ export const useGameStore = create<GameState>()(
   actionLogs: [
     '⚓ Bienvenue dans Jolly Roger’s !',
     '🪵 Chaque tour, vous pouvez fortifier 1 de vos îles depuis n’importe où sur la carte !',
-    '💥 Tombez sur la case d’un rival pour lancer 1 Abordage (+150 Or & +1 Matériau) !',
+    '💥 Achetez des Améliorations (1000 Or) à Port Royal, Tortuga ou sur vos îles !',
   ],
   floatingTexts: [],
   activeCard: null,
@@ -684,6 +735,14 @@ export const useGameStore = create<GameState>()(
   setShowFortifyModal: (show) =>
     set((state) => ({
       showFortifyModal: show,
+      showUpgradesModal: show ? false : state.showUpgradesModal,
+      landedTilePopup: show ? null : state.landedTilePopup,
+    })),
+
+  setShowUpgradesModal: (show) =>
+    set((state) => ({
+      showUpgradesModal: show,
+      showFortifyModal: show ? false : state.showFortifyModal,
       landedTilePopup: show ? null : state.landedTilePopup,
     })),
 
@@ -717,13 +776,21 @@ export const useGameStore = create<GameState>()(
       slotConfigs: slots.map((s) => ({ ...s })),
       players: builtPlayers,
       showSetupModal: false,
-      tiles: INITIAL_TILES.map((t) => ({ ...t, ownerId: null, level: 0 })),
+      showFortifyModal: false,
+      showUpgradesModal: false,
+      tiles: INITIAL_TILES.map((t) => ({
+        ...t,
+        ownerId: null,
+        level: 0,
+        trapped: false,
+      })),
       currentPlayerIndex: 0,
       phase: 'IDLE',
       dice: [2, 2],
       isRollingDice: false,
       hasAttackedThisTurn: false,
       hasFortifiedThisTurn: false,
+      hasFiredCulverinThisTurn: false,
       focusedTileIndex: 0,
       cameraShake: 0,
       tortugaJackpot: 150,
@@ -737,7 +804,7 @@ export const useGameStore = create<GameState>()(
       actionLogs: [
         `⚓ Flotte en mer : ${humanTotal} Joueur(s) et ${aiTotal} Capitaine(s) IA !`,
         '🪵 Chaque tour, fortifiez 1 île depuis n’importe où sur la map (Or + 1 Matériau) !',
-        '💥 1 seule attaque possible lorsque vous tombez sur la même case qu’un navire adverse !',
+        '💥 Améliorations (1000 Or) disponibles à Port Royal, Tortuga ou sur vos îles !',
       ],
     });
 
@@ -1045,6 +1112,169 @@ export const useGameStore = create<GameState>()(
     });
   },
 
+  buyPerfectBoarding: () => {
+    const state = get();
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || player.bankrupt) return;
+    if (!canAccessUpgradesShop(player, state.tiles)) return;
+    if (player.hasPerfectBoarding || player.gold < UPGRADE_COST) return;
+
+    soundEffects.playGoldSound();
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex
+        ? { ...p, gold: p.gold - UPGRADE_COST, hasPerfectBoarding: true }
+        : p
+    );
+
+    state.addFloatingText(player.position, '⚔️ Abordage Parfait (-1000 Or)', '#fbbf24');
+    state.addLog(
+      `⚔️ ${player.name} achète Abordage Parfait (1000 Or) : pille 50% de l'or adverse à chaque victoire !`
+    );
+
+    set({ players: updatedPlayers });
+  },
+
+  buyTrappedFortress: (tileId) => {
+    const state = get();
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || player.bankrupt) return;
+    if (!canAccessUpgradesShop(player, state.tiles)) return;
+    if (player.gold < UPGRADE_COST) return;
+
+    const targetId = tileId !== undefined ? tileId : player.position;
+    const tile = state.tiles[targetId];
+    if (
+      !tile ||
+      tile.type !== 'island' ||
+      tile.ownerId !== player.id ||
+      tile.level < 1 ||
+      tile.trapped
+    ) {
+      return;
+    }
+
+    soundEffects.playBuildSound();
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex ? { ...p, gold: p.gold - UPGRADE_COST } : p
+    );
+    const updatedTiles = state.tiles.map((t) =>
+      t.id === tile.id ? { ...t, trapped: true } : t
+    );
+
+    state.addFloatingText(tile.id, '💣 Forteresse Piégée (-1000 Or)', '#f97316');
+    state.addLog(
+      `💣 ${player.name} piège la forteresse de ${tile.name} (1000 Or) : -50% d'or pour tout ennemi qui y accoste !`
+    );
+
+    set({
+      players: updatedPlayers,
+      tiles: updatedTiles,
+      focusedTileIndex: tile.id,
+    });
+  },
+
+  buyCulverin: () => {
+    const state = get();
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || player.bankrupt) return;
+    if (!canAccessUpgradesShop(player, state.tiles)) return;
+    if (player.hasCulverin || player.gold < UPGRADE_COST) return;
+
+    soundEffects.playGoldSound();
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex
+        ? { ...p, gold: p.gold - UPGRADE_COST, hasCulverin: true }
+        : p
+    );
+
+    state.addFloatingText(player.position, '🎯 Tir de Coulevrine (-1000 Or)', '#38bdf8');
+    state.addLog(
+      `🎯 ${player.name} équipe une Coulevrine (1000 Or) : peut détruire 1 étage d'un bâtiment adverse à ≤ ${CULVERIN_RANGE} cases !`
+    );
+
+    set({ players: updatedPlayers });
+  },
+
+  fireCulverin: (targetTileId) => {
+    const state = get();
+    if (
+      state.phase !== 'IDLE' &&
+      state.phase !== 'TILE_ACTION' &&
+      state.phase !== 'END_TURN'
+    ) {
+      return;
+    }
+    if (state.hasFiredCulverinThisTurn) return;
+
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || player.bankrupt || !player.hasCulverin) return;
+
+    const targetTile = state.tiles[targetTileId];
+    if (
+      !targetTile ||
+      targetTile.type !== 'island' ||
+      targetTile.ownerId === null ||
+      targetTile.ownerId === player.id ||
+      targetTile.level < 1
+    ) {
+      return;
+    }
+
+    const dist = getTileDistance(player.position, targetTile.id);
+    if (dist > CULVERIN_RANGE) return;
+
+    soundEffects.playCannonSound();
+    const newLevel = Math.max(0, targetTile.level - 1);
+    const owner = state.players.find((p) => p.id === targetTile.ownerId);
+
+    set({
+      hasFiredCulverinThisTurn: true,
+      showUpgradesModal: false,
+      focusedTileIndex: targetTile.id,
+      cameraShake: 0.9,
+      cannonShot: {
+        id: `culverin-${Date.now()}`,
+        fromTile: player.position,
+        toTile: targetTile.id,
+        fromOffset: getShipSlotOffset(player.id),
+        toOffset: [0, 0.35, 0],
+        active: true,
+      },
+    });
+
+    setTimeout(() => {
+      set({ cameraShake: 0 });
+    }, 500);
+
+    setTimeout(() => {
+      const cur = get();
+      const updatedTiles = cur.tiles.map((t) =>
+        t.id === targetTile.id
+          ? { ...t, level: newLevel, trapped: newLevel > 0 ? t.trapped : false }
+          : t
+      );
+
+      cur.addFloatingText(
+        targetTile.id,
+        `💥 -1 Étage (${FORTRESS_LEVEL_NAMES[newLevel]})`,
+        '#ef4444'
+      );
+      cur.addLog(
+        `💥 Coulevrine ! ${player.name} bombarde ${targetTile.name} (${owner?.name ?? 'Ennemi'}) à ${dist} case(s) : -1 étage (${FORTRESS_LEVEL_NAMES[targetTile.level]} → ${FORTRESS_LEVEL_NAMES[newLevel]}) !`
+      );
+
+      set({
+        tiles: updatedTiles,
+        cannonShot: null,
+        landedTilePopup: {
+          tileId: targetTile.id,
+          playerId: player.id,
+          eventSummary: `💥 Tir de Coulevrine : ${targetTile.name} perd 1 étage (${FORTRESS_LEVEL_NAMES[newLevel]}) !`,
+        },
+      });
+    }, 520);
+  },
+
   resolveCardModal: () => {
     const state = get();
     const card = state.activeCard;
@@ -1231,7 +1461,7 @@ export const useGameStore = create<GameState>()(
         set({ cameraShake: 0 });
       }, 500);
 
-      // Apply 150 Doublons + 1 Building Material plunder after cannonball impact
+      // Apply 150 Doublons (or 50% of loser's gold with Abordage Parfait) + 1 Building Material plunder after cannonball impact
       setTimeout(() => {
         const cur = get();
         const b = cur.navalBattle;
@@ -1239,12 +1469,17 @@ export const useGameStore = create<GameState>()(
 
         const winner = cur.players.find((p) => p.id === b.winnerId)!;
         const loser = cur.players.find((p) => p.id === b.loserId)!;
-        const plunder = Math.min(150, Math.max(50, loser.gold));
+        const halfLoserGold = Math.floor(Math.max(0, loser.gold) * 0.5);
+        const plunder = winner.hasPerfectBoarding
+          ? Math.max(halfLoserGold, Math.min(150, Math.max(0, loser.gold)))
+          : Math.min(150, Math.max(50, loser.gold));
 
         soundEffects.playGoldSound();
         cur.addFloatingText(
           b.tileIndex,
-          `+${plunder} Or & +1 🪵 (${winner.name})`,
+          winner.hasPerfectBoarding
+            ? `⚔️ Abordage Parfait ! +${plunder} Or (50%) & +1 🪵`
+            : `+${plunder} Or & +1 🪵 (${winner.name})`,
           '#4ade80'
         );
         setTimeout(() => {
@@ -1252,7 +1487,9 @@ export const useGameStore = create<GameState>()(
         }, 220);
 
         cur.addLog(
-          `💥 Abordage ! ${winner.name} (${b.attackerId === winner.id ? b.attackerRoll : b.defenderRoll}) canonne ${loser.name} (${b.attackerId === loser.id ? b.attackerRoll : b.defenderRoll}) et gagne +${plunder} Or & +1 Matériau 🪵 !`
+          winner.hasPerfectBoarding
+            ? `⚔️ Abordage Parfait ! ${winner.name} (${b.attackerId === winner.id ? b.attackerRoll : b.defenderRoll}) rafle 50% de l'or de ${loser.name} : +${plunder} Or & +1 Matériau 🪵 !`
+            : `💥 Abordage ! ${winner.name} (${b.attackerId === winner.id ? b.attackerRoll : b.defenderRoll}) canonne ${loser.name} (${b.attackerId === loser.id ? b.attackerRoll : b.defenderRoll}) et gagne +${plunder} Or & +1 Matériau 🪵 !`
         );
 
         set((s) => ({
@@ -1342,6 +1579,9 @@ export const useGameStore = create<GameState>()(
       phase: 'IDLE',
       hasAttackedThisTurn: false,
       hasFortifiedThisTurn: false,
+      hasFiredCulverinThisTurn: false,
+      showFortifyModal: false,
+      showUpgradesModal: false,
       focusedTileIndex: nextPlayer.position,
       activeCard: null,
       landedTilePopup: null,
@@ -1368,6 +1608,7 @@ export const useGameStore = create<GameState>()(
         dice: state.dice,
         hasAttackedThisTurn: state.hasAttackedThisTurn,
         hasFortifiedThisTurn: state.hasFortifiedThisTurn,
+        hasFiredCulverinThisTurn: state.hasFiredCulverinThisTurn,
         cameraMode: state.cameraMode,
         focusedTileIndex: state.focusedTileIndex,
         tortugaJackpot: state.tortugaJackpot,
@@ -1399,10 +1640,12 @@ function resumeSavedStateAfterReload(): void {
   const mergedTiles = INITIAL_TILES.map((baseTile) => {
     const savedTile = state.tiles.find((t) => t.id === baseTile.id);
     if (!savedTile) return { ...baseTile };
+    const safeLevel = Math.min(MAX_FORTIFY_LEVEL, Math.max(0, savedTile.level ?? 0));
     return {
       ...baseTile,
       ownerId: savedTile.ownerId ?? null,
-      level: Math.min(MAX_FORTIFY_LEVEL, Math.max(0, savedTile.level ?? 0)),
+      level: safeLevel,
+      trapped: safeLevel > 0 ? Boolean(savedTile.trapped) : false,
     };
   });
 
@@ -1446,6 +1689,7 @@ function resumeSavedStateAfterReload(): void {
     cannonShot: null,
     floatingTexts: [],
     showFortifyModal: false,
+    showUpgradesModal: false,
     focusedTileIndex: activePlayer ? activePlayer.position : state.focusedTileIndex,
   });
 
@@ -1674,14 +1918,27 @@ function evaluateLandedTile(): void {
           checkAutomaticNavalBattlePrompt();
         }
       } else {
-        // Owned by rival captain -> pay anchorage rent!
+        // Owned by rival captain -> pay anchorage rent (+ 50% gold loss if fortress is trapped!)
         const owner = state.players.find((p) => p.id === tile.ownerId);
         if (owner && !owner.bankrupt) {
           const rent = calculateIslandRent(tile, state.tiles);
-          soundEffects.playGoldSound();
+          const isTrappedFortress = Boolean(tile.trapped && tile.level >= 1);
+          const trapLoss = isTrappedFortress
+            ? Math.floor(Math.max(0, player.gold) * 0.5)
+            : 0;
+          const totalLoss = rent + trapLoss;
+
+          if (isTrappedFortress) {
+            soundEffects.playCannonSound();
+          } else {
+            soundEffects.playGoldSound();
+          }
+
           state.addFloatingText(
             tile.id,
-            `-${rent} Or (${player.name})`,
+            isTrappedFortress
+              ? `💣 Piège (-50% : -${trapLoss} Or) & Loyer -${rent} Or`
+              : `-${rent} Or (${player.name})`,
             '#f87171'
           );
           setTimeout(() => {
@@ -1690,29 +1947,38 @@ function evaluateLandedTile(): void {
               .addFloatingText(tile.id, `+${rent} Or (${owner.name})`, '#4ade80');
           }, 220);
 
-          state.addLog(
-            `⚓ Droit de mouillage : ${player.name} verse ${rent} Doublons à ${owner.name} sur ${tile.name} !`
-          );
+          if (isTrappedFortress) {
+            state.addLog(
+              `💣 Forteresse Piégée sur ${tile.name} ! ${player.name} perd 50% de son or (-${trapLoss} Or) + ${rent} Or de loyer à ${owner.name} !`
+            );
+          } else {
+            state.addLog(
+              `⚓ Droit de mouillage : ${player.name} verse ${rent} Doublons à ${owner.name} sur ${tile.name} !`
+            );
+          }
 
           useGameStore.setState((s) => ({
-            cameraShake: 0.45,
+            cameraShake: isTrappedFortress ? 0.85 : 0.45,
+            tortugaJackpot: s.tortugaJackpot + trapLoss,
             players: s.players.map((p) => {
-              if (p.id === player.id) return { ...p, gold: p.gold - rent };
+              if (p.id === player.id) return { ...p, gold: p.gold - totalLoss };
               if (p.id === owner.id) return { ...p, gold: p.gold + rent };
               return p;
             }),
             landedTilePopup: {
               tileId: tile.id,
               playerId: player.id,
-              eventSummary: `⚓ Droit de mouillage : -${rent} Or versés à ${owner.name}`,
+              eventSummary: isTrappedFortress
+                ? `💣 Forteresse Piégée ! -${trapLoss} Or (-50%) & -${rent} Or à ${owner.name}`
+                : `⚓ Droit de mouillage : -${rent} Or versés à ${owner.name}`,
               rentPayment: {
                 payerId: player.id,
                 ownerId: owner.id,
-                amount: rent,
+                amount: totalLoss,
               },
             },
           }));
-          setTimeout(() => useGameStore.setState({ cameraShake: 0 }), 380);
+          setTimeout(() => useGameStore.setState({ cameraShake: 0 }), 420);
           checkPlayerBankruptcy(state.currentPlayerIndex);
         }
         afterTileActionCheckNavalBattle();
@@ -1751,6 +2017,50 @@ function afterTileActionCheckNavalBattle(): void {
     if (aiUpgradable.length > 0) {
       const target = aiUpgradable[aiUpgradable.length - 1];
       state.fortifyIsland(target.id);
+    }
+  }
+
+  // AI can buy upgrades if on Port Royal, Tortuga, or own island and rich enough
+  const afterFortifyState = useGameStore.getState();
+  const aiPlayer = afterFortifyState.players[afterFortifyState.currentPlayerIndex];
+  if (
+    aiPlayer &&
+    aiPlayer.isAI &&
+    !aiPlayer.bankrupt &&
+    canAccessUpgradesShop(aiPlayer, afterFortifyState.tiles) &&
+    aiPlayer.gold >= UPGRADE_COST + 350
+  ) {
+    if (!aiPlayer.hasCulverin) {
+      afterFortifyState.buyCulverin();
+    } else if (!aiPlayer.hasPerfectBoarding) {
+      afterFortifyState.buyPerfectBoarding();
+    } else {
+      const fortToTrap = afterFortifyState.tiles.find(
+        (t) =>
+          t.type === 'island' &&
+          t.ownerId === aiPlayer.id &&
+          t.level >= 1 &&
+          !t.trapped
+      );
+      if (fortToTrap) {
+        afterFortifyState.buyTrappedFortress(fortToTrap.id);
+      }
+    }
+  }
+
+  // AI with Culverin fires at a nearby enemy building (<= 3 tiles) if available
+  const preBattleState = useGameStore.getState();
+  const shooterAI = preBattleState.players[preBattleState.currentPlayerIndex];
+  if (
+    shooterAI &&
+    shooterAI.isAI &&
+    !shooterAI.bankrupt &&
+    shooterAI.hasCulverin &&
+    !preBattleState.hasFiredCulverinThisTurn
+  ) {
+    const targets = getCulverinTargets(shooterAI, preBattleState.tiles);
+    if (targets.length > 0) {
+      preBattleState.fireCulverin(targets[0].id);
     }
   }
 
@@ -1856,7 +2166,7 @@ function checkPlayerBankruptcy(playerIndex: number): void {
       idx === playerIndex ? { ...p, gold: 0, bankrupt: true } : p
     );
     const updatedTiles = state.tiles.map((t) =>
-      t.ownerId === player.id ? { ...t, ownerId: null, level: 0 } : t
+      t.ownerId === player.id ? { ...t, ownerId: null, level: 0, trapped: false } : t
     );
 
     const remaining = updatedPlayers.filter((p) => !p.bankrupt);

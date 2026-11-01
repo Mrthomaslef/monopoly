@@ -45,8 +45,21 @@ const TERRAIN_TEXTURE_MAP: Record<TerrainTheme, string> = {
   malediction: './assets/tile_malediction.jpg',
 };
 
+const PROP_TEXTURE_MAP: Record<TerrainTheme, string> = {
+  plage: './assets/prop_plage.png',
+  lagon: './assets/prop_lagon.png',
+  falaise: './assets/prop_falaise.png',
+  temple: './assets/prop_temple.png',
+  volcan: './assets/prop_volcan.png',
+  eldorado: './assets/prop_eldorado.png',
+  port: './assets/prop_port.png',
+  taverne: './assets/prop_taverne.png',
+  tresor: './assets/prop_tresor.png',
+  malediction: './assets/prop_malediction.png',
+};
+
 /**
- * Maps each of the 24 tiles to its dedicated Higgsfield Soul V2 terrain artwork
+ * Maps each of the 24 tiles to its dedicated Higgsfield Soul V2 terrain & 3D relief prop
  */
 export function getTileTerrainTheme(tile: TileData): TerrainTheme {
   if (tile.id === 0 || tile.id === 4) return 'port';
@@ -73,13 +86,23 @@ export const Tile: React.FC<TileProps> = ({
   const { position, rotationY, side } = getTileTransform(tile.id);
   const isCorner = side === 'corner';
   const foamRef = useRef<THREE.Mesh>(null);
+  const propGroupRef = useRef<THREE.Group>(null);
 
   const theme = useMemo(() => getTileTerrainTheme(tile), [tile]);
   const isRockyShore =
     theme === 'falaise' || theme === 'volcan' || theme === 'malediction';
+  const isMixedCove =
+    theme === 'port' || theme === 'temple' || theme === 'eldorado';
 
-  const [tileArtTexture, sandTexture, rockTexture, woodTexture] = useTexture([
+  const [
+    tileArtTexture,
+    propTexture,
+    sandTexture,
+    rockTexture,
+    woodTexture,
+  ] = useTexture([
     TERRAIN_TEXTURE_MAP[theme],
+    PROP_TEXTURE_MAP[theme],
     './assets/sand_beach.jpg',
     './assets/coastal_rock.jpg',
     './assets/wood_planks.jpg',
@@ -94,15 +117,21 @@ export const Tile: React.FC<TileProps> = ({
   );
 
   useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
     if (foamRef.current) {
-      const s =
-        1 + Math.sin(clock.getElapsedTime() * 2.4 + tile.id * 0.7) * 0.04;
+      const s = 1 + Math.sin(t * 2.4 + tile.id * 0.7) * 0.04;
       foamRef.current.scale.set(s, s, 1);
+    }
+    if (propGroupRef.current) {
+      // Subtle 3D breathing/floating animation on the standing relief prop
+      propGroupRef.current.position.y =
+        0.48 + Math.sin(t * 2.0 + tile.id * 0.9) * 0.015;
     }
   });
 
   const baseRadius = isCorner ? 0.88 : 0.78;
   const ribbonWidth = isCorner ? 1.5 : 1.4;
+  const propSize = isCorner ? 0.96 : 0.86;
 
   const levelStars =
     tile.level >= 4
@@ -155,31 +184,61 @@ export const Tile: React.FC<TileProps> = ({
         />
       </mesh>
 
-      {/* 2. Sculpted Coastal Shore Bevel (Sandy Beach vs Rocky Cliff Coast) */}
+      {/* 2. Sculpted 3D Coastal Shore Base (Varied Beach vs Rocky Cliff vs Cove) */}
       <mesh
-        position={[0, 0.01, 0]}
+        position={[0, 0.02, 0]}
         rotation={[0, islandSeedAngle, 0]}
         receiveShadow
         castShadow
       >
         <cylinderGeometry
           args={[
-            baseRadius * 0.88,
+            baseRadius * 0.86,
             baseRadius * 1.04,
-            0.2,
-            isRockyShore ? 10 : 24,
+            0.22,
+            isRockyShore ? 9 : 20,
           ]}
         />
         <meshStandardMaterial
           map={isRockyShore ? rockTexture : sandTexture}
+          bumpMap={isRockyShore ? rockTexture : sandTexture}
+          bumpScale={0.03}
           color={isRockyShore ? '#94a3b8' : '#fde68a'}
           roughness={0.82}
         />
       </mesh>
 
+      {/* Secondary Organic 3D Coastal Lobe (Sandbank or Rocky Promontory) */}
+      <mesh
+        position={[
+          (tile.id % 2 === 0 ? 1 : -1) * baseRadius * 0.32,
+          0.03,
+          -baseRadius * 0.22,
+        ]}
+        rotation={[0, -islandSeedAngle * 0.7, 0]}
+        receiveShadow
+        castShadow
+      >
+        <cylinderGeometry
+          args={[
+            baseRadius * 0.52,
+            baseRadius * 0.68,
+            0.22,
+            isRockyShore || isMixedCove ? 7 : 14,
+          ]}
+        />
+        <meshStandardMaterial
+          map={isRockyShore || isMixedCove ? rockTexture : sandTexture}
+          bumpMap={isRockyShore || isMixedCove ? rockTexture : sandTexture}
+          bumpScale={0.035}
+          color={isRockyShore || isMixedCove ? '#cbd5e1' : '#fef08a'}
+          roughness={0.85}
+        />
+      </mesh>
+
       {/* Ownership Glowing Ring around the Island Perimeter */}
       {owner && (
-        <mesh position={[0, 0.125, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0.135, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[baseRadius * 0.84, baseRadius * 0.93, 24]} />
           <meshStandardMaterial
             color={owner.color}
@@ -190,25 +249,79 @@ export const Tile: React.FC<TileProps> = ({
         </mesh>
       )}
 
-      {/* 3. Viewer-Aligned Higgsfield Soul V2 Island Artwork & Driftwood Border Ribbon */}
+      {/* 3. Viewer-Aligned 3D Island Relief & Standing Higgsfield 3D Cutout Landmark */}
       <group rotation={[0, -rotationY, 0]}>
-        {/* Authentic Higgsfield Soul V2 Island Illustration Medallion */}
-        <mesh
-          position={[0, 0.118, -0.02]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          receiveShadow
-        >
-          <circleGeometry args={[baseRadius * 0.85, 32]} />
+        {/* Elevated 3D Island Mound with Higgsfield Terrain Texture & Bump Relief */}
+        <mesh position={[0, 0.13, -0.04]} receiveShadow castShadow>
+          <cylinderGeometry
+            args={[baseRadius * 0.74, baseRadius * 0.85, 0.08, 28]}
+          />
           <meshStandardMaterial
             map={tileArtTexture}
-            roughness={0.55}
-            metalness={0.05}
+            bumpMap={tileArtTexture}
+            bumpScale={0.04}
+            roughness={0.6}
           />
         </mesh>
 
+        {/* Ground Contact Shadow under the Standing 3D Prop */}
+        <mesh
+          position={[0, 0.175, -0.1]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <circleGeometry args={[propSize * 0.42, 20]} />
+          <meshBasicMaterial color="#020617" transparent opacity={0.32} />
+        </mesh>
+
+        {/* STANDING 3D RELIEF PROP GENERATED BY HIGGSFIELD SOUL V2 (Multi-Layer 3D Pop-Up Diorama) */}
+        <group
+          ref={propGroupRef}
+          position={[0, 0.48, -0.1]}
+          rotation={[-0.28, 0, 0]}
+        >
+          {/* Back 3D Extrusion Rim for Volumetric Depth */}
+          <mesh position={[0, 0, -0.035]} castShadow>
+            <planeGeometry args={[propSize, propSize]} />
+            <meshStandardMaterial
+              map={propTexture}
+              color="#475569"
+              transparent
+              alphaTest={0.18}
+              roughness={0.7}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          {/* Mid 3D Extrusion Layer */}
+          <mesh position={[0, 0, -0.018]}>
+            <planeGeometry args={[propSize, propSize]} />
+            <meshStandardMaterial
+              map={propTexture}
+              color="#94a3b8"
+              transparent
+              alphaTest={0.18}
+              roughness={0.6}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+          {/* Front Full-Color Higgsfield 3D Prop Relief */}
+          <mesh position={[0, 0, 0]} castShadow>
+            <planeGeometry args={[propSize, propSize]} />
+            <meshStandardMaterial
+              map={propTexture}
+              bumpMap={propTexture}
+              bumpScale={0.025}
+              transparent
+              alphaTest={0.12}
+              roughness={0.42}
+              metalness={0.06}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        </group>
+
         {/* 4. STYLIZED DRIFTWOOD & PARCHMENT COASTAL RIM BANNER ("EN BORD DE CASE") */}
         <group
-          position={[0, 0.135, baseRadius * 0.72]}
+          position={[0, 0.145, baseRadius * 0.72]}
           rotation={[-Math.PI / 2 + 0.34, 0, 0]}
         >
           {/* Thin Color-Group Crest Trim along the Top Edge of the Border */}

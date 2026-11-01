@@ -27,8 +27,18 @@ function PeripheralTropicalIsland({
       ? './assets/tile_lagon.jpg'
       : './assets/tile_falaise.jpg';
 
-  const [artTex, sandTex, rockTex] = useTexture([
+  const propPath =
+    variant === 'volcano'
+      ? './assets/prop_volcan.png'
+      : variant === 'temple'
+      ? './assets/prop_temple.png'
+      : variant === 'lagoon_arch'
+      ? './assets/prop_plage.png'
+      : './assets/prop_falaise.png';
+
+  const [artTex, propTex, sandTex, rockTex] = useTexture([
     artPath,
+    propPath,
     './assets/sand_beach.jpg',
     './assets/coastal_rock.jpg',
   ]);
@@ -37,25 +47,55 @@ function PeripheralTropicalIsland({
 
   return (
     <group position={position} scale={scale}>
-      {/* Sculpted Shoreline Base */}
+      {/* Sculpted 3D Shoreline Base */}
       <mesh position={[0, 0.06, 0]} receiveShadow castShadow>
         <cylinderGeometry args={[2.55, 3.15, 0.28, isRocky ? 12 : 28]} />
         <meshStandardMaterial
           map={isRocky ? rockTex : sandTex}
+          bumpMap={isRocky ? rockTex : sandTex}
+          bumpScale={0.04}
           color={isRocky ? '#94a3b8' : '#fde68a'}
           roughness={0.85}
         />
       </mesh>
 
-      {/* Authentic Higgsfield Soul V2 Island Artwork Surface */}
-      <mesh
-        position={[0, 0.205, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <circleGeometry args={[2.5, 32]} />
-        <meshStandardMaterial map={artTex} roughness={0.55} metalness={0.05} />
+      {/* Elevated 3D Island Mound with Higgsfield Artwork */}
+      <mesh position={[0, 0.22, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[2.2, 2.52, 0.14, 28]} />
+        <meshStandardMaterial
+          map={artTex}
+          bumpMap={artTex}
+          bumpScale={0.05}
+          roughness={0.58}
+        />
       </mesh>
+
+      {/* Standing 3D Relief Prop from Higgsfield Soul V2 */}
+      <group position={[0, 1.35, 0]} rotation={[-0.25, 0, 0]}>
+        <mesh position={[0, 0, -0.06]} castShadow>
+          <planeGeometry args={[2.7, 2.7]} />
+          <meshStandardMaterial
+            map={propTex}
+            color="#475569"
+            transparent
+            alphaTest={0.18}
+            roughness={0.7}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={[0, 0, 0]} castShadow>
+          <planeGeometry args={[2.7, 2.7]} />
+          <meshStandardMaterial
+            map={propTex}
+            bumpMap={propTex}
+            bumpScale={0.03}
+            transparent
+            alphaTest={0.12}
+            roughness={0.45}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      </group>
     </group>
   );
 }

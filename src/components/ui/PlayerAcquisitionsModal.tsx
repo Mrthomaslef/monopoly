@@ -30,9 +30,16 @@ interface ActiveBonusItem {
   key: string;
   icon: string;
   title: string;
-  description: string;
+  shortEffect: string;
   badge?: string;
 }
+
+const COMPACT_SET_EFFECTS: Record<string, string> = {
+  perles: '+300 Or / départ',
+  plages: '+3 🪵 / tour',
+  maya: '1 Malédiction / départ',
+  eldorado: '+600 Or / arrêt',
+};
 
 export const PlayerAcquisitionsModal: React.FC = () => {
   const inspectedPlayerId = useGameStore((s) => s.inspectedPlayerId);
@@ -72,7 +79,7 @@ export const PlayerAcquisitionsModal: React.FC = () => {
     };
   }).filter((group) => group.ownedInTheme.length > 0);
 
-  // Collect all active bonuses for this player
+  // Collect all active bonuses for this player in a condensed format
   const activeBonuses: ActiveBonusItem[] = [];
 
   // 1. Active Set Bonuses (Perles, Plages, Maya, El Dorado)
@@ -83,8 +90,8 @@ export const PlayerAcquisitionsModal: React.FC = () => {
         key: `set-${bonus.id}`,
         icon: bonus.icon,
         title: bonus.name,
-        description: bonus.description,
-        badge: `${ownedCount}/${bonus.tileIds.length} îles`,
+        shortEffect: COMPACT_SET_EFFECTS[bonus.id] ?? bonus.description,
+        badge: `${ownedCount}/${bonus.tileIds.length}`,
       });
     }
   }
@@ -95,8 +102,7 @@ export const PlayerAcquisitionsModal: React.FC = () => {
       key: 'upgrade-boarding',
       icon: '⚔️',
       title: 'Abordage Parfait',
-      description: 'Pille 50% de l’or adverse lors d’un abordage gagné',
-      badge: 'Arsenal',
+      shortEffect: 'Pille 50% Or en duel',
     });
   }
 
@@ -104,9 +110,8 @@ export const PlayerAcquisitionsModal: React.FC = () => {
     activeBonuses.push({
       key: 'upgrade-culverin',
       icon: '🎯',
-      title: 'Tir de Coulevrine',
-      description: `Détruit 1 étage d’un bâtiment adverse à ≤ ${CULVERIN_RANGE} cases`,
-      badge: 'Arsenal',
+      title: 'Coulevrine',
+      shortEffect: `-1 étage (≤${CULVERIN_RANGE} cases)`,
     });
   }
 
@@ -114,21 +119,24 @@ export const PlayerAcquisitionsModal: React.FC = () => {
     activeBonuses.push({
       key: 'curse-charge',
       icon: '🗿',
-      title: 'Malédiction Maya prête',
-      description: 'Une malédiction est chargée et prête à frapper un rival',
+      title: 'Malédiction',
+      shortEffect: 'Prête à frapper',
       badge: 'Prêt',
     });
   }
 
-  // 3. Trapped Fortresses owned by this player
+  // 3. Trapped Fortresses owned by this player (grouped to stay compact)
   const trappedIslands = ownedIslands.filter((t) => t.trapped && t.level > 0);
-  for (const trappedTile of trappedIslands) {
+  if (trappedIslands.length > 0) {
     activeBonuses.push({
-      key: `trap-${trappedTile.id}`,
+      key: 'trapped-fortresses',
       icon: '💣',
-      title: `Forteresse Piégée (${trappedTile.name})`,
-      description: 'Fait perdre 50% de son or à l’ennemi qui y accoste',
-      badge: 'Piège',
+      title:
+        trappedIslands.length === 1
+          ? `Piège (${trappedIslands[0].name})`
+          : `Forteresses Piégées`,
+      shortEffect: '-50% Or à l’accostage',
+      badge: `${trappedIslands.length}x`,
     });
   }
 
@@ -136,27 +144,32 @@ export const PlayerAcquisitionsModal: React.FC = () => {
   const colorGroups = Array.from(
     new Set(tiles.filter((t) => t.type === 'island').map((t) => t.group))
   );
-  for (const groupName of colorGroups) {
+  const ownedMonopolies = colorGroups.filter((groupName) => {
     const groupTiles = tiles.filter(
       (t) => t.type === 'island' && t.group === groupName
     );
-    if (
-      groupTiles.length > 1 &&
-      groupTiles.every((t) => t.ownerId === player.id)
-    ) {
-      activeBonuses.push({
-        key: `monopoly-${groupName}`,
-        icon: '🏴‍☠️',
-        title: `Monopole ${groupName}`,
-        description: 'Série complète possédée : loyer de base +50%',
-        badge: `${groupTiles.length}/${groupTiles.length}`,
-      });
-    }
+    return (
+      groupTiles.length > 1 && groupTiles.every((t) => t.ownerId === player.id)
+    );
+  });
+  if (ownedMonopolies.length > 0) {
+    activeBonuses.push({
+      key: 'monopolies',
+      icon: '🏴‍☠️',
+      title:
+        ownedMonopolies.length === 1
+          ? `Monopole ${ownedMonopolies[0]}`
+          : `Monopoles (${ownedMonopolies.length})`,
+      shortEffect: 'Loyer de base +50%',
+      badge: `${ownedMonopolies.length}x`,
+    });
   }
 
   const handleSelectIsland = (tile: TileData) => {
     inspectTileCard(tile.id);
   };
+
+  const isDense = themeGroups.length >= 4 || ownedIslands.length >= 7;
 
   return (
     <AnimatePresence>
@@ -169,19 +182,19 @@ export const PlayerAcquisitionsModal: React.FC = () => {
         className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md pointer-events-auto"
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.88, y: 20 }}
+          initial={{ opacity: 0, scale: 0.9, y: 14 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 16 }}
-          transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+          exit={{ opacity: 0, scale: 0.92, y: 12 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 28 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-[430px] max-h-full flex flex-col rounded-3xl wood-panel border-3 shadow-[0_22px_60px_rgba(0,0,0,0.95)] overflow-hidden text-white"
+          className="relative w-full max-w-[440px] flex flex-col rounded-2xl wood-panel border-2 shadow-[0_20px_50px_rgba(0,0,0,0.95)] overflow-hidden text-white"
           style={{ borderColor: player.color }}
         >
-          {/* Top Captain Switcher + Header */}
-          <div className="px-3.5 pt-3 pb-2.5 bg-gradient-to-b from-slate-950/90 to-slate-900/85 border-b-2 border-amber-700/50 shrink-0">
+          {/* Compact Top Captain Switcher + Identity Header */}
+          <div className="px-2.5 pt-2 pb-2 bg-gradient-to-b from-slate-950/90 to-slate-900/85 border-b border-amber-700/50 shrink-0">
             {/* Quick switcher between captains */}
             {players.length > 1 && (
-              <div className="flex items-center gap-1.5 mb-2.5 pr-8">
+              <div className="flex items-center gap-1 mb-1.5 pr-7">
                 {players.map((p, idx) => {
                   const active = p.id === player.id;
                   return (
@@ -189,19 +202,18 @@ export const PlayerAcquisitionsModal: React.FC = () => {
                       key={p.id}
                       type="button"
                       onClick={() => setInspectedPlayerId(p.id)}
-                      className={`flex-1 min-w-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 px-1 py-1 rounded-xl border text-center transition cursor-pointer ${
+                      className={`flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-lg border text-center transition cursor-pointer ${
                         active
-                          ? 'bg-amber-500/20 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]'
+                          ? 'bg-amber-500/25 border-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.3)]'
                           : 'bg-black/40 border-white/15 opacity-70 hover:opacity-100'
                       }`}
                     >
-                      <CaptainAvatar
-                        captainId={p.id}
-                        color={p.color}
-                        size="sm"
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: p.color }}
                       />
-                      <span className="text-[11px] font-black leading-tight text-white">
-                        {p.isAI ? 'IA' : `J${idx + 1}`}
+                      <span className="text-[10px] font-black leading-none text-white truncate">
+                        {p.isAI ? 'IA' : `J${idx + 1}`} • {p.name.split(' ')[0]}
                       </span>
                     </button>
                   );
@@ -209,17 +221,17 @@ export const PlayerAcquisitionsModal: React.FC = () => {
               </div>
             )}
 
-            {/* Selected Captain Identity & Stats */}
-            <div className="flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
+            {/* Selected Captain Identity & Inline Stats */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="relative shrink-0">
                   <CaptainAvatar
                     captainId={player.id}
                     color={player.color}
-                    size="lg"
+                    size="sm"
                   />
                   <span
-                    className="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded text-[9px] font-black text-white border border-slate-950 shadow leading-none"
+                    className="absolute -bottom-0.5 -right-0.5 px-1 py-0.2 rounded text-[8px] font-black text-white border border-slate-950 shadow leading-none"
                     style={{
                       backgroundColor: player.isAI ? '#0f172a' : player.color,
                     }}
@@ -229,41 +241,40 @@ export const PlayerAcquisitionsModal: React.FC = () => {
                 </div>
 
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                    <h2 className="font-pirata text-xl sm:text-2xl leading-none tracking-wide text-amber-200">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h2 className="font-pirata text-lg leading-none tracking-wide text-amber-200 truncate">
                       {player.name}
                     </h2>
                     {player.bankrupt && (
-                      <span className="px-1.5 py-0.5 rounded bg-rose-900/90 border border-rose-400 text-[10px] font-black text-rose-200 inline-flex items-center gap-0.5">
-                        <Skull className="w-3 h-3" /> Éliminé
+                      <span className="px-1 py-0.2 rounded bg-rose-900/90 border border-rose-400 text-[9px] font-black text-rose-200 inline-flex items-center gap-0.5">
+                        <Skull className="w-2.5 h-2.5" /> Éliminé
                       </span>
                     )}
                     {!player.bankrupt && player.inJail && (
-                      <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-400 text-[10px] font-black text-slate-200">
-                        ⛓️ En Cale
+                      <span className="px-1 py-0.2 rounded bg-slate-800 border border-slate-400 text-[9px] font-black text-slate-200">
+                        ⛓️ Cale
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] font-bold text-amber-100/75 leading-tight mt-0.5">
+                  <p className="text-[10px] font-bold text-amber-100/70 leading-tight truncate">
                     {player.title}
                   </p>
-
-                  {/* Gold, Materials & Owned Islands Count */}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-full bg-amber-950/90 border border-amber-400/50 text-[11px] font-black text-amber-300 inline-flex items-center gap-1">
-                      <Coins className="w-3 h-3 text-amber-400" />
-                      {player.gold} Or
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-amber-950/90 border border-orange-400/50 text-[11px] font-black text-orange-200">
-                      🪵 {player.materials}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-cyan-950/90 border border-cyan-400/50 text-[11px] font-black text-cyan-200 inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-cyan-300" />
-                      {ownedIslands.length}{' '}
-                      {ownedIslands.length > 1 ? 'îles' : 'île'}
-                    </span>
-                  </div>
                 </div>
+              </div>
+
+              {/* Compact Gold, Materials & Owned Islands Pills */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-950/90 border border-amber-400/50 text-[10px] font-black text-amber-300 inline-flex items-center gap-0.5">
+                  <Coins className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                  {player.gold}
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-950/90 border border-orange-400/50 text-[10px] font-black text-orange-200">
+                  🪵 {player.materials}
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md bg-cyan-950/90 border border-cyan-400/50 text-[10px] font-black text-cyan-200 inline-flex items-center gap-0.5">
+                  <MapPin className="w-2.5 h-2.5 text-cyan-300 shrink-0" />
+                  {ownedIslands.length}
+                </span>
               </div>
             </div>
 
@@ -272,45 +283,45 @@ export const PlayerAcquisitionsModal: React.FC = () => {
               type="button"
               onClick={() => setInspectedPlayerId(null)}
               aria-label="Fermer"
-              className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/65 hover:bg-black/85 text-amber-100 border border-white/30 flex items-center justify-center cursor-pointer shadow"
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/65 hover:bg-black/85 text-amber-100 border border-white/30 flex items-center justify-center cursor-pointer shadow"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Scrollable Body: Bonuses + Acquisitions by Theme */}
-          <div className="p-3 space-y-3 overflow-y-auto pirate-scroll flex-1">
-            {/* Active Bonuses Section (shown when the player has at least one bonus) */}
+          {/* Condensed Body (No Scroll Needed): Active Bonuses + Acquisitions */}
+          <div className="p-2 space-y-1.5">
+            {/* Active Bonuses Section (2-column compact chips) */}
             {activeBonuses.length > 0 && (
-              <div className="rounded-2xl bg-slate-950/85 border-2 border-amber-400/60 p-2.5 shadow-lg">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <div className="rounded-xl bg-slate-950/85 border border-amber-400/55 px-2 py-1.5 shadow">
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
                     Bonus Actifs ({activeBonuses.length})
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-1">
                   {activeBonuses.map((bonus) => (
                     <div
                       key={bonus.key}
-                      className="rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900/90 to-slate-950/90 border border-amber-400/35 px-2.5 py-2 flex items-start justify-between gap-2"
+                      className="rounded-lg bg-gradient-to-r from-amber-950/75 via-slate-900/90 to-slate-950/90 border border-amber-400/35 px-1.5 py-1 flex items-center justify-between gap-1 min-w-0"
                     >
-                      <div className="flex items-start gap-2 min-w-0">
-                        <span className="text-base leading-none mt-0.5 shrink-0">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-xs leading-none shrink-0">
                           {bonus.icon}
                         </span>
                         <div className="min-w-0">
-                          <div className="text-xs font-black text-amber-200 leading-tight">
+                          <div className="text-[10px] font-black text-amber-200 leading-none truncate">
                             {bonus.title}
                           </div>
-                          <div className="text-[11px] font-semibold text-amber-100/85 leading-snug mt-0.5">
-                            {bonus.description}
+                          <div className="text-[9px] font-semibold text-amber-100/80 leading-tight truncate mt-0.5">
+                            {bonus.shortEffect}
                           </div>
                         </div>
                       </div>
                       {bonus.badge && (
-                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-[10px] font-black text-emerald-300 whitespace-nowrap">
+                        <span className="shrink-0 px-1 py-0.2 rounded bg-emerald-500/20 border border-emerald-400/50 text-[8px] font-black text-emerald-300">
                           {bonus.badge}
                         </span>
                       )}
@@ -320,32 +331,28 @@ export const PlayerAcquisitionsModal: React.FC = () => {
               </div>
             )}
 
-            {/* Acquisitions Grouped by Case Theme (Same 3D Model & Design) */}
+            {/* Acquisitions Grouped by Theme */}
             <div>
-              <div className="flex items-center justify-between mb-2 px-0.5">
-                <span className="text-xs font-black uppercase tracking-wider text-amber-200">
+              <div className="flex items-center justify-between mb-1 px-0.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-200">
                   Acquisitions ({ownedIslands.length})
                 </span>
                 {themeGroups.length > 0 && (
-                  <span className="text-[10px] font-bold text-amber-200/75">
-                    {themeGroups.length}{' '}
-                    {themeGroups.length > 1 ? 'thèmes' : 'thème'}
+                  <span className="text-[9px] font-bold text-amber-200/70">
+                    Cliquer sur une île pour l&apos;inspecter
                   </span>
                 )}
               </div>
 
               {themeGroups.length === 0 ? (
-                <div className="rounded-2xl bg-black/45 border border-amber-500/30 p-5 text-center">
-                  <div className="text-2xl mb-1">🏝️</div>
-                  <div className="text-xs font-black text-amber-200">
-                    Aucune île pour le moment
+                <div className="rounded-xl bg-black/45 border border-amber-500/30 py-3 px-4 text-center">
+                  <div className="text-lg leading-none mb-0.5">🏝️</div>
+                  <div className="text-[11px] font-black text-amber-200">
+                    Aucune île possédée
                   </div>
-                  <p className="text-[11px] font-semibold text-amber-100/70 mt-0.5">
-                    Les îles de {player.name} apparaîtront ici.
-                  </p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className={isDense ? 'space-y-1' : 'space-y-1.5'}>
                   {themeGroups.map(
                     ({
                       theme,
@@ -364,74 +371,63 @@ export const PlayerAcquisitionsModal: React.FC = () => {
                       return (
                         <div
                           key={theme}
-                          className={`rounded-2xl border-3 ${styleCfg.borderClass} overflow-hidden shadow-xl`}
+                          className={`rounded-xl border-2 ${styleCfg.borderClass} overflow-hidden shadow-md`}
                           style={{
                             background: styleCfg.cardBg,
-                            boxShadow: `0 10px 25px rgba(0,0,0,0.65), 0 0 16px ${styleCfg.glowColor}`,
                           }}
                         >
-                          {/* Theme Banner: Same Terrain Texture & 3D Landmark Model Render as LandedTilePopup */}
-                          <div className="relative min-h-20 w-full overflow-hidden border-b-2 border-black/30">
+                          {/* Compact Theme Strip */}
+                          <div className="relative h-6 w-full overflow-hidden border-b border-black/25 flex items-center justify-between px-2 gap-1.5">
                             <img
                               src={styleCfg.terrainImg}
                               alt={styleCfg.biomeLabel}
-                              className="absolute inset-0 w-full h-full object-cover scale-105"
+                              className="absolute inset-0 w-full h-full object-cover"
                             />
                             <div
                               className="absolute inset-0"
                               style={{ background: styleCfg.headerOverlay }}
                             />
 
-                            {/* Theme Title + Owned Count + Theme Set Bonus Status */}
-                            <div className="relative z-10 min-h-20 flex flex-col justify-between gap-1 p-2.5 pr-20">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${styleCfg.badgeBg}`}
-                                >
-                                  {ownedInTheme.length}/{allThemeIslands.length}{' '}
-                                  {allThemeIslands.length > 1 ? 'îles' : 'île'}
-                                </span>
-                                {setBonus && (
-                                  <span
-                                    className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                                      isSetActive
-                                        ? 'bg-emerald-500 text-slate-950 border-white shadow'
-                                        : 'bg-black/65 text-amber-200 border-amber-400/50'
-                                    }`}
-                                  >
-                                    {setBonus.icon} {setBonus.name} •{' '}
-                                    {isSetActive
-                                      ? 'Actif ✓'
-                                      : `${setProgress}/${setBonus.required}`}
-                                  </span>
-                                )}
-                              </div>
-
-                              <h3 className="font-pirata text-xl leading-none tracking-wide text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                            <div className="relative z-10 flex items-center gap-1.5 min-w-0">
+                              <img
+                                src={styleCfg.propImg}
+                                alt={styleCfg.biomeLabel}
+                                className="w-4 h-4 object-contain drop-shadow shrink-0"
+                              />
+                              <h3 className="font-pirata text-sm leading-none tracking-wide text-white drop-shadow truncate">
                                 {styleCfg.biomeLabel}
                               </h3>
+                              <span
+                                className={`px-1.5 py-0.2 rounded-full text-[9px] font-black leading-none border shrink-0 ${styleCfg.badgeBg}`}
+                              >
+                                {ownedInTheme.length}/{allThemeIslands.length}
+                              </span>
                             </div>
 
-                            {/* 3D Model Render Cutout on the Right */}
-                            <img
-                              src={styleCfg.propImg}
-                              alt={styleCfg.biomeLabel}
-                              className="absolute right-1 bottom-0.5 w-18 h-18 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
-                            />
+                            {setBonus && (
+                              <span
+                                className={`relative z-10 px-1.5 py-0.2 rounded-full text-[9px] font-black leading-none border shrink-0 ${
+                                  isSetActive
+                                    ? 'bg-emerald-500 text-slate-950 border-white'
+                                    : 'bg-black/65 text-amber-200 border-amber-400/50'
+                                }`}
+                              >
+                                {setBonus.icon}{' '}
+                                {isSetActive
+                                  ? COMPACT_SET_EFFECTS[setBonus.id] ?? 'Actif ✓'
+                                  : `${setProgress}/${setBonus.required}`}
+                              </span>
+                            )}
                           </div>
 
-                          {/* Theme Islands List */}
-                          <div className="p-2.5 space-y-1.5">
-                            {setBonus && (
-                              <div
-                                className={`rounded-xl px-2.5 py-1 border text-[11px] font-bold flex items-center justify-between gap-2 ${styleCfg.statBoxBg} ${styleCfg.textColor}`}
-                              >
-                                <span>
-                                  {setBonus.icon} {setBonus.description}
-                                </span>
-                              </div>
-                            )}
-
+                          {/* Compact 2-Column Islands Grid */}
+                          <div
+                            className={`p-1 grid gap-1 ${
+                              ownedInTheme.length === 1
+                                ? 'grid-cols-1'
+                                : 'grid-cols-2'
+                            }`}
+                          >
                             {ownedInTheme.map((tile) => {
                               const currentRent = calculateIslandRent(
                                 tile,
@@ -444,28 +440,33 @@ export const PlayerAcquisitionsModal: React.FC = () => {
                                   key={tile.id}
                                   type="button"
                                   onClick={() => handleSelectIsland(tile)}
-                                  className={`w-full rounded-xl px-2.5 py-2 border flex items-center justify-between gap-2 text-left transition cursor-pointer hover:brightness-105 active:scale-[0.99] ${styleCfg.statBoxBg}`}
+                                  className={`w-full rounded-lg px-1.5 ${
+                                    isDense ? 'py-0.5' : 'py-1'
+                                  } border flex items-center justify-between gap-1 text-left transition cursor-pointer hover:brightness-105 active:scale-[0.99] min-w-0 ${styleCfg.statBoxBg}`}
                                 >
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-1 min-w-0">
                                     <span
-                                      className="w-3 h-3 rounded-full border border-black/40 shrink-0 shadow-xs"
+                                      className="w-2 h-2 rounded-full border border-black/40 shrink-0"
                                       style={{ backgroundColor: tile.color }}
                                     />
                                     <div className="min-w-0">
                                       <div
-                                        className={`text-xs sm:text-sm font-black leading-tight flex flex-wrap items-center gap-x-1.5 ${styleCfg.titleColor}`}
+                                        className={`text-[11px] font-black leading-tight flex items-center gap-1 truncate ${styleCfg.titleColor}`}
                                       >
-                                        <span>
+                                        <span className="truncate">
                                           {tile.name}
                                         </span>
                                         {tile.trapped && tile.level > 0 && (
-                                          <span className="px-1.5 py-0.5 rounded-full bg-orange-600 text-white text-[9px] font-black uppercase shrink-0">
-                                            💣 Piégée
+                                          <span
+                                            className="text-[9px] shrink-0"
+                                            title="Forteresse piégée"
+                                          >
+                                            💣
                                           </span>
                                         )}
                                       </div>
                                       <div
-                                        className={`text-[10px] font-extrabold flex flex-wrap items-center gap-x-1 mt-0.5 ${styleCfg.subTextColor}`}
+                                        className={`text-[9px] font-extrabold flex items-center gap-1 leading-none truncate ${styleCfg.subTextColor}`}
                                       >
                                         {fortImg && (
                                           <img
@@ -473,25 +474,21 @@ export const PlayerAcquisitionsModal: React.FC = () => {
                                             alt={
                                               FORTRESS_LEVEL_NAMES[tile.level]
                                             }
-                                            className="w-3.5 h-3.5 object-contain shrink-0"
+                                            className="w-2.5 h-2.5 object-contain shrink-0"
                                           />
                                         )}
-                                        <span>
+                                        <span className="truncate">
                                           {FORTRESS_LEVEL_NAMES[tile.level]}
                                         </span>
-                                        <span>•</span>
-                                        <span>{tile.group}</span>
                                       </div>
                                     </div>
                                   </div>
 
-                                  <div className="shrink-0 text-right">
-                                    <span
-                                      className={`inline-block px-2 py-0.5 rounded-lg text-xs font-black border ${styleCfg.badgeBg}`}
-                                    >
-                                      {currentRent} Or
-                                    </span>
-                                  </div>
+                                  <span
+                                    className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-black leading-none border ${styleCfg.badgeBg}`}
+                                  >
+                                    {currentRent} Or
+                                  </span>
                                 </button>
                               );
                             })}

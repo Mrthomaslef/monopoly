@@ -41,7 +41,7 @@ export const NavalBattleModal: React.FC = () => {
         exit={{ opacity: 0, scale: 0.9 }}
         className="safe-modal fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
       >
-        <div className="pointer-events-auto w-full max-w-sm max-h-full overflow-y-auto pirate-scroll wood-panel border-2 border-amber-400 rounded-2xl p-3 shadow-[0_14px_45px_rgba(0,0,0,0.9)] text-amber-50">
+        <div className="pointer-events-auto w-full max-w-sm overflow-hidden wood-panel border-2 border-amber-400 rounded-2xl p-3 shadow-[0_14px_45px_rgba(0,0,0,0.9)] text-amber-50">
           {/* Header Banner */}
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-amber-700/60 pb-2 mb-3">
             <div className="flex items-center gap-2 min-w-0">

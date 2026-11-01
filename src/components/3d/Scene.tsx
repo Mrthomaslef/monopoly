@@ -190,19 +190,22 @@ const SmartCameraRig: React.FC = () => {
 
     // Keep camera focused on the landed/inspected tile after movement so the player is never disoriented
     const shouldStayOnTile =
-      cameraMode === 'FOLLOW' ||
-      phase === 'MOVING' ||
-      phase === 'TILE_ACTION' ||
-      phase === 'END_TURN' ||
-      Boolean(landedTilePopup) ||
-      showFortifyModal;
+      phase !== 'ROLLING' &&
+      (cameraMode === 'FOLLOW' ||
+        phase === 'MOVING' ||
+        phase === 'TILE_ACTION' ||
+        phase === 'END_TURN' ||
+        Boolean(landedTilePopup) ||
+        showFortifyModal);
 
     const spotlightPlayer =
       spotlightPlayerId !== null
         ? players.find((p) => p.id === spotlightPlayerId && !p.bankrupt) ?? null
         : null;
 
-    if (phase === 'NAVAL_BATTLE' && navalBattle?.active) {
+    if (phase === 'ROLLING') {
+      // Keep camera steady while the dice roll and display their result in front of the player
+    } else if (phase === 'NAVAL_BATTLE' && navalBattle?.active) {
       // Close-up dramatic Naval Battle camera facing the contested tile in the right direction of its title
       desiredTarget.current.set(tilePos[0], 0.35, tilePos[2]);
       desiredPosition.current.set(tilePos[0], 4.2, tilePos[2] + 3.6);
@@ -241,7 +244,9 @@ const SmartCameraRig: React.FC = () => {
       desiredPosition.current.set(tilePos[0], camY, tilePos[2] + camZOffset);
 
       if (tileFocusAnimatingRef.current || phase === 'MOVING') {
-        stepCameraTowardDesired(controlsRef.current, delta, 4.5, 5.5);
+        const movePosSpeed = phase === 'MOVING' ? 2.8 : 4.2;
+        const moveTargetSpeed = phase === 'MOVING' ? 3.5 : 5.0;
+        stepCameraTowardDesired(controlsRef.current, delta, movePosSpeed, moveTargetSpeed);
 
         if (
           phase !== 'MOVING' &&
@@ -252,7 +257,7 @@ const SmartCameraRig: React.FC = () => {
         }
       }
     } else if (!isFreeCamera) {
-      // Global overview tilted for mobile portrait readability (used during IDLE / ROLLING when dice are out)
+      // Global overview tilted for mobile portrait readability (used during IDLE when dice are out)
       desiredTarget.current.set(0, 0.0, 0.35);
       desiredPosition.current.set(
         0,
@@ -260,9 +265,9 @@ const SmartCameraRig: React.FC = () => {
         9.8 * portraitMultiplier
       );
 
-      // Gentle interpolation back to global view when rolling dice or starting turn
+      // Gentle interpolation back to global view when starting turn
       controlsRef.current.target.lerp(desiredTarget.current, Math.min(1, delta * 2.8));
-      if (phase === 'IDLE' || phase === 'ROLLING') {
+      if (phase === 'IDLE') {
         camera.position.lerp(desiredPosition.current, Math.min(1, delta * 2.2));
       }
     }

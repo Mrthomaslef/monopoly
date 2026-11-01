@@ -96,12 +96,18 @@ export const ShipToken: React.FC<ShipTokenProps> = ({
     const targetX = position[0] + slotOffset[0];
     const targetZ = position[2] + slotOffset[2];
     const baseY = 0.24;
+    const baseHeading = rotationY - Math.PI / 2;
 
     if (prevTileRef.current !== player.position) {
       prevTileRef.current = player.position;
       const isSlowBot =
         player.isAI && useGameStore.getState().botSpeed === 'NORMAL';
       const hopDuration = isSlowBot ? 0.24 : 0.16;
+
+      const currentY = shipGroupRef.current.rotation.y;
+      let deltaAngle = baseHeading - currentY;
+      while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+      while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
 
       gsap.to(shipGroupRef.current.position, {
         x: targetX,
@@ -123,13 +129,13 @@ export const ShipToken: React.FC<ShipTokenProps> = ({
       );
 
       gsap.to(shipGroupRef.current.rotation, {
-        y: rotationY - Math.PI / 2,
+        y: currentY + deltaAngle,
         duration: hopDuration,
         ease: 'power1.out',
       });
     } else {
       shipGroupRef.current.position.set(targetX, baseY, targetZ);
-      shipGroupRef.current.rotation.set(0, rotationY - Math.PI / 2, 0);
+      shipGroupRef.current.rotation.set(0, baseHeading, 0);
     }
   }, [player.position, player.id, player.isAI]);
 
@@ -160,7 +166,7 @@ export const ShipToken: React.FC<ShipTokenProps> = ({
 
   if (player.bankrupt) return null;
 
-  const { position } = getTileTransform(player.position);
+  const { position, rotationY } = getTileTransform(player.position);
   const slotOffset = getShipSlotOffset(player.id);
 
   return (
@@ -171,6 +177,7 @@ export const ShipToken: React.FC<ShipTokenProps> = ({
         0.24,
         position[2] + slotOffset[2],
       ]}
+      rotation={[0, rotationY - Math.PI / 2, 0]}
     >
       {/* Active or Spotlighted Captain Glowing Halo Ring */}
       {(isActive || isSpotlighted) && (

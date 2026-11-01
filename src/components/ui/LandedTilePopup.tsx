@@ -340,7 +340,7 @@ export const LandedTilePopup: React.FC = () => {
         className="absolute inset-0 z-30 flex items-end justify-center p-2 pointer-events-none"
       >
         <div
-          className={`pointer-events-auto relative w-full max-w-[340px] max-h-[min(60%,380px)] sm:max-h-[min(64%,420px)] flex flex-col rounded-2xl border-3 ${styleCfg.borderClass} overflow-y-auto pirate-scroll shadow-2xl`}
+          className={`pointer-events-auto relative w-full max-w-[340px] flex flex-col rounded-2xl border-3 ${styleCfg.borderClass} overflow-hidden shadow-2xl`}
           style={{
             background: styleCfg.cardBg,
             boxShadow: `0 14px 36px rgba(0,0,0,0.85), 0 0 24px ${styleCfg.glowColor}`,
@@ -363,7 +363,7 @@ export const LandedTilePopup: React.FC = () => {
           </button>
 
           {/* Compact Header Banner with the Tile's Higgsfield Ground Terrain Texture & 3D Landmark Prop */}
-          <div className="relative h-16 sm:h-20 w-full shrink-0 overflow-hidden border-b-2 border-black/30">
+          <div className="relative h-14 sm:h-18 w-full shrink-0 overflow-hidden border-b-2 border-black/30">
             <img
               src={styleCfg.terrainImg}
               alt={tile.name}
@@ -394,12 +394,12 @@ export const LandedTilePopup: React.FC = () => {
               initial={{ scale: 0.7, rotate: -6, y: 8 }}
               animate={{ scale: 1, rotate: 0, y: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-              className="absolute right-2.5 bottom-0.5 w-16 h-16 sm:w-19 sm:h-19 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
+              className="absolute right-2.5 bottom-0.5 w-14 h-14 sm:w-17 sm:h-17 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
             />
           </div>
 
           {/* Minimalist, High-Clarity Card Body */}
-          <div className="shrink-0 px-2.5 sm:px-3 pt-2.5 text-center">
+          <div className="shrink-0 px-2.5 sm:px-3 pt-2 text-center">
             {/* Tile Name + Group Dot */}
             <div className="flex items-center justify-center gap-1.5">
               <span
@@ -435,7 +435,7 @@ export const LandedTilePopup: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.85, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ type: 'spring', stiffness: 360, damping: 20 }}
-                    className="mt-2 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
+                    className="mt-1.5 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
                   >
                     <div className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-1">
                       {tile.trapped && tile.level > 0
@@ -523,9 +523,9 @@ export const LandedTilePopup: React.FC = () => {
               })()
             ) : tile.type === 'island' ? (
               /* 2. Clean, Single-Pill Island Summary */
-              <div className="mt-1.5 space-y-1.5">
+              <div className="mt-1.5 space-y-1">
                 <div
-                  className={`rounded-xl px-2.5 py-1.5 border flex flex-wrap items-center justify-between gap-x-2 gap-y-1 ${styleCfg.statBoxBg}`}
+                  className={`rounded-xl px-2.5 py-1 border flex flex-wrap items-center justify-between gap-x-2 gap-y-1 ${styleCfg.statBoxBg}`}
                 >
                   {tileOwner ? (
                     <span
@@ -609,8 +609,8 @@ export const LandedTilePopup: React.FC = () => {
 
           </div>
 
-          {/* Direct Action Buttons: the whole card scrolls on very short screens, so they stay reachable */}
-          <div className="shrink-0 px-2.5 sm:px-3 pt-2 pb-2.5 flex flex-wrap items-stretch gap-1.5">
+          {/* Direct Action Buttons directly visible on the card without scrolling */}
+          <div className="shrink-0 px-2.5 sm:px-3 pt-1.5 pb-2 flex flex-wrap items-stretch gap-1.5">
               {canBuy && (
                 <motion.button
                   whileTap={{ scale: 0.95 }}

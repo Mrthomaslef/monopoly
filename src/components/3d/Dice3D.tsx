@@ -85,37 +85,45 @@ const SingleDie: React.FC<{
   useEffect(() => {
     if (!dieRef.current) return;
 
+    const [rx, ry, rz] = getRotationForDieValue(value);
+
     if (isRolling) {
       // Energetic 3D jump and multi-axis spin right in front of the camera
+      gsap.killTweensOf(dieRef.current.position);
+      gsap.killTweensOf(dieRef.current.rotation);
+
       gsap.fromTo(
         dieRef.current.position,
         { y: basePosition[1] },
         {
           y: basePosition[1] + 0.85,
-          duration: 0.34,
+          duration: 0.32,
           yoyo: true,
           repeat: 1,
           ease: 'power2.out',
         }
       );
 
-      const [rx, ry, rz] = getRotationForDieValue(value);
-      gsap.to(dieRef.current.rotation, {
-        x: rx + Math.PI * 6,
-        y: ry + Math.PI * 4,
-        z: rz + Math.PI * 6,
-        duration: 0.68,
-        ease: 'back.out(1.5)',
-      });
+      gsap.fromTo(
+        dieRef.current.rotation,
+        { x: 0, y: 0, z: 0 },
+        {
+          x: rx + Math.PI * 6,
+          y: ry + Math.PI * 4,
+          z: rz + Math.PI * 6,
+          duration: 0.65,
+          ease: 'back.out(1.4)',
+          onComplete: () => {
+            if (dieRef.current) {
+              dieRef.current.rotation.set(rx, ry, rz);
+            }
+          },
+        }
+      );
     } else {
-      const [rx, ry, rz] = getRotationForDieValue(value);
-      gsap.to(dieRef.current.rotation, {
-        x: rx,
-        y: ry,
-        z: rz,
-        duration: 0.35,
-        ease: 'power2.out',
-      });
+      gsap.killTweensOf(dieRef.current.position);
+      gsap.killTweensOf(dieRef.current.rotation);
+      dieRef.current.rotation.set(rx, ry, rz);
       dieRef.current.position.set(
         basePosition[0],
         basePosition[1],
@@ -127,17 +135,21 @@ const SingleDie: React.FC<{
   useFrame(({ clock }) => {
     if (!dieRef.current || isRolling) return;
     const t = clock.getElapsedTime();
+    const [rx, ry, rz] = getRotationForDieValue(value);
 
     if (isPromptingHuman) {
-      // Gentle inviting 3D float & tilt while waiting for the player to tap "Lancer les Dés"
+      // Gentle inviting 3D float & subtle tilt around the current face while waiting to roll
       dieRef.current.position.y =
         basePosition[1] + Math.sin(t * 3.2 + basePosition[0] * 2) * 0.06;
-      dieRef.current.rotation.z =
-        Math.sin(t * 2.2 + basePosition[0]) * 0.14;
-      dieRef.current.rotation.x += Math.sin(t * 1.8) * 0.003;
+      dieRef.current.rotation.set(
+        rx + Math.sin(t * 1.8 + basePosition[0]) * 0.1,
+        ry,
+        rz + Math.sin(t * 2.2 + basePosition[0]) * 0.12
+      );
     } else {
       dieRef.current.position.y =
-        basePosition[1] + Math.sin(t * 2.5 + basePosition[0]) * 0.025;
+        basePosition[1] + Math.sin(t * 2.5 + basePosition[0]) * 0.02;
+      dieRef.current.rotation.set(rx, ry, rz);
     }
   });
 
@@ -250,43 +262,42 @@ export const Dice3D: React.FC = () => {
   const upVec = useRef(new THREE.Vector3());
   const targetPos = useRef(new THREE.Vector3(0, 0.62, 1.55));
   const targetScale = useRef(new THREE.Vector3(1, 1, 1));
+  const targetQuat = useRef(new THREE.Quaternion());
+  const identityQuat = useRef(new THREE.Quaternion());
+  // Tilt the top (+Y) result face of the dice toward the camera lens so the pips are clearly readable
+  const screenTiltQuat = useRef(
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 1.05)
+  );
 
   useFrame((_, delta) => {
     if (!containerRef.current) return;
 
     if (shouldZoomToScreen) {
-      // Position the dice 4.2 units directly in front of the camera lens, slightly above center
+      // Position the dice directly in front of the camera lens, slightly above center
       camera.getWorldDirection(forwardVec.current);
       upVec.current.set(0, 1, 0).applyQuaternion(camera.quaternion);
 
       targetPos.current
         .copy(camera.position)
-        .addScaledVector(forwardVec.current, 4.3)
-        .addScaledVector(upVec.current, 0.22);
+        .addScaledVector(forwardVec.current, 4.2)
+        .addScaledVector(upVec.current, 0.15);
 
-      targetScale.current.set(1.45, 1.45, 1.45);
+      targetScale.current.set(1.5, 1.5, 1.5);
+      targetQuat.current.copy(camera.quaternion).multiply(screenTiltQuat.current);
 
-      containerRef.current.position.lerp(
-        targetPos.current,
-        Math.min(1, delta * 7.5)
-      );
-      containerRef.current.scale.lerp(
-        targetScale.current,
-        Math.min(1, delta * 7.5)
-      );
+      const snapFactor = phase === 'ROLLING' ? Math.min(1, delta * 14) : Math.min(1, delta * 8.5);
+      containerRef.current.position.lerp(targetPos.current, snapFactor);
+      containerRef.current.scale.lerp(targetScale.current, snapFactor);
+      containerRef.current.quaternion.slerp(targetQuat.current, snapFactor);
     } else {
       // Rest position on the central lagoon board
       targetPos.current.set(0, 0.62, 1.55);
       targetScale.current.set(0.95, 0.95, 0.95);
 
-      containerRef.current.position.lerp(
-        targetPos.current,
-        Math.min(1, delta * 5.5)
-      );
-      containerRef.current.scale.lerp(
-        targetScale.current,
-        Math.min(1, delta * 5.5)
-      );
+      const restFactor = Math.min(1, delta * 5.5);
+      containerRef.current.position.lerp(targetPos.current, restFactor);
+      containerRef.current.scale.lerp(targetScale.current, restFactor);
+      containerRef.current.quaternion.slerp(identityQuat.current, restFactor);
     }
   });
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Dices, Users, Eye, Compass, Crosshair } from 'lucide-react';
+import { Coins, Dices, Users, Eye, Compass, Crosshair, Smartphone, RotateCcw } from 'lucide-react';
 import { Scene } from './components/3d/Scene';
 import { TopHUD } from './components/ui/TopHUD';
 import { BottomDeck } from './components/ui/BottomDeck';
@@ -21,6 +21,7 @@ export const App: React.FC = () => {
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const phase = useGameStore((s) => s.phase);
   const dice = useGameStore((s) => s.dice);
+  const isRollingDice = useGameStore((s) => s.isRollingDice);
   const floatingTexts = useGameStore((s) => s.floatingTexts);
   const showSetupModal = useGameStore((s) => s.showSetupModal);
   const landedTilePopup = useGameStore((s) => s.landedTilePopup);
@@ -46,6 +47,18 @@ export const App: React.FC = () => {
   useEffect(() => {
     setDismissedHandoffTurn(null);
   }, [currentPlayerIndex]);
+
+  // Attempt native screen orientation lock to portrait where supported by the browser/PWA
+  useEffect(() => {
+    const orientation = window.screen?.orientation as
+      | (ScreenOrientation & { lock?: (mode: string) => Promise<void> })
+      | undefined;
+    if (orientation?.lock) {
+      orientation.lock('portrait-primary').catch(() => {
+        // Ignored on browsers requiring fullscreen or not supporting programmatic lock
+      });
+    }
+  }, []);
 
   const showPassAndPlayHandoff =
     isLocalMultiplayer &&
@@ -112,6 +125,27 @@ export const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Prominent Dice Result Banner shown right when the 3D dice land before the camera moves */}
+        <AnimatePresence>
+          {phase === 'ROLLING' && !isRollingDice && (
+            <motion.div
+              key={`dice-result-${dice[0]}-${dice[1]}`}
+              initial={{ opacity: 0, scale: 0.7, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: -8 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 20 }}
+              className="pointer-events-none absolute inset-x-4 top-[58%] z-30 flex justify-center"
+            >
+              <div className="px-4 py-1.5 rounded-2xl bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-white shadow-[0_8px_28px_rgba(0,0,0,0.85),0_0_24px_rgba(251,191,36,0.85)] flex items-center gap-2 font-black text-sm sm:text-base tracking-wide">
+                <span>🎲</span>
+                <span>
+                  {dice[0]} + {dice[1]} = {dice[0] + dice[1]} cases
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* High-Visibility Animated Gold / Loot Gain & Loss Popups */}
         <div className="pointer-events-none absolute top-10 sm:top-11 inset-x-2 z-30 flex flex-col items-center gap-1">
@@ -254,7 +288,7 @@ export const App: React.FC = () => {
               className="pointer-events-none absolute inset-x-2 top-10 bottom-14 z-25 flex items-end justify-center [@media(max-height:620px)]:hidden"
             >
               <div
-                className="pointer-events-auto w-full max-w-[330px] max-h-full overflow-y-auto wood-panel rounded-2xl border-3 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.9)] text-white"
+                className="pointer-events-auto w-full max-w-[330px] overflow-hidden wood-panel rounded-2xl border-3 p-2 shadow-[0_16px_40px_rgba(0,0,0,0.9)] text-white"
                 style={{ borderColor: activePlayer.color }}
               >
                 <div className="flex items-center justify-between gap-2.5">
@@ -334,6 +368,22 @@ export const App: React.FC = () => {
       <GameSetupModal />
       <NavalBattleModal />
       <CardModal />
+
+      {/* Blocage du mode Paysage (Landscape) sur mobile */}
+      <div className="landscape-lock-overlay fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-md flex-col items-center justify-center p-6 text-center">
+        <div className="wood-panel wood-nails relative max-w-sm w-full rounded-2xl border-2 border-amber-400/80 p-5 shadow-[0_20px_50px_rgba(0,0,0,0.95)] flex flex-col items-center gap-3">
+          <div className="relative flex items-center justify-center w-14 h-14 rounded-2xl wood-plank border border-amber-400/60 shadow-inner">
+            <Smartphone className="w-8 h-8 text-amber-300 -rotate-90 animate-pulse" />
+            <RotateCcw className="w-4 h-4 text-amber-400 absolute -top-1.5 -right-1.5 bg-slate-950 rounded-full p-0.5 border border-amber-400/60" />
+          </div>
+          <h2 className="font-pirata text-2xl tracking-wide text-amber-300 drop-shadow">
+            Mode Paysage Désactivé
+          </h2>
+          <p className="text-xs sm:text-sm font-bold text-amber-100/90 leading-relaxed">
+            Cap&apos;taine, tournez votre appareil à la verticale (mode portrait) pour naviguer sur les mers des Caraïbes !
+          </p>
+        </div>
+      </div>
     </main>
   );
 };

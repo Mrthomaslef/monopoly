@@ -18,7 +18,7 @@ export const CurseModal: React.FC = () => {
 
   return (
     <div className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md">
-      <div className="relative w-full max-w-[360px] max-h-full overflow-y-auto pirate-scroll rounded-2xl border-2 border-purple-400 bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 p-4 text-purple-50 shadow-[0_20px_60px_rgba(0,0,0,0.95)]">
+      <div className="relative w-full max-w-[360px] overflow-hidden rounded-2xl border-2 border-purple-400 bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 p-4 text-purple-50 shadow-[0_20px_60px_rgba(0,0,0,0.95)]">
         <button
           type="button"
           onClick={() => setShow(false)}

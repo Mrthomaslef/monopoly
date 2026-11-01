@@ -25,7 +25,7 @@ export const CardModal: React.FC = () => {
           className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
         >
           <div
-            className={`w-full max-w-xs max-h-full flex flex-col rounded-2xl border-4 overflow-hidden text-center shadow-2xl relative ${
+            className={`w-full max-w-xs flex flex-col rounded-2xl border-4 overflow-hidden text-center shadow-2xl relative ${
               activeCard.deck === 'chest'
                 ? 'parchment-card border-yellow-400'
                 : 'border-purple-400 bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 text-purple-50'
@@ -72,7 +72,7 @@ export const CardModal: React.FC = () => {
               />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto pirate-scroll p-4">
+            <div className="p-4">
               <h3
                 className={`font-pirata text-2xl tracking-wide ${
                   activeCard.deck === 'chest'
@@ -137,7 +137,7 @@ export const CardModal: React.FC = () => {
           exit={{ opacity: 0, scale: 0.85 }}
           className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm max-h-full overflow-y-auto wood-panel rounded-2xl border-2 border-amber-400 p-6 text-center shadow-2xl text-amber-50">
+          <div className="w-full max-w-sm overflow-hidden wood-panel rounded-2xl border-2 border-amber-400 p-6 text-center shadow-2xl text-amber-50">
             <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-600 flex items-center justify-center text-slate-950 shadow-[0_0_25px_rgba(251,191,36,0.7)]">
               <Trophy className="w-9 h-9" />
             </div>

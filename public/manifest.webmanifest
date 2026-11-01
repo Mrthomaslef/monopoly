@@ -1,0 +1,16 @@
+{
+  "name": "Jolly Roger's — Monopoly 3D des Caraïbes",
+  "short_name": "Jolly Roger's",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "./assets/pirate_logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -121,3 +121,14 @@
   padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
     max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
 }
+
+/* Block landscape mode on mobile/touch viewports while leaving desktop monitors unaffected */
+.landscape-lock-overlay {
+  display: none;
+}
+
+@media screen and (orientation: landscape) and (max-height: 600px) {
+  .landscape-lock-overlay {
+    display: flex;
+  }
+}

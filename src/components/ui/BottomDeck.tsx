@@ -64,6 +64,8 @@ export const BottomDeck: React.FC = () => {
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
   const phase = useGameStore((s) => s.phase);
+  const dice = useGameStore((s) => s.dice);
+  const isRollingDice = useGameStore((s) => s.isRollingDice);
   const actionLogs = useGameStore((s) => s.actionLogs);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
   const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
@@ -349,7 +351,14 @@ export const BottomDeck: React.FC = () => {
         </div>
       ) : (
         <div className="w-full wood-plank rounded-xl py-2.5 px-4 flex items-center justify-center gap-2 text-xs sm:text-sm font-bold text-amber-200 border border-amber-500/30">
-          {activePlayer?.isAI ? (
+          {phase === 'ROLLING' && !isRollingDice ? (
+            <>
+              <Dices className="w-4 h-4 text-amber-300 shrink-0" />
+              <span className="text-amber-300 font-black">
+                Résultat : {dice[0]} + {dice[1]} = {dice[0] + dice[1]} cases !
+              </span>
+            </>
+          ) : activePlayer?.isAI ? (
             <>
               <Bot className="w-4 h-4 text-cyan-300 animate-spin shrink-0" />
               <span>{activePlayer.name} joue...</span>
@@ -357,7 +366,7 @@ export const BottomDeck: React.FC = () => {
           ) : (
             <>
               <Dices className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-              <span>Navigation...</span>
+              <span>{phase === 'ROLLING' ? 'Lancer des dés...' : 'Navigation...'}</span>
             </>
           )}
         </div>

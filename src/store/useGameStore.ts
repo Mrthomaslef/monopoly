@@ -193,11 +193,11 @@ export function getTileTransform(index: number): {
     return { position: [(3 - i) * S, 0, 3 * S], rotationY: 0, side: 'bottom' };
   }
   if (i === 6) {
-    return { position: [-3 * S, 0, 3 * S], rotationY: Math.PI / 2, side: 'corner' };
+    return { position: [-3 * S, 0, 3 * S], rotationY: -Math.PI / 2, side: 'corner' };
   }
   if (i > 6 && i < 12) {
     const offset = i - 6;
-    return { position: [-3 * S, 0, (3 - offset) * S], rotationY: Math.PI / 2, side: 'left' };
+    return { position: [-3 * S, 0, (3 - offset) * S], rotationY: -Math.PI / 2, side: 'left' };
   }
   if (i === 12) {
     return { position: [-3 * S, 0, -3 * S], rotationY: Math.PI, side: 'corner' };
@@ -207,10 +207,10 @@ export function getTileTransform(index: number): {
     return { position: [(-3 + offset) * S, 0, -3 * S], rotationY: Math.PI, side: 'top' };
   }
   if (i === 18) {
-    return { position: [3 * S, 0, -3 * S], rotationY: -Math.PI / 2, side: 'corner' };
+    return { position: [3 * S, 0, -3 * S], rotationY: Math.PI / 2, side: 'corner' };
   }
   const offset = i - 18;
-  return { position: [3 * S, 0, (-3 + offset) * S], rotationY: -Math.PI / 2, side: 'right' };
+  return { position: [3 * S, 0, (-3 + offset) * S], rotationY: Math.PI / 2, side: 'right' };
 }
 
 /**
@@ -1279,97 +1279,113 @@ export const useGameStore = create<GameState>()(
       landedTilePopup: null,
     });
 
-    const rollDelay = currentPlayer.isAI ? getBotDelay(750) : 750;
+    const rollAnimMs = currentPlayer.isAI ? getBotDelay(680) : 700;
+    const resultHoldMs = currentPlayer.isAI ? getBotDelay(750) : 1150;
 
     setTimeout(() => {
       const latest = get();
       const player = latest.players[latest.currentPlayerIndex];
+      if (!player) return;
+
+      // Stop dice spin so the final faces stay clearly visible in front of the camera
       set({ isRollingDice: false });
 
-      // Check Jail status
-      if (player.inJail) {
-        if (d1 === d2 || player.jailTurns >= 1) {
-          const reason = d1 === d2 ? `un double (${d1}+${d2})` : 'sa peine purgée';
-          latest.addLog(`🔓 ${player.name} sort de La Cale grâce à ${reason} et avance de ${total} cases !`);
-          set((s) => ({
-            players: s.players.map((p, idx) =>
-              idx === s.currentPlayerIndex ? { ...p, inJail: false, jailTurns: 0 } : p
-            ),
-          }));
-        } else {
-          latest.addLog(`⛓️ ${player.name} fait ${d1}+${d2} et reste aux fers sur l'Île du Crâne.`);
-          latest.addFloatingText(player.position, 'Aux Fers !', '#94a3b8');
-          set((s) => ({
-            players: s.players.map((p, idx) =>
-              idx === s.currentPlayerIndex ? { ...p, jailTurns: p.jailTurns + 1 } : p
-            ),
-            phase: 'END_TURN',
-            landedTilePopup: {
-              tileId: player.position,
-              playerId: player.id,
-              eventSummary: `⛓️ ${player.name} reste aux fers sur l’Île du Crâne (${d1}+${d2})`,
-            },
-          }));
-          if (player.isAI) {
-            setTimeout(() => get().endTurn(), getBotDelay(1400));
-          }
-          return;
-        }
-      } else {
+      if (!player.inJail) {
         latest.addLog(`🎲 ${player.name} lance ${d1} + ${d2} = ${total} cases !`);
       }
 
-      // Start step-by-step movement
-      set({ phase: 'MOVING' });
-      let stepsRemaining = total;
-      let stepCount = 0;
+      setTimeout(() => {
+        const afterHold = get();
+        const active = afterHold.players[afterHold.currentPlayerIndex];
+        if (!active) return;
 
-      const stepMs = player.isAI && latest.botSpeed === 'NORMAL' ? 280 : 185;
-      const postMoveMs = player.isAI ? getBotDelay(260) : 260;
-
-      const stepInterval = setInterval(() => {
-        const st = get();
-        const activePlayer = st.players[st.currentPlayerIndex];
-        if (!activePlayer) {
-          clearInterval(stepInterval);
-          return;
+        // Check Jail status
+        if (active.inJail) {
+          if (d1 === d2 || active.jailTurns >= 1) {
+            const reason = d1 === d2 ? `un double (${d1}+${d2})` : 'sa peine purgée';
+            afterHold.addLog(
+              `🔓 ${active.name} sort de La Cale grâce à ${reason} et avance de ${total} cases !`
+            );
+            set((s) => ({
+              players: s.players.map((p, idx) =>
+                idx === s.currentPlayerIndex ? { ...p, inJail: false, jailTurns: 0 } : p
+              ),
+            }));
+          } else {
+            afterHold.addLog(
+              `⛓️ ${active.name} fait ${d1}+${d2} et reste aux fers sur l'Île du Crâne.`
+            );
+            afterHold.addFloatingText(active.position, 'Aux Fers !', '#94a3b8');
+            set((s) => ({
+              players: s.players.map((p, idx) =>
+                idx === s.currentPlayerIndex ? { ...p, jailTurns: p.jailTurns + 1 } : p
+              ),
+              phase: 'END_TURN',
+              landedTilePopup: {
+                tileId: active.position,
+                playerId: active.id,
+                eventSummary: `⛓️ ${active.name} reste aux fers sur l’Île du Crâne (${d1}+${d2})`,
+              },
+            }));
+            if (active.isAI) {
+              setTimeout(() => get().endTurn(), getBotDelay(1400));
+            }
+            return;
+          }
         }
 
-        const nextPos = (activePlayer.position + 1) % 24;
-        const passedStart = nextPos === 0;
-        const rewards = passedStart ? getPortRoyalRewards(activePlayer.id, st.tiles) : null;
-        soundEffects.playHopSound(stepCount);
-        stepCount++;
-        stepsRemaining--;
+        // Start step-by-step movement after the player has seen the dice result
+        set({ phase: 'MOVING' });
+        let stepsRemaining = total;
+        let stepCount = 0;
 
-        set((s) => ({
-          focusedTileIndex: nextPos,
-          players: s.players.map((p, idx) =>
-            idx === s.currentPlayerIndex
-              ? {
-                  ...p,
-                  position: nextPos,
-                  gold: p.gold + (rewards?.gold ?? 0),
-                  materials: p.materials + (rewards?.materials ?? 0),
-                  hasCurseCharge: p.hasCurseCharge || rewards?.grantsCurse,
-                }
-              : p
-          ),
-        }));
+        const stepMs = active.isAI && afterHold.botSpeed === 'NORMAL' ? 280 : 230;
+        const postMoveMs = active.isAI ? getBotDelay(300) : 320;
 
-        if (rewards) {
-          soundEffects.playGoldSound();
-          announcePortRoyalRewards(activePlayer.name, rewards);
-        }
+        const stepInterval = setInterval(() => {
+          const st = get();
+          const movingPlayer = st.players[st.currentPlayerIndex];
+          if (!movingPlayer) {
+            clearInterval(stepInterval);
+            return;
+          }
 
-        if (stepsRemaining <= 0) {
-          clearInterval(stepInterval);
-          setTimeout(() => {
-            evaluateLandedTile();
-          }, postMoveMs);
-        }
-      }, stepMs);
-    }, rollDelay);
+          const nextPos = (movingPlayer.position + 1) % 24;
+          const passedStart = nextPos === 0;
+          const rewards = passedStart ? getPortRoyalRewards(movingPlayer.id, st.tiles) : null;
+          soundEffects.playHopSound(stepCount);
+          stepCount++;
+          stepsRemaining--;
+
+          set((s) => ({
+            focusedTileIndex: nextPos,
+            players: s.players.map((p, idx) =>
+              idx === s.currentPlayerIndex
+                ? {
+                    ...p,
+                    position: nextPos,
+                    gold: p.gold + (rewards?.gold ?? 0),
+                    materials: p.materials + (rewards?.materials ?? 0),
+                    hasCurseCharge: p.hasCurseCharge || rewards?.grantsCurse,
+                  }
+                : p
+            ),
+          }));
+
+          if (rewards) {
+            soundEffects.playGoldSound();
+            announcePortRoyalRewards(movingPlayer.name, rewards);
+          }
+
+          if (stepsRemaining <= 0) {
+            clearInterval(stepInterval);
+            setTimeout(() => {
+              evaluateLandedTile();
+            }, postMoveMs);
+          }
+        }, stepMs);
+      }, resultHoldMs);
+    }, rollAnimMs);
   },
 
   buyIsland: () => {

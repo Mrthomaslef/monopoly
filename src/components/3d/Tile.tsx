@@ -20,6 +20,9 @@ interface TileProps {
 
 export type CoastType = 'plage' | 'rocher' | 'crique' | 'recif';
 
+const PIRATA_FONT_URL = './assets/fonts/PirataOne-Regular.ttf';
+const CINZEL_FONT_URL = './assets/fonts/Cinzel-Bold.ttf';
+
 /**
  * Deterministically assigns a varied coastal border style to each of the 24 tiles
  */
@@ -120,7 +123,6 @@ const CoastlineBorder: React.FC<{
 }> = ({ tile, coastType, baseRadius, sandTexture, rockTexture }) => {
   const seed = tile.id * 1.37;
 
-  // Procedural perimeter rock / coral / sandbar positions around the tile edge
   const borderElements = useMemo(() => {
     const items: Array<{
       x: number;
@@ -132,27 +134,25 @@ const CoastlineBorder: React.FC<{
     }> = [];
     const count =
       coastType === 'rocher'
-        ? 9
+        ? 10
         : coastType === 'crique'
-        ? 6
-        : coastType === 'recif'
         ? 7
-        : 5;
+        : coastType === 'recif'
+        ? 8
+        : 6;
 
     for (let i = 0; i < count; i++) {
-      // Spread around perimeter, keeping a clear reading window at the very front (+Z)
-      const rawAngle = (i / count) * Math.PI * 2 + seed * 0.4;
-      const angle = rawAngle;
-      const dist = baseRadius * (0.78 + ((i * 37 + tile.id * 13) % 18) * 0.01);
+      const angle = (i / count) * Math.PI * 2 + seed * 0.4;
+      const dist = baseRadius * (0.8 + ((i * 37 + tile.id * 13) % 16) * 0.01);
       const x = Math.cos(angle) * dist;
       const z = Math.sin(angle) * dist;
-      // Avoid blocking the front-center text cartel (z > 0.35 and |x| < 0.48)
-      if (z > 0.32 && Math.abs(x) < 0.52) continue;
+      // Leave room at the front border edge (+Z) where the driftwood border plaque sits
+      if (z > 0.38 && Math.abs(x) < 0.62) continue;
 
       items.push({
         x,
         z,
-        scale: 0.75 + ((i * 19 + tile.id * 7) % 5) * 0.12,
+        scale: 0.78 + ((i * 19 + tile.id * 7) % 5) * 0.12,
         rotY: (i * 1.1 + seed) % (Math.PI * 2),
         rotZ: ((i % 3) - 1) * 0.18,
         variant: i % 3,
@@ -166,7 +166,6 @@ const CoastlineBorder: React.FC<{
       {/* 1. Primary Sculpted Island Base according to CoastType */}
       {coastType === 'plage' && (
         <group>
-          {/* Wide Sloping Golden Sand Beach */}
           <mesh
             position={[0, 0.02, 0]}
             rotation={[0, seed, 0]}
@@ -174,7 +173,7 @@ const CoastlineBorder: React.FC<{
             castShadow
           >
             <cylinderGeometry
-              args={[baseRadius * 0.84, baseRadius * 1.05, 0.22, 12]}
+              args={[baseRadius * 0.85, baseRadius * 1.05, 0.22, 12]}
             />
             <meshStandardMaterial
               map={sandTexture}
@@ -182,12 +181,11 @@ const CoastlineBorder: React.FC<{
               roughness={0.82}
             />
           </mesh>
-          {/* Secondary Scalloped Sandbank Lobe */}
           <mesh
             position={[
               (tile.id % 2 === 0 ? 1 : -1) * 0.26,
               0.01,
-              -0.18,
+              -0.16,
             ]}
             rotation={[0, -seed * 0.7, 0]}
             receiveShadow
@@ -201,7 +199,6 @@ const CoastlineBorder: React.FC<{
               roughness={0.85}
             />
           </mesh>
-          {/* Beach Driftwood, Starfish & Small Dune Pebbles on the Shore */}
           {borderElements.map((el, idx) => (
             <group
               key={idx}
@@ -209,19 +206,16 @@ const CoastlineBorder: React.FC<{
               rotation={[0, el.rotY, 0]}
             >
               {el.variant === 0 ? (
-                // Washed-up Driftwood Log
                 <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
                   <cylinderGeometry args={[0.028, 0.035, 0.22, 6]} />
                   <meshStandardMaterial color="#92400e" roughness={0.9} />
                 </mesh>
               ) : el.variant === 1 ? (
-                // Coral Pink/Orange Beach Starfish
                 <mesh castShadow>
                   <cylinderGeometry args={[0.065, 0.075, 0.025, 5]} />
                   <meshStandardMaterial color="#fb7185" roughness={0.6} />
                 </mesh>
               ) : (
-                // Smooth Sand-Worn Coastal Pebble
                 <mesh castShadow>
                   <dodecahedronGeometry args={[0.075 * el.scale, 0]} />
                   <meshStandardMaterial
@@ -238,7 +232,6 @@ const CoastlineBorder: React.FC<{
 
       {coastType === 'rocher' && (
         <group>
-          {/* Rugged Slate-Rock Island Platform */}
           <mesh
             position={[0, 0.03, 0]}
             rotation={[0, seed, 0]}
@@ -246,7 +239,7 @@ const CoastlineBorder: React.FC<{
             castShadow
           >
             <cylinderGeometry
-              args={[baseRadius * 0.82, baseRadius * 1.02, 0.26, 8]}
+              args={[baseRadius * 0.84, baseRadius * 1.03, 0.26, 9]}
             />
             <meshStandardMaterial
               map={rockTexture}
@@ -255,10 +248,9 @@ const CoastlineBorder: React.FC<{
               flatShading
             />
           </mesh>
-          {/* Inner Sandy Clearing on Top of the Cliff */}
-          <mesh position={[0, 0.145, 0.04]} receiveShadow>
+          <mesh position={[0, 0.145, 0]} receiveShadow>
             <cylinderGeometry
-              args={[baseRadius * 0.68, baseRadius * 0.74, 0.04, 8]}
+              args={[baseRadius * 0.68, baseRadius * 0.74, 0.04, 9]}
             />
             <meshStandardMaterial
               map={sandTexture}
@@ -266,7 +258,6 @@ const CoastlineBorder: React.FC<{
               roughness={0.8}
             />
           </mesh>
-          {/* Ring of Jagged Coastal Rocks & Sea Stacks along the Border */}
           {borderElements.map((el, idx) => (
             <group
               key={idx}
@@ -274,7 +265,7 @@ const CoastlineBorder: React.FC<{
               rotation={[0, el.rotY, el.rotZ]}
             >
               <mesh castShadow receiveShadow>
-                <dodecahedronGeometry args={[0.14 * el.scale, 0]} />
+                <dodecahedronGeometry args={[0.145 * el.scale, 0]} />
                 <meshStandardMaterial
                   map={rockTexture}
                   color={idx % 2 === 0 ? '#475569' : '#64748b'}
@@ -299,7 +290,6 @@ const CoastlineBorder: React.FC<{
 
       {coastType === 'crique' && (
         <group>
-          {/* Golden Sandy Bay Base */}
           <mesh
             position={[0, 0.02, 0]}
             rotation={[0, seed, 0]}
@@ -307,7 +297,7 @@ const CoastlineBorder: React.FC<{
             castShadow
           >
             <cylinderGeometry
-              args={[baseRadius * 0.84, baseRadius * 1.04, 0.23, 10]}
+              args={[baseRadius * 0.85, baseRadius * 1.04, 0.23, 10]}
             />
             <meshStandardMaterial
               map={sandTexture}
@@ -315,11 +305,10 @@ const CoastlineBorder: React.FC<{
               roughness={0.82}
             />
           </mesh>
-          {/* Left & Right Rocky Headland Promontories framing the Cove */}
           {[-1, 1].map((dir, i) => (
             <group
               key={i}
-              position={[dir * baseRadius * 0.72, 0.1, -0.08 + i * 0.1]}
+              position={[dir * baseRadius * 0.74, 0.1, -0.06 + i * 0.08]}
               rotation={[0, seed + i, 0]}
             >
               <mesh castShadow receiveShadow>
@@ -341,7 +330,6 @@ const CoastlineBorder: React.FC<{
               </mesh>
             </group>
           ))}
-          {/* Additional Cove Boulders */}
           {borderElements.map((el, idx) => (
             <mesh
               key={idx}
@@ -362,7 +350,6 @@ const CoastlineBorder: React.FC<{
 
       {coastType === 'recif' && (
         <group>
-          {/* Bright White-Gold Coral Atoll Sand Base */}
           <mesh
             position={[0, 0.02, 0]}
             rotation={[0, seed, 0]}
@@ -378,9 +365,8 @@ const CoastlineBorder: React.FC<{
               roughness={0.78}
             />
           </mesh>
-          {/* Glowing Turquoise Mini-Lagoon Pool Rim */}
-          <mesh position={[0, 0.135, -0.08]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[baseRadius * 0.45, baseRadius * 0.72, 12]} />
+          <mesh position={[0, 0.135, -0.04]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[baseRadius * 0.42, baseRadius * 0.7, 12]} />
             <meshStandardMaterial
               color="#22d3ee"
               emissive="#06b6d4"
@@ -388,7 +374,6 @@ const CoastlineBorder: React.FC<{
               roughness={0.3}
             />
           </mesh>
-          {/* Colorful Coral Reefs & Volcanic Reef Stones around the Border */}
           {borderElements.map((el, idx) => (
             <group
               key={idx}
@@ -460,7 +445,7 @@ const IslandConstructions: React.FC<{
 
   if (level >= 4) {
     return (
-      <group ref={groupRef} position={[0, 0.22, -0.34]} scale={0.85}>
+      <group ref={groupRef} position={[0, 0.22, -0.22]} scale={0.88}>
         <mesh position={[0, 0.22, 0]} castShadow>
           <boxGeometry args={[0.72, 0.42, 0.32]} />
           <meshStandardMaterial color="#cbd5e1" roughness={0.7} />
@@ -497,7 +482,7 @@ const IslandConstructions: React.FC<{
     level === 1 ? [0] : level === 2 ? [-0.25, 0.25] : [-0.36, 0, 0.36];
 
   return (
-    <group ref={groupRef} position={[0, 0.22, -0.34]} scale={0.85}>
+    <group ref={groupRef} position={[0, 0.22, -0.22]} scale={0.88}>
       {positionsX.map((xPos, idx) => (
         <group key={idx} position={[xPos, 0, 0]}>
           <mesh position={[0, 0.16, 0]} castShadow>
@@ -519,8 +504,7 @@ const IslandConstructions: React.FC<{
 };
 
 /**
- * Bespoke 3D Scenery placed on the Back Ridge (z = -0.32) of each Island
- * so it never obscures the high-contrast front text cartel!
+ * Bespoke 3D Scenery placed in the Open Center of each Island (z = -0.1)
  */
 const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
   const animRef = useRef<THREE.Group>(null);
@@ -534,15 +518,15 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
   });
 
   return (
-    <group position={[0, 0.2, -0.32]} scale={0.88}>
+    <group position={[0, 0.2, -0.1]} scale={0.94}>
       {/* #0 PORT ROYAL: Imperial Lighthouse & Golden Harbor Arch */}
       {tile.id === 0 && (
         <group>
-          <mesh position={[-0.28, 0.28, 0]} castShadow>
+          <mesh position={[-0.26, 0.28, 0]} castShadow>
             <cylinderGeometry args={[0.09, 0.14, 0.48, 10]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.5} />
           </mesh>
-          <mesh position={[-0.28, 0.56, 0]}>
+          <mesh position={[-0.26, 0.56, 0]}>
             <sphereGeometry args={[0.09, 8, 8]} />
             <meshStandardMaterial
               color="#fde047"
@@ -550,23 +534,23 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
               emissiveIntensity={1.6}
             />
           </mesh>
-          <mesh position={[-0.28, 0.68, 0]} castShadow>
+          <mesh position={[-0.26, 0.68, 0]} castShadow>
             <coneGeometry args={[0.12, 0.15, 8]} />
             <meshStandardMaterial color="#dc2626" roughness={0.5} />
           </mesh>
-          <MiniPalm position={[0.32, 0, 0.02]} scale={0.9} lean={0.2} />
+          <MiniPalm position={[0.3, 0, 0.02]} scale={0.92} lean={0.2} />
         </group>
       )}
 
       {/* #1 CRIQUE AUX CRABES: Red Beach Crabs & Coastal Palm */}
       {tile.id === 1 && (
         <group>
-          <MiniPalm position={[-0.28, 0, 0]} scale={0.88} lean={0.22} />
+          <MiniPalm position={[-0.26, 0, 0]} scale={0.9} lean={0.22} />
           <mesh position={[0.12, 0.07, 0.04]} castShadow>
-            <sphereGeometry args={[0.09, 7, 6]} />
+            <sphereGeometry args={[0.095, 7, 6]} />
             <meshStandardMaterial color="#ef4444" roughness={0.5} />
           </mesh>
-          <mesh position={[0.3, 0.06, -0.02]} castShadow>
+          <mesh position={[0.28, 0.06, -0.02]} castShadow>
             <sphereGeometry args={[0.075, 7, 6]} />
             <meshStandardMaterial color="#f97316" roughness={0.5} />
           </mesh>
@@ -576,12 +560,12 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {/* #2, #11, #21 COFFRE AU TRÉSOR: Pirate Treasure Chest & Gold Hoard */}
       {tile.type === 'chest' && (
         <group>
-          <MiniPalm position={[-0.3, 0, 0]} scale={0.85} lean={-0.18} />
+          <MiniPalm position={[-0.28, 0, 0]} scale={0.88} lean={-0.18} />
           <mesh position={[0.08, 0.1, 0]} castShadow>
-            <boxGeometry args={[0.3, 0.2, 0.2]} />
+            <boxGeometry args={[0.32, 0.2, 0.22]} />
             <meshStandardMaterial color="#78350f" roughness={0.7} />
           </mesh>
-          <mesh position={[0.08, 0.15, 0.11]}>
+          <mesh position={[0.08, 0.15, 0.115]}>
             <boxGeometry args={[0.08, 0.08, 0.02]} />
             <meshStandardMaterial
               color="#fde047"
@@ -596,11 +580,11 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 3 && (
         <group position={[0, 0.08, 0]} rotation={[0.2, 0.25, -0.35]}>
           <mesh castShadow>
-            <boxGeometry args={[0.38, 0.16, 0.2]} />
+            <boxGeometry args={[0.4, 0.16, 0.22]} />
             <meshStandardMaterial color="#451a03" roughness={0.85} />
           </mesh>
           <mesh position={[0.04, 0.22, 0]} rotation={[0, 0, 0.2]} castShadow>
-            <cylinderGeometry args={[0.02, 0.028, 0.36, 6]} />
+            <cylinderGeometry args={[0.02, 0.028, 0.38, 6]} />
             <meshStandardMaterial color="#78350f" />
           </mesh>
         </group>
@@ -631,9 +615,9 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {/* #5 ATOLL DE CORAIL: Coral Spires & Palm */}
       {tile.id === 5 && (
         <group>
-          <MiniPalm position={[-0.28, 0, 0]} scale={0.85} lean={0.2} />
+          <MiniPalm position={[-0.26, 0, 0]} scale={0.86} lean={0.2} />
           <mesh position={[0.18, 0.14, 0]} rotation={[0, 0, -0.2]} castShadow>
-            <coneGeometry args={[0.09, 0.26, 5]} />
+            <coneGeometry args={[0.095, 0.28, 5]} />
             <meshStandardMaterial
               color="#f43f5e"
               emissive="#e11d48"
@@ -644,20 +628,20 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
         </group>
       )}
 
-      {/* #6 ÎLE DU CRÂNE: Skull Bastion & Iron Bars */}
+      {/* #6 ÎLE DU CRÂNE: Skull Bastion & Glowing Eyes */}
       {tile.id === 6 && (
         <group>
-          <mesh position={[-0.2, 0.2, 0]} castShadow>
-            <dodecahedronGeometry args={[0.22, 1]} />
+          <mesh position={[-0.16, 0.2, 0]} castShadow>
+            <dodecahedronGeometry args={[0.23, 1]} />
             <meshStandardMaterial
               color="#475569"
               roughness={0.85}
               flatShading
             />
           </mesh>
-          {[-0.26, -0.14].map((x, i) => (
+          {[-0.22, -0.1].map((x, i) => (
             <mesh key={i} position={[x, 0.22, 0.16]}>
-              <sphereGeometry args={[0.04, 6, 6]} />
+              <sphereGeometry args={[0.042, 6, 6]} />
               <meshStandardMaterial
                 color="#f59e0b"
                 emissive="#f59e0b"
@@ -671,9 +655,9 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {/* #7 LAGON DES SIRÈNES: Shimmering Tail Fin & Palm */}
       {tile.id === 7 && (
         <group>
-          <MiniPalm position={[-0.28, 0, 0]} scale={0.85} lean={0.18} />
+          <MiniPalm position={[-0.26, 0, 0]} scale={0.86} lean={0.18} />
           <mesh position={[0.16, 0.16, 0]} rotation={[0, 0, 0.3]} castShadow>
-            <coneGeometry args={[0.09, 0.28, 5]} />
+            <coneGeometry args={[0.095, 0.28, 5]} />
             <meshStandardMaterial
               color="#2dd4bf"
               emissive="#0d9488"
@@ -684,11 +668,11 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
         </group>
       )}
 
-      {/* #8, #15 MALÉDICTION DES MERS: Floating Arcane Crystal & Monoliths */}
+      {/* #8, #15 MALÉDICTION DES MERS: Floating Arcane Crystal */}
       {tile.type === 'curse' && (
         <group ref={animRef}>
           <mesh position={[0, 0.24, 0]}>
-            <octahedronGeometry args={[0.14, 0]} />
+            <octahedronGeometry args={[0.15, 0]} />
             <meshStandardMaterial
               color="#d8b4fe"
               emissive="#9333ea"
@@ -702,7 +686,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 9 && (
         <group>
           <mesh position={[0, 0.12, 0]}>
-            <sphereGeometry args={[0.11, 10, 10]} />
+            <sphereGeometry args={[0.12, 10, 10]} />
             <meshStandardMaterial
               color="#f8fafc"
               emissive="#38bdf8"
@@ -710,15 +694,15 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
               roughness={0.1}
             />
           </mesh>
-          <MiniPalm position={[0.28, 0, 0]} scale={0.82} lean={-0.18} />
+          <MiniPalm position={[0.26, 0, 0]} scale={0.84} lean={-0.18} />
         </group>
       )}
 
-      {/* #10 PORT DES FLIBUSTIERS: Smuggler Crates & Lantern */}
+      {/* #10 PORT DES FLIBUSTIERS: Smuggler Crates & Barrel */}
       {tile.id === 10 && (
         <group>
           <mesh position={[-0.14, 0.1, 0]} castShadow>
-            <boxGeometry args={[0.2, 0.2, 0.2]} />
+            <boxGeometry args={[0.22, 0.2, 0.2]} />
             <meshStandardMaterial color="#78350f" roughness={0.8} />
           </mesh>
           <mesh position={[0.16, 0.12, 0]} castShadow>
@@ -728,22 +712,22 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
         </group>
       )}
 
-      {/* #12 TAVERNE DE TORTUGA: Pirate Tavern Inn & Rum Barrel */}
+      {/* #12 TAVERNE DE TORTUGA: Pirate Tavern Inn & Palm */}
       {tile.id === 12 && (
         <group>
-          <mesh position={[-0.14, 0.16, 0]} castShadow>
-            <boxGeometry args={[0.36, 0.26, 0.24]} />
+          <mesh position={[-0.12, 0.16, 0]} castShadow>
+            <boxGeometry args={[0.38, 0.26, 0.24]} />
             <meshStandardMaterial color="#78350f" roughness={0.8} />
           </mesh>
           <mesh
-            position={[-0.14, 0.36, 0]}
+            position={[-0.12, 0.36, 0]}
             rotation={[0, Math.PI / 4, 0]}
             castShadow
           >
-            <coneGeometry args={[0.3, 0.18, 4]} />
+            <coneGeometry args={[0.32, 0.18, 4]} />
             <meshStandardMaterial color="#b91c1c" roughness={0.6} />
           </mesh>
-          <MiniPalm position={[0.3, 0, 0]} scale={0.88} lean={-0.2} />
+          <MiniPalm position={[0.28, 0, 0]} scale={0.9} lean={-0.2} />
         </group>
       )}
 
@@ -751,10 +735,10 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 13 && (
         <group>
           <mesh position={[0, 0.2, 0]} castShadow>
-            <cylinderGeometry args={[0.13, 0.15, 0.4, 7]} />
+            <cylinderGeometry args={[0.13, 0.15, 0.42, 7]} />
             <meshStandardMaterial color="#7c2d12" roughness={0.85} flatShading />
           </mesh>
-          <MiniPalm position={[-0.28, 0, 0]} scale={0.82} lean={0.2} />
+          <MiniPalm position={[-0.26, 0, 0]} scale={0.84} lean={0.2} />
         </group>
       )}
 
@@ -770,7 +754,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
             />
           </mesh>
           <mesh position={[0.16, 0.1, 0]} castShadow>
-            <cylinderGeometry args={[0.09, 0.09, 0.2, 8]} />
+            <cylinderGeometry args={[0.095, 0.095, 0.2, 8]} />
             <meshStandardMaterial color="#78350f" roughness={0.8} />
           </mesh>
         </group>
@@ -780,10 +764,10 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 16 && (
         <group>
           <mesh position={[0, 0.2, 0]} castShadow>
-            <coneGeometry args={[0.3, 0.42, 8]} />
+            <coneGeometry args={[0.32, 0.44, 8]} />
             <meshStandardMaterial color="#334155" roughness={0.85} flatShading />
           </mesh>
-          <mesh position={[0, 0.41, 0]}>
+          <mesh position={[0, 0.42, 0]}>
             <cylinderGeometry args={[0.1, 0.07, 0.05, 8]} />
             <meshStandardMaterial
               color="#34d399"
@@ -798,7 +782,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 17 && (
         <group>
           <mesh position={[0, 0.1, 0]} castShadow>
-            <boxGeometry args={[0.4, 0.16, 0.24]} />
+            <boxGeometry args={[0.42, 0.16, 0.26]} />
             <meshStandardMaterial color="#059669" roughness={0.55} />
           </mesh>
           <mesh
@@ -806,7 +790,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
             rotation={[0, Math.PI / 4, 0]}
             castShadow
           >
-            <coneGeometry args={[0.24, 0.16, 4]} />
+            <coneGeometry args={[0.25, 0.16, 4]} />
             <meshStandardMaterial
               color="#fde047"
               metalness={0.7}
@@ -826,7 +810,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
               rotation={[0.2, 0, (idx - 1) * 0.25]}
               castShadow
             >
-              <coneGeometry args={[0.09, 0.46, 7]} />
+              <coneGeometry args={[0.095, 0.48, 7]} />
               <meshStandardMaterial
                 color="#9333ea"
                 emissive="#7e22ce"
@@ -841,11 +825,11 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 19 && (
         <group>
           <mesh position={[-0.18, 0.18, 0]} castShadow>
-            <coneGeometry args={[0.16, 0.38, 5]} />
+            <coneGeometry args={[0.16, 0.4, 5]} />
             <meshStandardMaterial color="#1e293b" roughness={0.85} flatShading />
           </mesh>
           <mesh position={[0.16, 0.22, 0]}>
-            <octahedronGeometry args={[0.1, 0]} />
+            <octahedronGeometry args={[0.11, 0]} />
             <meshStandardMaterial
               color="#f87171"
               emissive="#ef4444"
@@ -859,11 +843,11 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 20 && (
         <group>
           <mesh position={[0, 0.15, 0]} castShadow>
-            <boxGeometry args={[0.42, 0.26, 0.22]} />
+            <boxGeometry args={[0.44, 0.26, 0.22]} />
             <meshStandardMaterial color="#1e293b" roughness={0.8} />
           </mesh>
           <mesh position={[0, 0.2, 0.12]}>
-            <boxGeometry args={[0.3, 0.07, 0.02]} />
+            <boxGeometry args={[0.32, 0.07, 0.02]} />
             <meshStandardMaterial
               color="#ef4444"
               emissive="#dc2626"
@@ -877,7 +861,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 22 && (
         <group>
           <mesh position={[0, 0.1, 0]} castShadow>
-            <boxGeometry args={[0.42, 0.14, 0.26]} />
+            <boxGeometry args={[0.44, 0.14, 0.26]} />
             <meshStandardMaterial
               color="#d97706"
               metalness={0.65}
@@ -885,7 +869,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
             />
           </mesh>
           <mesh position={[0, 0.24, 0]} castShadow>
-            <boxGeometry args={[0.26, 0.14, 0.18]} />
+            <boxGeometry args={[0.28, 0.14, 0.18]} />
             <meshStandardMaterial
               color="#fde047"
               emissive="#f59e0b"
@@ -900,7 +884,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
       {tile.id === 23 && (
         <group>
           <mesh position={[0, 0.14, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.25, 0.2, 8]} />
+            <cylinderGeometry args={[0.22, 0.26, 0.2, 8]} />
             <meshStandardMaterial
               color="#fbbf24"
               emissive="#d97706"
@@ -909,7 +893,7 @@ const TileIslandScenery: React.FC<{ tile: TileData }> = ({ tile }) => {
             />
           </mesh>
           <mesh position={[0, 0.3, 0]}>
-            <octahedronGeometry args={[0.1, 0]} />
+            <octahedronGeometry args={[0.11, 0]} />
             <meshStandardMaterial
               color="#ef4444"
               emissive="#dc2626"
@@ -933,9 +917,10 @@ export const Tile: React.FC<TileProps> = ({
   const isCorner = side === 'corner';
   const foamRef = useRef<THREE.Mesh>(null);
 
-  const [sandTexture, rockTexture] = useTexture([
+  const [sandTexture, rockTexture, woodTexture] = useTexture([
     './assets/sand_beach.jpg',
     './assets/coastal_rock.jpg',
+    './assets/wood_planks.jpg',
   ]);
 
   const coastType = useMemo(() => getTileCoastType(tile), [tile]);
@@ -966,25 +951,26 @@ export const Tile: React.FC<TileProps> = ({
   });
 
   const baseRadius = isCorner ? 0.88 : 0.78;
+  const ribbonWidth = isCorner ? 1.52 : 1.42;
 
   const subtitleText =
     tile.type === 'island'
       ? owner
-        ? `LOYER ${currentRent} OR`
-        : `${tile.price} OR`
+        ? `Loyer ${currentRent} Or`
+        : `${tile.price} Or`
       : tile.type === 'start'
-      ? '+200 OR'
+      ? '+200 Or'
       : tile.type === 'jail'
-      ? 'LA CALE'
+      ? 'La Cale'
       : tile.type === 'free_parking'
-      ? 'JACKPOT !'
+      ? 'Jackpot !'
       : tile.type === 'go_to_jail'
-      ? 'KRAKEN !'
+      ? 'Kraken !'
       : tile.type === 'tax'
-      ? '-120 OR'
+      ? '-120 Or'
       : tile.type === 'chest'
-      ? 'TRÉSOR'
-      : 'MALÉDICTION';
+      ? 'Trésor'
+      : 'Malédiction';
 
   return (
     <group
@@ -1033,17 +1019,17 @@ export const Tile: React.FC<TileProps> = ({
         </mesh>
       )}
 
-      {/* 3. Viewer-Aligned Interior Layout (rotationY counter-rotated so every tile faces the player horizontally!) */}
+      {/* 3. Viewer-Aligned Island Center & Coastal Rim Typography (en bord de case) */}
       <group rotation={[0, -rotationY, 0]}>
-        {/* Back Biome Mound supporting the 3D Landmark */}
+        {/* Central Biome Mound supporting the 3D Landmark */}
         <mesh
-          position={[0, 0.15, -0.26]}
+          position={[0, 0.15, -0.1]}
           rotation={[0, islandSeedAngle * 0.5, 0]}
           receiveShadow
           castShadow
         >
           <cylinderGeometry
-            args={[baseRadius * 0.48, baseRadius * 0.64, 0.14, 8]}
+            args={[baseRadius * 0.5, baseRadius * 0.68, 0.14, 9]}
           />
           <meshStandardMaterial
             color={terrainColor}
@@ -1052,91 +1038,87 @@ export const Tile: React.FC<TileProps> = ({
           />
         </mesh>
 
-        {/* Bespoke 3D Landmark on the Back Ridge */}
+        {/* Bespoke 3D Landmark in the Open Center of the Island */}
         <TileIslandScenery tile={tile} />
 
-        {/* Player Outposts / Fortresses on the Back Ridge */}
+        {/* Player Outposts / Fortresses */}
         {tile.type === 'island' && owner && (
           <IslandConstructions level={tile.level} ownerColor={owner.color} />
         )}
 
-        {/* 4. ULTRA-READABLE TILTED FRONT CARTEL (Always Horizontal & Pitched Toward Camera) */}
+        {/* 4. STYLIZED DRIFTWOOD & PARCHMENT COASTAL RIM BANNER ("EN BORD DE CASE") */}
         <group
-          position={[0, 0.21, 0.16]}
-          rotation={[-Math.PI / 2 + 0.38, 0, 0]}
+          position={[0, 0.13, baseRadius * 0.72]}
+          rotation={[-Math.PI / 2 + 0.34, 0, 0]}
         >
-          {/* Outer Gold/Focus Rim */}
-          <mesh position={[0, 0, -0.012]}>
-            <boxGeometry args={[isCorner ? 1.44 : 1.34, 0.72, 0.02]} />
+          {/* Thin Color-Group Crest Trim along the Top Edge of the Border */}
+          <mesh position={[0, 0.17, -0.005]} castShadow>
+            <boxGeometry args={[ribbonWidth, 0.055, 0.032]} />
             <meshStandardMaterial
-              color={
-                isFocused ? '#fde047' : owner ? owner.color : tile.color
-              }
-              emissive={
-                isFocused ? '#f59e0b' : owner ? owner.color : tile.color
-              }
-              emissiveIntensity={isFocused ? 0.75 : 0.3}
+              color={isFocused ? '#fde047' : tile.color}
+              emissive={isFocused ? '#f59e0b' : tile.color}
+              emissiveIntensity={isFocused ? 0.85 : 0.45}
               roughness={0.35}
             />
           </mesh>
 
-          {/* High-Contrast Dark Obsidian Reading Plate */}
-          <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[isCorner ? 1.38 : 1.28, 0.66, 0.024]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.5} />
-          </mesh>
-
-          {/* Color-Group Header Bar at Top of Cartel */}
-          <mesh position={[0, 0.23, 0.015]}>
-            <boxGeometry args={[isCorner ? 1.34 : 1.24, 0.15, 0.012]} />
+          {/* Sculpted Weathered Driftwood Plank along the Tile Edge */}
+          <mesh position={[0, 0, 0]} castShadow receiveShadow>
+            <boxGeometry args={[ribbonWidth, 0.31, 0.035]} />
             <meshStandardMaterial
-              color={tile.color}
-              emissive={tile.color}
-              emissiveIntensity={0.45}
-              roughness={0.3}
+              map={woodTexture}
+              color="#78350f"
+              roughness={0.78}
             />
           </mesh>
 
-          {/* Tile Number (#ID) & Coastline Badge in Header */}
-          <Text
-            position={[0, 0.23, 0.028]}
-            fontSize={0.125}
-            color="#ffffff"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.022}
-            outlineColor="#020617"
-          >
-            {`#${tile.id} • ${coastType.toUpperCase()}`}
-          </Text>
+          {/* Recessed Warm Parchment Scroll Strip inside the Driftwood Border */}
+          <mesh position={[0, 0.03, 0.019]}>
+            <planeGeometry args={[ribbonWidth - 0.08, 0.19]} />
+            <meshStandardMaterial color="#fef3c7" roughness={0.65} />
+          </mesh>
 
-          {/* Bold, High-Contrast Tile Name */}
+          {/* Left & Right Brass Corner Rivets on the Driftwood Border */}
+          {[-ribbonWidth * 0.45, ribbonWidth * 0.45].map((xPos, idx) => (
+            <mesh key={idx} position={[xPos, 0.03, 0.024]}>
+              <sphereGeometry args={[0.025, 8, 8]} />
+              <meshStandardMaterial
+                color="#fbbf24"
+                metalness={0.85}
+                roughness={0.2}
+              />
+            </mesh>
+          ))}
+
+          {/* Stylized Calligraphic Pirate Font (Pirata One) for the Tile Name */}
           <Text
-            position={[0, 0.01, 0.026]}
-            fontSize={isCorner ? 0.155 : 0.145}
-            maxWidth={isCorner ? 1.3 : 1.2}
-            lineHeight={1.02}
+            font={PIRATA_FONT_URL}
+            position={[0, 0.035, 0.026]}
+            fontSize={isCorner ? 0.165 : 0.155}
+            maxWidth={ribbonWidth - 0.14}
+            lineHeight={0.95}
             textAlign="center"
-            color="#ffffff"
+            color="#271206"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.026}
-            outlineColor="#020617"
+            outlineWidth={0.008}
+            outlineColor="#fef3c7"
           >
-            {tile.name.toUpperCase()}
+            {tile.name}
           </Text>
 
-          {/* Price / Rent / Action Footer */}
+          {/* Engraved Nautical Capitals (Cinzel Bold) on the Lower Mahogany Rim for #ID & Price */}
           <Text
-            position={[0, -0.22, 0.026]}
-            fontSize={0.145}
+            font={CINZEL_FONT_URL}
+            position={[0, -0.105, 0.025]}
+            fontSize={0.112}
             color={owner ? '#4ade80' : '#fde047'}
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.024}
-            outlineColor="#020617"
+            outlineWidth={0.018}
+            outlineColor="#1c0d04"
           >
-            {subtitleText}
+            {`#${tile.id}  •  ${subtitleText}`}
           </Text>
         </group>
       </group>

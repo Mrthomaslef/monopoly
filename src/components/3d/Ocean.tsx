@@ -687,19 +687,21 @@ export const Ocean: React.FC = () => {
         {/* Floating Butin de Tortuga Banner over the Central Treasure Island */}
         <group position={[0, 1.85, 0.7]}>
           <Text
+            font="./assets/fonts/PirataOne-Regular.ttf"
             position={[0, 0.24, 0]}
-            fontSize={0.24}
+            fontSize={0.28}
             color="#fef08a"
             anchorX="center"
             anchorY="middle"
             outlineWidth={0.03}
             outlineColor="#451a03"
           >
-            {`COFFRE CENTRAL : ${tortugaJackpot} OR`}
+            {`Coffre Central : ${tortugaJackpot} Or`}
           </Text>
           <Text
+            font="./assets/fonts/Cinzel-Bold.ttf"
             position={[0, -0.04, 0]}
-            fontSize={0.16}
+            fontSize={0.145}
             color="#fed7aa"
             anchorX="center"
             anchorY="middle"

@@ -36,8 +36,8 @@ export const CardModal: React.FC = () => {
               <img
                 src={
                   activeCard.deck === 'chest'
-                    ? './assets/tile_tresor.jpg?v=terrain2'
-                    : './assets/tile_malediction.jpg?v=terrain2'
+                    ? './assets/tile_tresor.jpg?v=terrain3'
+                    : './assets/tile_malediction.jpg?v=terrain3'
                 }
                 alt={activeCard.title}
                 className="absolute inset-0 w-full h-full object-cover scale-105"

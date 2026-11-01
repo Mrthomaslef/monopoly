@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { useTexture } from '@react-three/drei';
+import { useGLTF, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   TileData,
@@ -29,30 +29,68 @@ export type TerrainTheme =
   | 'malediction';
 
 const TERRAIN_TEXTURE_MAP: Record<TerrainTheme, string> = {
-  plage: './assets/tile_plage.jpg?v=terrain2',
-  lagon: './assets/tile_lagon.jpg?v=terrain2',
-  falaise: './assets/tile_falaise.jpg?v=terrain2',
-  temple: './assets/tile_temple.jpg?v=terrain2',
-  volcan: './assets/tile_volcan.jpg?v=terrain2',
-  eldorado: './assets/tile_eldorado.jpg?v=terrain2',
-  port: './assets/tile_port.jpg?v=terrain2',
-  taverne: './assets/tile_taverne.jpg?v=terrain2',
-  tresor: './assets/tile_tresor.jpg?v=terrain2',
-  malediction: './assets/tile_malediction.jpg?v=terrain2',
+  plage: './assets/tile_plage.jpg?v=terrain3',
+  lagon: './assets/tile_lagon.jpg?v=terrain3',
+  falaise: './assets/tile_falaise.jpg?v=terrain3',
+  temple: './assets/tile_temple.jpg?v=terrain3',
+  volcan: './assets/tile_volcan.jpg?v=terrain3',
+  eldorado: './assets/tile_eldorado.jpg?v=terrain3',
+  port: './assets/tile_port.jpg?v=terrain3',
+  taverne: './assets/tile_taverne.jpg?v=terrain3',
+  tresor: './assets/tile_tresor.jpg?v=terrain3',
+  malediction: './assets/tile_malediction.jpg?v=terrain3',
 };
 
-const PROP_TEXTURE_MAP: Record<TerrainTheme, string> = {
-  plage: './assets/prop_plage.png',
-  lagon: './assets/prop_lagon.png',
-  falaise: './assets/prop_falaise.png',
-  temple: './assets/prop_temple.png',
-  volcan: './assets/prop_volcan.png',
-  eldorado: './assets/prop_eldorado.png',
-  port: './assets/prop_port.png',
-  taverne: './assets/prop_taverne.png',
-  tresor: './assets/prop_tresor.png',
-  malediction: './assets/prop_malediction.png',
+const LANDMARK_MODEL_MAP: Record<TerrainTheme, string> = {
+  plage: './assets/models/tile_plage.glb',
+  lagon: './assets/models/tile_lagon.glb',
+  falaise: './assets/models/tile_falaise.glb',
+  temple: './assets/models/tile_temple.glb',
+  volcan: './assets/models/tile_volcan.glb',
+  eldorado: './assets/models/tile_eldorado.glb',
+  port: './assets/models/tile_port.glb',
+  taverne: './assets/models/tile_taverne.glb',
+  tresor: './assets/models/tile_tresor.glb',
+  malediction: './assets/models/tile_malediction.glb',
 };
+
+Object.values(LANDMARK_MODEL_MAP).forEach((url) => useGLTF.preload(url));
+
+const noRaycast = () => {};
+
+/**
+ * Textured 3D landmark of a tile, fitted to a width/height budget and resting on the ground at y = 0.
+ * Clones share geometry and materials, so the 24 tiles only cost one GPU copy per theme.
+ * Raycasting is off: clicks fall through to the terrace, and pointer moves don't test thousands of triangles per tile.
+ */
+const TileLandmark: React.FC<{
+  theme: TerrainTheme;
+  maxWidth: number;
+  maxHeight: number;
+}> = React.memo(({ theme, maxWidth, maxHeight }) => {
+  const { scene } = useGLTF(LANDMARK_MODEL_MAP[theme]);
+
+  const { model, scale, offset } = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.traverse((child) => {
+      child.raycast = noRaycast;
+    });
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    return {
+      model: clone,
+      scale: Math.min(maxWidth / Math.max(size.x, size.z), maxHeight / size.y),
+      offset: [-center.x, -box.min.y, -center.z] as [number, number, number],
+    };
+  }, [scene, maxWidth, maxHeight]);
+
+  return (
+    <group scale={scale}>
+      <primitive object={model} position={offset} />
+    </group>
+  );
+});
 
 // Persistent cache of generated curved banner textures so moving the ship NEVER recreates canvases or uploads textures
 const BANNER_TEXTURE_CACHE = new Map<
@@ -946,17 +984,9 @@ export const Tile: React.FC<TileProps> = React.memo(
     const theme = useMemo(() => getTileTerrainTheme(tile), [tile]);
     const isRockyShore =
       theme === 'falaise' || theme === 'volcan' || theme === 'malediction';
-    const isMixedCove =
-      theme === 'port' || theme === 'temple' || theme === 'eldorado';
 
-    const [
-      tileArtTexture,
-      propTexture,
-      sandTexture,
-      rockTexture,
-    ] = useTexture([
+    const [tileArtTexture, sandTexture, rockTexture] = useTexture([
       TERRAIN_TEXTURE_MAP[theme],
-      PROP_TEXTURE_MAP[theme],
       './assets/sand_beach.jpg',
       './assets/coastal_rock.jpg',
     ]);
@@ -966,20 +996,26 @@ export const Tile: React.FC<TileProps> = React.memo(
       [tile.id]
     );
 
-    // Place the 3D scenery prop on the BACK-OUTER periphery of the island
-    // so the center of the tile is open for ships and the Level 3 3D Pirate Castle!
-    const propOffsetX = useMemo(() => {
-      if (isCorner) return tile.id === 0 || tile.id === 18 ? 0.36 : -0.36;
-      return tile.id % 2 === 0 ? -0.34 : 0.34;
-    }, [isCorner, tile.id]);
-    const propOffsetZ = isCorner ? -0.52 : -0.46;
+    // The landmark sits in a back corner of the terrace, inside the fortification ring,
+    // leaving the center free for ships and the Level 3 castle. It retreats and shrinks once the castle stands.
+    const hasCastle = tile.level >= 3;
+    const propSideSign = isCorner
+      ? tile.id === 0 || tile.id === 18
+        ? 1
+        : -1
+      : tile.id % 2 === 0
+      ? -1
+      : 1;
+    const propOffsetX = propSideSign * (hasCastle ? 0.38 : isCorner ? 0.28 : 0.25);
+    const propOffsetZ = hasCastle ? -0.4 : isCorner ? -0.34 : -0.3;
 
     // Opposite back corner for the 3D Captain Ownership Flag (moves to top of Central 3D Castle at Level 3!)
     const flagOffsetX = tile.level >= 3 ? 0 : -propOffsetX * 0.95;
     const flagOffsetZ = tile.level >= 3 ? -0.05 : propOffsetZ * 0.88;
 
     const baseRadius = isCorner ? 0.88 : 0.78;
-    const propSize = isCorner ? 0.78 : 0.68;
+    const propWidth = (isCorner ? 0.62 : 0.52) * (hasCastle ? 0.55 : 1);
+    const propHeight = (isCorner ? 0.84 : 0.72) * (hasCastle ? 0.65 : 1);
 
     const levelStars =
       tile.level >= 3
@@ -1125,67 +1161,22 @@ export const Tile: React.FC<TileProps> = React.memo(
             />
           </mesh>
 
-          {/* Off-Center Elevated Coastal Mound under the 3D Landmark */}
+          {/* Ground contact shadow under the landmark */}
           <mesh
-            position={[propOffsetX, 0.175, propOffsetZ]}
-            rotation={[0, islandSeedAngle, 0]}
-            receiveShadow
-          >
-            <cylinderGeometry
-              args={[
-                baseRadius * 0.36,
-                baseRadius * 0.48,
-                0.22,
-                isRockyShore || isMixedCove ? 8 : 12,
-              ]}
-            />
-            <meshStandardMaterial
-              map={tileArtTexture}
-              bumpMap={tileArtTexture}
-              bumpScale={0.035}
-              roughness={0.75}
-            />
-          </mesh>
-
-          {/* Ground Contact Shadow under the Off-Center 3D Prop */}
-          <mesh
-            position={[propOffsetX, 0.205, propOffsetZ]}
+            position={[propOffsetX, 0.164, propOffsetZ]}
             rotation={[-Math.PI / 2, 0, 0]}
           >
-            <circleGeometry args={[propSize * 0.38, 14]} />
-            <meshBasicMaterial color="#020617" transparent opacity={0.32} />
+            <circleGeometry args={[propWidth * 0.52, 20]} />
+            <meshBasicMaterial color="#020617" transparent opacity={0.16} />
           </mesh>
 
-          {/* OFF-CENTER STANDING 3D RELIEF PROP GENERATED BY HIGGSFIELD SOUL V2 */}
-          <group
-            position={[propOffsetX, 0.44, propOffsetZ]}
-            rotation={[-0.26, 0, 0]}
-            scale={tile.level >= 3 ? 0.78 : 1}
-          >
-            <mesh position={[0, 0, -0.02]}>
-              <planeGeometry args={[propSize, propSize]} />
-              <meshStandardMaterial
-                map={propTexture}
-                color="#64748b"
-                transparent
-                alphaTest={0.18}
-                roughness={0.65}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-            <mesh position={[0, 0, 0]}>
-              <planeGeometry args={[propSize, propSize]} />
-              <meshStandardMaterial
-                map={propTexture}
-                bumpMap={propTexture}
-                bumpScale={0.025}
-                transparent
-                alphaTest={0.12}
-                roughness={0.42}
-                metalness={0.06}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
+          {/* TEXTURED 3D LANDMARK (Higgsfield concept, Hunyuan 3D mesh) */}
+          <group position={[propOffsetX, 0.16, propOffsetZ]}>
+            <TileLandmark
+              theme={theme}
+              maxWidth={propWidth}
+              maxHeight={propHeight}
+            />
           </group>
 
           {/* 3D PERIMETER WALLS & CENTER 3D PIRATE CASTLE */}

@@ -44,7 +44,7 @@ interface ThemeStyleConfig {
 export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   plage: {
     biomeLabel: 'Plage des Caraïbes',
-    terrainImg: './assets/tile_plage.jpg?v=terrain2',
+    terrainImg: './assets/tile_plage.jpg?v=terrain3',
     propImg: './assets/prop_plage.png',
     cardBg:
       'linear-gradient(180deg, #fef3c7 0%, #fde68a 58%, #f59e0b 100%)',
@@ -60,7 +60,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   lagon: {
     biomeLabel: 'Lagon Corallien',
-    terrainImg: './assets/tile_lagon.jpg?v=terrain2',
+    terrainImg: './assets/tile_lagon.jpg?v=terrain3',
     propImg: './assets/prop_lagon.png',
     cardBg:
       'linear-gradient(180deg, #ecfeff 0%, #a5f3fc 58%, #22d3ee 100%)',
@@ -76,7 +76,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   falaise: {
     biomeLabel: 'Bastion & Falaises',
-    terrainImg: './assets/tile_falaise.jpg?v=terrain2',
+    terrainImg: './assets/tile_falaise.jpg?v=terrain3',
     propImg: './assets/prop_falaise.png',
     cardBg:
       'linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 55%, #94a3b8 100%)',
@@ -92,7 +92,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   temple: {
     biomeLabel: 'Sanctuaire de la Jungle',
-    terrainImg: './assets/tile_temple.jpg?v=terrain2',
+    terrainImg: './assets/tile_temple.jpg?v=terrain3',
     propImg: './assets/prop_temple.png',
     cardBg:
       'linear-gradient(180deg, #ecfdf5 0%, #a7f3d0 58%, #34d399 100%)',
@@ -108,7 +108,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   volcan: {
     biomeLabel: 'Terres Volcaniques',
-    terrainImg: './assets/tile_volcan.jpg?v=terrain2',
+    terrainImg: './assets/tile_volcan.jpg?v=terrain3',
     propImg: './assets/prop_volcan.png',
     cardBg:
       'linear-gradient(180deg, #1e293b 0%, #0f172a 60%, #064e3b 100%)',
@@ -124,7 +124,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   eldorado: {
     biomeLabel: 'Cité d’Or d’El Dorado',
-    terrainImg: './assets/tile_eldorado.jpg?v=terrain2',
+    terrainImg: './assets/tile_eldorado.jpg?v=terrain3',
     propImg: './assets/prop_eldorado.png',
     cardBg:
       'linear-gradient(180deg, #fef9c3 0%, #fde047 55%, #eab308 100%)',
@@ -140,7 +140,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   port: {
     biomeLabel: 'Port de l’Amirauté',
-    terrainImg: './assets/tile_port.jpg?v=terrain2',
+    terrainImg: './assets/tile_port.jpg?v=terrain3',
     propImg: './assets/prop_port.png',
     cardBg:
       'linear-gradient(180deg, #fffbeb 0%, #fde68a 60%, #d97706 100%)',
@@ -156,7 +156,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   taverne: {
     biomeLabel: 'Repaire de Tortuga',
-    terrainImg: './assets/tile_taverne.jpg?v=terrain2',
+    terrainImg: './assets/tile_taverne.jpg?v=terrain3',
     propImg: './assets/prop_taverne.png',
     cardBg:
       'linear-gradient(180deg, #ffedd5 0%, #fdba74 58%, #ea580c 100%)',
@@ -172,7 +172,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   tresor: {
     biomeLabel: 'Îlot au Trésor',
-    terrainImg: './assets/tile_tresor.jpg?v=terrain2',
+    terrainImg: './assets/tile_tresor.jpg?v=terrain3',
     propImg: './assets/prop_tresor.png',
     cardBg:
       'linear-gradient(180deg, #fef9c3 0%, #fcd34d 58%, #d97706 100%)',
@@ -188,7 +188,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
   malediction: {
     biomeLabel: 'Récif Maudit des Abysses',
-    terrainImg: './assets/tile_malediction.jpg?v=terrain2',
+    terrainImg: './assets/tile_malediction.jpg?v=terrain3',
     propImg: './assets/prop_malediction.png',
     cardBg:
       'linear-gradient(180deg, #2e1065 0%, #1e1b4b 60%, #0f172a 100%)',

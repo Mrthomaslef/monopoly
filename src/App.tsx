@@ -72,7 +72,7 @@ export const App: React.FC = () => {
 
         {/* Compact Turn Pill at Top of 3D Canvas */}
         {activePlayer && (
-          <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2 z-10 wood-plank flex items-center gap-2 px-3 py-1 rounded-full shadow-xl border border-amber-500/40 whitespace-nowrap">
+          <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-10 wood-plank flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-xl border border-amber-500/40 whitespace-nowrap max-w-[96vw]">
             <span
               className="px-1.5 py-0.5 rounded text-[10px] font-black text-white border border-white/60 shrink-0 leading-none"
               style={{ backgroundColor: activePlayer.color }}
@@ -82,10 +82,14 @@ export const App: React.FC = () => {
             <span className="text-xs font-black text-white drop-shadow">
               {activePlayer.name}
             </span>
-            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-amber-950/80 text-orange-200 border border-orange-400/50">
-              🪵 Matériaux : {activePlayer.materials}
+            <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-950/90 text-amber-300 border border-amber-400/50 flex items-center gap-1 shrink-0">
+              <Coins className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>{activePlayer.gold}</span>
             </span>
-            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-black/55 text-amber-300 border border-amber-500/40">
+            <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-950/90 text-orange-200 border border-orange-400/50 shrink-0">
+              🪵 {activePlayer.materials}
+            </span>
+            <span className="text-[11px] font-black px-1.5 py-0.5 rounded-full bg-black/55 text-amber-300 border border-amber-500/40 shrink-0">
               🎲 {dice[0]}+{dice[1]}
             </span>
           </div>

@@ -102,18 +102,18 @@ export const TopHUD: React.FC = () => {
     players.length === 2
       ? 'grid-cols-2'
       : players.length === 3
-      ? 'grid-cols-3'
-      : 'grid-cols-4';
+      ? 'grid-cols-2 sm:grid-cols-3'
+      : 'grid-cols-2 sm:grid-cols-4';
 
   return (
-    <header className="relative z-20 h-[14.5dvh] min-h-[96px] max-h-[128px] w-full wood-panel border-b-4 border-amber-950 px-2.5 py-1.5 flex flex-col justify-between select-none">
+    <header className="relative z-20 w-full wood-panel border-b-4 border-amber-950 px-2 py-1.5 flex flex-col gap-1.5 select-none shrink-0">
       {/* Top Bar: Official Logo Badge + Compact Action Icons */}
       <div className="flex items-center justify-between gap-2">
-        <div className="wood-plank wood-nails px-2.5 py-0.5 rounded-lg flex items-center gap-2">
+        <div className="wood-plank wood-nails px-2 py-0.5 rounded-lg flex items-center gap-1.5">
           <img
             src="./assets/pirate_logo.png"
             alt="Jolly Roger's Logo"
-            className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] shrink-0"
+            className="w-6 h-6 sm:w-7 sm:h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] shrink-0"
           />
           <span className="font-cinzel text-amber-200 text-xs sm:text-sm font-black tracking-wider drop-shadow">
             JOLLY ROGER&apos;S
@@ -172,8 +172,8 @@ export const TopHUD: React.FC = () => {
         </div>
       </div>
 
-      {/* Captains Row (2 to 4 Captains) — Clean & High-Contrast with Live Gold Delta Popups */}
-      <div className={`grid ${gridColsClass} gap-1.5 my-auto`}>
+      {/* Captains Grid (2 columns on mobile so full names + coins + materials are always readable) */}
+      <div className={`grid ${gridColsClass} gap-1.5`}>
         {players.map((player, index) => {
           const isCurrent = index === currentPlayerIndex && !player.bankrupt;
           const islandCount = tiles.filter((t) => t.ownerId === player.id).length;
@@ -187,7 +187,7 @@ export const TopHUD: React.FC = () => {
               parts.push(`${d.goldDelta > 0 ? '+' : ''}${d.goldDelta} Or`);
             }
             if (d.matDelta !== 0) {
-              parts.push(`${d.matDelta > 0 ? '+' : ''}${d.matDelta} Mat. 🪵`);
+              parts.push(`${d.matDelta > 0 ? '+' : ''}${d.matDelta} 🪵`);
             }
             return parts.join(' ');
           };
@@ -200,10 +200,10 @@ export const TopHUD: React.FC = () => {
               }
               animate={
                 isLoss
-                  ? { x: [0, -5, 5, -4, 4, 0], scale: 1.03 }
+                  ? { x: [0, -5, 5, -4, 4, 0], scale: 1.02 }
                   : isGain
-                  ? { scale: [1, 1.08, 1.03] }
-                  : { scale: isCurrent ? 1.02 : 1, x: 0 }
+                  ? { scale: [1, 1.06, 1.02] }
+                  : { scale: isCurrent ? 1.01 : 1, x: 0 }
               }
               transition={{ duration: 0.45 }}
               className={`relative wood-plank cursor-pointer rounded-xl px-2 py-1 transition-all flex items-center gap-2 ${
@@ -254,10 +254,12 @@ export const TopHUD: React.FC = () => {
               </div>
 
               <div className="min-w-0 flex-1">
-                {/* Captain Name + Upgrade Badges + Jail / Bankrupt Icon */}
+                {/* Captain Full Name + Upgrade Badges + Jail / Bankrupt Icon */}
                 <div className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-black text-white truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] leading-tight flex items-center gap-0.5">
-                    <span className="truncate">{player.name}</span>
+                  <div className="text-[11px] sm:text-xs font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] leading-tight flex items-center gap-1 min-w-0">
+                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                      {player.name}
+                    </span>
                     {player.hasPerfectBoarding && (
                       <span className="text-[10px] shrink-0" title="Abordage Parfait (50% Or)">
                         ⚔️
@@ -268,7 +270,7 @@ export const TopHUD: React.FC = () => {
                         🎯
                       </span>
                     )}
-                  </span>
+                  </div>
                   {player.bankrupt ? (
                     <Skull className="w-3 h-3 text-rose-400 shrink-0" />
                   ) : player.inJail ? (
@@ -280,14 +282,14 @@ export const TopHUD: React.FC = () => {
                   ) : null}
                 </div>
 
-                {/* High-Contrast Stats Pill (Gold, Materials, Islands) */}
+                {/* High-Contrast Stats Pill (Gold Coins, Materials, Islands) */}
                 <div
-                  className={`mt-1 border rounded-md px-1.5 py-0.5 flex items-center justify-between text-[11px] leading-none gap-1 transition-colors ${
+                  className={`mt-0.5 border rounded-md px-1.5 py-0.5 flex items-center justify-between text-[11px] leading-none gap-1.5 transition-colors ${
                     isGain
                       ? 'bg-emerald-950/90 border-emerald-400/80'
                       : isLoss
                       ? 'bg-rose-950/90 border-rose-400/80'
-                      : 'bg-black/60 border-white/10'
+                      : 'bg-black/65 border-white/15'
                   }`}
                 >
                   <motion.span
@@ -295,31 +297,31 @@ export const TopHUD: React.FC = () => {
                     initial={{ scale: 1.35 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 360, damping: 16 }}
-                    className={`flex items-center gap-0.5 font-black ${
+                    className={`flex items-center gap-0.5 font-black shrink-0 ${
                       isGain
                         ? 'text-emerald-300'
                         : isLoss
                         ? 'text-rose-300'
                         : 'text-amber-300'
                     }`}
-                    title="Or (Doublons)"
+                    title="Pièces d'Or"
                   >
                     <Coins className="w-3 h-3 text-amber-400 shrink-0" />
-                    {player.gold}
+                    <span>{player.gold}</span>
                   </motion.span>
                   <span
-                    className="flex items-center gap-0.5 font-extrabold text-orange-200"
+                    className="flex items-center gap-0.5 font-black text-orange-200 shrink-0"
                     title="Matériaux de construction"
                   >
                     <span className="text-[10px]">🪵</span>
-                    <span>{player.materials} Mat.</span>
+                    <span>{player.materials}</span>
                   </span>
                   <span
-                    className="flex items-center gap-0.5 font-extrabold text-cyan-300"
+                    className="flex items-center gap-0.5 font-extrabold text-cyan-300 shrink-0"
                     title="Îles possédées"
                   >
                     <MapPin className="w-2.5 h-2.5 shrink-0" />
-                    {islandCount}
+                    <span>{islandCount}</span>
                   </span>
                 </div>
               </div>

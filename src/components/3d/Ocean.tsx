@@ -548,10 +548,19 @@ const CARIBBEAN_WATER_FRAGMENT = /* glsl */ `
     addIslandReef(vec2(-9.8, 9.6),   2.9, periphShallow, periphFoam);
     addIslandReef(vec2(9.8, 9.6),    2.9, periphShallow, periphFoam);
 
-    // Blend from shallow turquoise around central island, board ring & outer islands
-    float shallowFactor = 1.0 - smoothstep(1.8, 5.2, distCenter);
-    float boardReefFactor = 1.0 - smoothstep(0.4, 1.4, abs(squareDist - 4.95));
-    float totalShallow = clamp(shallowFactor + boardReefFactor * 0.65 + periphShallow * 0.85, 0.0, 1.0);
+    // Nearest of the 24 archipelago tile islands on the 7x7 perimeter ring (spacing 1.65)
+    vec2 gridIdx = clamp(floor(vWorldXZ / 1.65 + 0.5), -3.0, 3.0);
+    vec2 tileGrid = (abs(vWorldXZ.x) > abs(vWorldXZ.y))
+      ? vec2(sign(vWorldXZ.x) * 3.0, gridIdx.y)
+      : vec2(gridIdx.x, sign(vWorldXZ.y) * 3.0);
+    vec2 nearestTileCenter = tileGrid * 1.65;
+    float distToTile = length(vWorldXZ - nearestTileCenter);
+    float tileRadius = (abs(tileGrid.x) == 3.0 && abs(tileGrid.y) == 3.0) ? 0.86 : 0.76;
+
+    // Blend from shallow turquoise around central island, 24 tile islands & outer islands
+    float shallowFactor = 1.0 - smoothstep(1.8, 5.0, distCenter);
+    float boardReefFactor = 1.0 - smoothstep(tileRadius * 0.75, tileRadius * 1.55, distToTile);
+    float totalShallow = clamp(shallowFactor + boardReefFactor * 0.85 + periphShallow * 0.85, 0.0, 1.0);
 
     vec3 waterColor = mix(deepAzure, lagoonCyan, smoothstep(22.0, 6.0, distCenter));
     waterColor = mix(waterColor, shallowTurquoise, totalShallow);
@@ -570,13 +579,11 @@ const CARIBBEAN_WATER_FRAGMENT = /* glsl */ `
     float islandShore = abs(distCenter - 2.15 + sin(uTime * 2.5 + vWorldXZ.x * 3.0) * 0.08);
     float islandFoam = 1.0 - smoothstep(0.0, 0.22, islandShore);
 
-    // Animated white foam along the 24-tile wooden pier (square radius ~4.2 and ~5.7)
-    float innerPierShore = abs(squareDist - 4.12 + cos(uTime * 2.2 + vWorldXZ.y * 2.5) * 0.07);
-    float outerPierShore = abs(squareDist - 5.75 + sin(uTime * 2.0 + vWorldXZ.x * 2.5) * 0.08);
-    float pierFoam = (1.0 - smoothstep(0.0, 0.16, innerPierShore)) * step(squareDist, 4.35)
-                   + (1.0 - smoothstep(0.0, 0.18, outerPierShore)) * step(5.55, squareDist);
+    // Animated circular white foam around each of the 24 tile islands
+    float tileShore = abs(distToTile - tileRadius + sin(uTime * 2.4 + vWorldXZ.x * 3.5 + vWorldXZ.y * 3.5) * 0.06);
+    float tileFoam = 1.0 - smoothstep(0.0, 0.16, tileShore);
 
-    float foam = clamp(islandFoam + pierFoam * 0.75 + periphFoam * 0.85 + pow(crest, 2.5) * 0.35, 0.0, 1.0);
+    float foam = clamp(islandFoam + tileFoam * 0.85 + periphFoam * 0.85 + pow(crest, 2.5) * 0.35, 0.0, 1.0);
     waterColor = mix(waterColor, foamWhite, foam);
 
     // Caribbean sun specular sparkle

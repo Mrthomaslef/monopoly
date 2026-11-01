@@ -1006,7 +1006,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!card) return;
 
     const player = state.players[state.currentPlayerIndex];
-    set({ activeCard: null });
+    set({ activeCard: null, landedTilePopup: null });
 
     if (card.goldDelta || card.materialsDelta) {
       const delta = card.goldDelta ?? 0;
@@ -1431,11 +1431,7 @@ function evaluateLandedTile(): void {
       useGameStore.setState({
         phase: 'TILE_ACTION',
         activeCard: drawn,
-        landedTilePopup: {
-          tileId: tile.id,
-          playerId: player.id,
-          eventSummary: drawn.title,
-        },
+        landedTilePopup: null,
       });
 
       if (player.isAI) {

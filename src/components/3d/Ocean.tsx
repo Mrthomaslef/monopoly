@@ -5,93 +5,82 @@ import * as THREE from 'three';
 import { useGameStore } from '../../store/useGameStore';
 
 /**
- * Peripheral Archipelago Island rendered with authentic Higgsfield Soul V2 artwork
- * and sculpted sandy/rocky shoreline bevels (zero ugly procedural primitives)
+ * Distant Horizon Island Backdrop rendered with authentic Higgsfield Soul V2 transparent PNGs
+ * placed far out on the ocean horizon to give depth without cluttering the board.
  */
-function PeripheralTropicalIsland({
+function DistantHorizonIsland({
   position,
   scale = 1,
   variant = 'volcano',
 }: {
   position: [number, number, number];
   scale?: number;
-  rotationY?: number;
-  variant?: 'volcano' | 'mountain' | 'lagoon_arch' | 'temple';
+  variant?: 'volcano' | 'arch' | 'fortress' | 'atoll';
 }) {
-  const artPath =
+  const pngPath =
     variant === 'volcano'
-      ? './assets/tile_volcan.jpg'
-      : variant === 'temple'
-      ? './assets/tile_temple.jpg'
-      : variant === 'lagoon_arch'
-      ? './assets/tile_lagon.jpg'
-      : './assets/tile_falaise.jpg';
+      ? './assets/horizon_island_volcano.png'
+      : variant === 'arch'
+      ? './assets/horizon_island_arch.png'
+      : variant === 'fortress'
+      ? './assets/horizon_island_fortress.png'
+      : './assets/horizon_island_atoll.png';
 
-  const propPath =
-    variant === 'volcano'
-      ? './assets/prop_volcan.png'
-      : variant === 'temple'
-      ? './assets/prop_temple.png'
-      : variant === 'lagoon_arch'
-      ? './assets/prop_plage.png'
-      : './assets/prop_falaise.png';
-
-  const [artTex, propTex, sandTex, rockTex] = useTexture([
-    artPath,
-    propPath,
+  const [islandTex, sandTex] = useTexture([
+    pngPath,
     './assets/sand_beach.jpg',
-    './assets/coastal_rock.jpg',
   ]);
 
-  const isRocky = variant === 'volcano' || variant === 'mountain';
+  // Orient the horizon island backdrop so it faces toward the center of the board / camera
+  const angleToCenter = useMemo(
+    () => Math.atan2(-position[0], -position[2]),
+    [position]
+  );
 
   return (
-    <group position={position} scale={scale}>
-      {/* Sculpted 3D Shoreline Base */}
-      <mesh position={[0, 0.06, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[2.55, 3.15, 0.28, isRocky ? 12 : 28]} />
+    <group
+      position={position}
+      rotation={[0, angleToCenter, 0]}
+      scale={scale}
+    >
+      {/* Subtle submerged sandbar / reef shelf at water level */}
+      <mesh
+        position={[0, -0.05, 0.2]}
+        rotation={[-Math.PI / 2, 0, 0]}
+         scale={[1.45, 0.55, 1]}
+      >
+        <circleGeometry args={[3.4, 24]} />
         <meshStandardMaterial
-          map={isRocky ? rockTex : sandTex}
-          bumpMap={isRocky ? rockTex : sandTex}
-          bumpScale={0.04}
-          color={isRocky ? '#94a3b8' : '#fde68a'}
-          roughness={0.85}
+          map={sandTex}
+          color="#fef08a"
+          roughness={0.9}
+          transparent
+          opacity={0.75}
         />
       </mesh>
 
-      {/* Elevated 3D Island Mound with Higgsfield Artwork */}
-      <mesh position={[0, 0.22, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[2.2, 2.52, 0.14, 28]} />
-        <meshStandardMaterial
-          map={artTex}
-          bumpMap={artTex}
-          bumpScale={0.05}
-          roughness={0.58}
-        />
-      </mesh>
-
-      {/* Standing 3D Relief Prop from Higgsfield Soul V2 */}
-      <group position={[0, 1.35, 0]} rotation={[-0.25, 0, 0]}>
-        <mesh position={[0, 0, -0.06]} castShadow>
-          <planeGeometry args={[2.7, 2.7]} />
+      {/* Distant Horizon Island PNG Backdrop with subtle 3D depth layer */}
+      <group position={[0, 2.05, 0]} rotation={[-0.12, 0, 0]}>
+        <mesh position={[0, 0, -0.1]}>
+          <planeGeometry args={[7.8, 4.85]} />
           <meshStandardMaterial
-            map={propTex}
-            color="#475569"
+            map={islandTex}
+            color="#334155"
             transparent
-            alphaTest={0.18}
-            roughness={0.7}
+            alphaTest={0.14}
+            roughness={0.75}
             side={THREE.DoubleSide}
           />
         </mesh>
-        <mesh position={[0, 0, 0]} castShadow>
-          <planeGeometry args={[2.7, 2.7]} />
+        <mesh position={[0, 0, 0]}>
+          <planeGeometry args={[7.8, 4.85]} />
           <meshStandardMaterial
-            map={propTex}
-            bumpMap={propTex}
-            bumpScale={0.03}
+            map={islandTex}
+            bumpMap={islandTex}
+            bumpScale={0.02}
             transparent
-            alphaTest={0.12}
-            roughness={0.45}
+            alphaTest={0.1}
+            roughness={0.55}
             side={THREE.DoubleSide}
           />
         </mesh>
@@ -161,13 +150,10 @@ const CARIBBEAN_WATER_FRAGMENT = /* glsl */ `
 
     float periphShallow = 0.0;
     float periphFoam = 0.0;
-    addIslandReef(vec2(-10.2, -9.8), 3.6, periphShallow, periphFoam);
-    addIslandReef(vec2(10.5, -9.5),  3.4, periphShallow, periphFoam);
-    addIslandReef(vec2(0.0, -11.5),  3.1, periphShallow, periphFoam);
-    addIslandReef(vec2(-10.8, 0.5),  3.0, periphShallow, periphFoam);
-    addIslandReef(vec2(10.8, 0.8),   3.0, periphShallow, periphFoam);
-    addIslandReef(vec2(-9.8, 9.6),   2.9, periphShallow, periphFoam);
-    addIslandReef(vec2(9.8, 9.6),    2.9, periphShallow, periphFoam);
+    addIslandReef(vec2(-15.5, -16.5), 4.2, periphShallow, periphFoam);
+    addIslandReef(vec2(15.8, -16.2),  4.2, periphShallow, periphFoam);
+    addIslandReef(vec2(-18.5, -3.5),  3.8, periphShallow, periphFoam);
+    addIslandReef(vec2(18.5, -3.2),   3.8, periphShallow, periphFoam);
 
     // Nearest of the 24 archipelago tile islands on the 7x7 perimeter ring (spacing 1.65)
     vec2 gridIdx = clamp(floor(vWorldXZ / 1.65 + 0.5), -3.0, 3.0);
@@ -180,9 +166,9 @@ const CARIBBEAN_WATER_FRAGMENT = /* glsl */ `
 
     float shallowFactor = 1.0 - smoothstep(1.8, 5.0, distCenter);
     float boardReefFactor = 1.0 - smoothstep(tileRadius * 0.72, tileRadius * 1.55, distToTile);
-    float totalShallow = clamp(shallowFactor + boardReefFactor * 0.85 + periphShallow * 0.85, 0.0, 1.0);
+    float totalShallow = clamp(shallowFactor + boardReefFactor * 0.85 + periphShallow * 0.75, 0.0, 1.0);
 
-    vec3 waterColor = mix(deepAzure, lagoonCyan, smoothstep(22.0, 6.0, distCenter));
+    vec3 waterColor = mix(deepAzure, lagoonCyan, smoothstep(26.0, 6.0, distCenter));
     waterColor = mix(waterColor, shallowTurquoise, totalShallow);
 
     float caustics1 = causticPattern(vWorldXZ + vec2(uTime * 0.15, -uTime * 0.1), uTime);
@@ -200,7 +186,7 @@ const CARIBBEAN_WATER_FRAGMENT = /* glsl */ `
     float tileShore = abs(distToTile - tileRadius + sin(uTime * 2.4 + vWorldXZ.x * 3.5 + vWorldXZ.y * 3.5) * 0.06);
     float tileFoam = 1.0 - smoothstep(0.0, 0.17, tileShore);
 
-    float foam = clamp(islandFoam + tileFoam * 0.85 + periphFoam * 0.85 + pow(crest, 2.5) * 0.35, 0.0, 1.0);
+    float foam = clamp(islandFoam + tileFoam * 0.85 + periphFoam * 0.75 + pow(crest, 2.5) * 0.35, 0.0, 1.0);
     waterColor = mix(waterColor, foamWhite, foam);
 
     vec3 lightDir = normalize(vec3(0.5, 0.85, 0.55));
@@ -236,7 +222,7 @@ export const Ocean: React.FC = () => {
     <group>
       {/* Custom Shader Caribbean Ocean */}
       <mesh position={[0, -0.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[64, 64, 112, 112]} />
+        <planeGeometry args={[76, 76, 112, 112]} />
         <shaderMaterial
           ref={shaderRef}
           vertexShader={CARIBBEAN_WATER_VERTEX}
@@ -306,41 +292,26 @@ export const Ocean: React.FC = () => {
         </group>
       </group>
 
-      {/* SURROUNDING ARCHIPELAGO ON THE MAP BORDERS (Higgsfield Soul V2 Art) */}
-      <PeripheralTropicalIsland
-        position={[-10.2, -0.1, -9.8]}
+      {/* FEWER, MORE DISTANT HORIZON ISLAND PNG BACKDROPS (Higgsfield Soul V2) */}
+      <DistantHorizonIsland
+        position={[-15.5, -0.1, -16.5]}
         scale={1.15}
         variant="volcano"
       />
-      <PeripheralTropicalIsland
-        position={[10.5, -0.1, -9.5]}
-        scale={1.1}
-        variant="mountain"
+      <DistantHorizonIsland
+        position={[15.8, -0.1, -16.2]}
+        scale={1.15}
+        variant="fortress"
       />
-      <PeripheralTropicalIsland
-        position={[0, -0.1, -11.5]}
-        scale={0.98}
-        variant="temple"
+      <DistantHorizonIsland
+        position={[-18.5, -0.1, -3.5]}
+        scale={1.0}
+        variant="arch"
       />
-      <PeripheralTropicalIsland
-        position={[-10.8, -0.1, 0.5]}
-        scale={0.95}
-        variant="lagoon_arch"
-      />
-      <PeripheralTropicalIsland
-        position={[10.8, -0.1, 0.8]}
-        scale={0.95}
-        variant="mountain"
-      />
-      <PeripheralTropicalIsland
-        position={[-9.8, -0.1, 9.6]}
-        scale={0.9}
-        variant="lagoon_arch"
-      />
-      <PeripheralTropicalIsland
-        position={[9.8, -0.1, 9.6]}
-        scale={0.9}
-        variant="temple"
+      <DistantHorizonIsland
+        position={[18.5, -0.1, -3.2]}
+        scale={1.0}
+        variant="atoll"
       />
     </group>
   );

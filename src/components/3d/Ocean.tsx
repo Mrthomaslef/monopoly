@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text, useTexture } from '@react-three/drei';
+import { Text, useTexture, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../../store/useGameStore';
 
@@ -199,9 +199,10 @@ const CARIBBEAN_WATER_FRAGMENT = /* glsl */ `
 
 export const Ocean: React.FC = () => {
   const shaderRef = useRef<THREE.ShaderMaterial>(null);
-  const skullCaveRef = useRef<THREE.Group>(null);
   const torchGlowRef = useRef<THREE.Mesh>(null);
+  const caveLightRef = useRef<THREE.PointLight>(null);
   const tortugaJackpot = useGameStore((s) => s.tortugaJackpot);
+
   const [compassTexture, sandTexture, rockTexture, skullCaveTexture] =
     useTexture([
       './assets/compass_emblem.jpg',
@@ -209,6 +210,14 @@ export const Ocean: React.FC = () => {
       './assets/coastal_rock.jpg',
       './assets/center_skull_cave.png',
     ]);
+
+  // Load the true 3D volumetric mesh (15,318 vertices / 30,676 triangles in X, Y, Z)
+  // built from the Higgsfield Soul V2 Skull Cave asset
+  const { nodes } = useGLTF('./assets/center_skull_cave.glb') as unknown as {
+    nodes: {
+      HiggsfieldSkullCave3D: THREE.Mesh;
+    };
+  };
 
   const uniforms = useMemo(
     () => ({
@@ -222,12 +231,12 @@ export const Ocean: React.FC = () => {
     if (shaderRef.current) {
       shaderRef.current.uniforms.uTime.value = t;
     }
-    if (skullCaveRef.current) {
-      skullCaveRef.current.position.y = 1.28 + Math.sin(t * 1.8) * 0.015;
-    }
     if (torchGlowRef.current) {
       const pulse = 1 + Math.sin(t * 4.2) * 0.08;
       torchGlowRef.current.scale.set(pulse, pulse, 1);
+    }
+    if (caveLightRef.current) {
+      caveLightRef.current.intensity = 2.2 + Math.sin(t * 5.5) * 0.45;
     }
   });
 
@@ -244,13 +253,15 @@ export const Ocean: React.FC = () => {
         />
       </mesh>
 
-      {/* Central Decorative Treasure Island with 3D Higgsfield Skull Cave */}
+      {/* Central Decorative Treasure Island with True 3D Volumetric (X, Y, Z) Higgsfield Skull Cave */}
       <group position={[0, -0.08, 0]}>
         {/* Outer Submerged Golden Sandbar */}
         <mesh position={[0, 0.06, 0]} receiveShadow>
-          <cylinderGeometry args={[2.08, 2.38, 0.22, 28]} />
+          <cylinderGeometry args={[2.12, 2.42, 0.22, 32]} />
           <meshStandardMaterial
             map={sandTexture}
+            bumpMap={sandTexture}
+            bumpScale={0.025}
             color="#fde68a"
             roughness={0.85}
           />
@@ -258,9 +269,11 @@ export const Ocean: React.FC = () => {
 
         {/* Upper Sandy Beach Terrace */}
         <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[1.72, 2.04, 0.28, 28]} />
+          <cylinderGeometry args={[1.76, 2.08, 0.28, 32]} />
           <meshStandardMaterial
             map={sandTexture}
+            bumpMap={sandTexture}
+            bumpScale={0.03}
             color="#fcd34d"
             roughness={0.8}
           />
@@ -268,11 +281,11 @@ export const Ocean: React.FC = () => {
 
         {/* Engraved Compass Rose Stone Plaza on the Beach */}
         <mesh
-          position={[0, 0.37, 0.18]}
+          position={[0, 0.37, 0.22]}
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow
         >
-          <circleGeometry args={[1.45, 32]} />
+          <circleGeometry args={[1.48, 32]} />
           <meshStandardMaterial
             map={compassTexture}
             roughness={0.55}
@@ -280,107 +293,147 @@ export const Ocean: React.FC = () => {
           />
         </mesh>
 
-        {/* 3D Sculpted Rocky Crag Backing behind the Skull Cave */}
+        {/* 3D Sculpted Volcanic & Limestone Cliff Formation around the 3D Skull Cave (X, Y, Z Volume) */}
         <mesh
-          position={[0, 0.72, -0.58]}
-          rotation={[0.08, 0.4, 0]}
+          position={[0, 0.92, -0.42]}
+          rotation={[0.06, 0.35, 0]}
           castShadow
           receiveShadow
         >
-          <coneGeometry args={[1.18, 1.35, 7]} />
+          <dodecahedronGeometry args={[1.08, 2]} />
           <meshStandardMaterial
             map={rockTexture}
             bumpMap={rockTexture}
-            bumpScale={0.04}
+            bumpScale={0.055}
             color="#64748b"
             roughness={0.88}
           />
         </mesh>
         <mesh
-          position={[-0.68, 0.54, -0.45]}
-          rotation={[0.1, -0.5, -0.12]}
+          position={[-0.82, 0.62, -0.25]}
+          rotation={[0.12, -0.45, -0.15]}
           castShadow
           receiveShadow
         >
-          <dodecahedronGeometry args={[0.52, 1]} />
+          <dodecahedronGeometry args={[0.62, 1]} />
           <meshStandardMaterial
             map={rockTexture}
+            bumpMap={rockTexture}
+            bumpScale={0.045}
             color="#475569"
             roughness={0.9}
           />
         </mesh>
         <mesh
-          position={[0.68, 0.52, -0.45]}
-          rotation={[0.1, 0.6, 0.12]}
+          position={[0.82, 0.6, -0.25]}
+          rotation={[0.1, 0.55, 0.14]}
           castShadow
           receiveShadow
         >
-          <dodecahedronGeometry args={[0.5, 1]} />
+          <dodecahedronGeometry args={[0.6, 1]} />
           <meshStandardMaterial
             map={rockTexture}
+            bumpMap={rockTexture}
+            bumpScale={0.045}
             color="#475569"
             roughness={0.9}
           />
         </mesh>
 
-        {/* Golden Treasure Glow at the Mouth of the Skull Cave */}
-        <mesh
-          ref={torchGlowRef}
-          position={[0, 0.385, -0.1]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <circleGeometry args={[0.92, 24]} />
-          <meshBasicMaterial color="#f59e0b" transparent opacity={0.32} />
-        </mesh>
-
-        {/* 3D HIGGSFIELD SOUL V2 SKULL CAVE MONUMENT (Multi-Layered 3D Relief Extrusion) */}
-        <group
-          ref={skullCaveRef}
-          position={[0, 1.28, -0.22]}
-          rotation={[-0.22, 0, 0]}
-        >
-          {/* Deep stone shadow silhouette layer */}
-          <mesh position={[0, 0, -0.1]} castShadow>
-            <planeGeometry args={[2.35, 2.35]} />
-            <meshStandardMaterial
-              map={skullCaveTexture}
-              color="#1e293b"
-              transparent
-              alphaTest={0.16}
-              roughness={0.85}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-          {/* Mid-depth carved rock extrusion layer */}
-          <mesh position={[0, 0, -0.05]} castShadow>
-            <planeGeometry args={[2.35, 2.35]} />
-            <meshStandardMaterial
-              map={skullCaveTexture}
-              color="#64748b"
-              transparent
-              alphaTest={0.16}
-              roughness={0.7}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-          {/* Front high-relief Higgsfield 3D Skull Cave layer with bump mapping */}
-          <mesh position={[0, 0, 0]} castShadow receiveShadow>
-            <planeGeometry args={[2.35, 2.35]} />
+        {/* TRUE 3D VOLUMETRIC SKULL CAVE MESH IN X, Y, AND Z (30,676 Triangles from Higgsfield Soul V2) */}
+        {nodes?.HiggsfieldSkullCave3D && (
+          <mesh
+            geometry={nodes.HiggsfieldSkullCave3D.geometry}
+            position={[0, 0.24, -0.12]}
+            scale={[1.06, 1.04, 1.22]}
+            castShadow
+            receiveShadow
+          >
             <meshStandardMaterial
               map={skullCaveTexture}
               bumpMap={skullCaveTexture}
-              bumpScale={0.045}
-              transparent
-              alphaTest={0.12}
-              roughness={0.42}
-              metalness={0.08}
-              side={THREE.DoubleSide}
+              bumpScale={0.085}
+              roughness={0.48}
+              metalness={0.12}
             />
           </mesh>
+        )}
+
+        {/* 3D Volumetric Treasure Chest & Gold Doubloon Mounds at the Jaw Entrance of the 3D Skull Cave */}
+        <group position={[0, 0.38, 0.48]}>
+          {/* Dynamic Flickering Torchlight inside the 3D Skull Jaw Cavern */}
+          <pointLight
+            ref={caveLightRef}
+            position={[0, 0.35, 0.12]}
+            color="#fbbf24"
+            intensity={2.2}
+            distance={4.5}
+            decay={2}
+          />
+
+          {/* Golden Treasure Glow on the Sand */}
+          <mesh
+            ref={torchGlowRef}
+            position={[0, 0.01, 0.08]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <circleGeometry args={[0.85, 24]} />
+            <meshBasicMaterial color="#f59e0b" transparent opacity={0.34} />
+          </mesh>
+
+          {/* 3D Overflowing Gold Doubloon Mounds (X, Y, Z) */}
+          <mesh position={[-0.24, 0.06, 0.05]} castShadow receiveShadow>
+            <dodecahedronGeometry args={[0.16, 1]} />
+            <meshStandardMaterial
+              color="#fbbf24"
+              emissive="#d97706"
+              emissiveIntensity={0.35}
+              metalness={0.85}
+              roughness={0.22}
+            />
+          </mesh>
+          <mesh position={[0.24, 0.06, 0.06]} castShadow receiveShadow>
+            <dodecahedronGeometry args={[0.15, 1]} />
+            <meshStandardMaterial
+              color="#fde047"
+              emissive="#d97706"
+              emissiveIntensity={0.35}
+              metalness={0.85}
+              roughness={0.22}
+            />
+          </mesh>
+
+          {/* 3D Pirate Treasure Chest in the Center of the Skull Mouth */}
+          <group position={[0, 0.11, 0.12]} rotation={[0, 0.12, 0]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[0.32, 0.18, 0.22]} />
+              <meshStandardMaterial color="#78350f" roughness={0.7} />
+            </mesh>
+            <mesh
+              position={[0, 0.09, 0]}
+              rotation={[0, 0, Math.PI / 2]}
+              castShadow
+            >
+              <cylinderGeometry args={[0.11, 0.11, 0.33, 12]} />
+              <meshStandardMaterial
+                color="#b45309"
+                metalness={0.4}
+                roughness={0.45}
+              />
+            </mesh>
+            <mesh position={[0, 0.04, 0.115]}>
+              <boxGeometry args={[0.07, 0.08, 0.02]} />
+              <meshStandardMaterial
+                color="#fde047"
+                metalness={0.9}
+                roughness={0.18}
+              />
+            </mesh>
+          </group>
         </group>
 
-        {/* Central Jackpot Banner in front of the Skull Cave */}
-        <group position={[0, 0.62, 1.05]} rotation={[-0.35, 0, 0]}>
+        {/* Central Jackpot Banner in front of the 3D Skull Cave */}
+        <group position={[0, 0.62, 1.14]} rotation={[-0.35, 0, 0]}>
           <Text
             font="./assets/fonts/PirataOne-Regular.ttf"
             position={[0, 0.2, 0]}

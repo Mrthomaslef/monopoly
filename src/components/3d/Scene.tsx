@@ -111,8 +111,8 @@ export const Scene: React.FC = () => {
         camera={{ position: [0, 15, 11.5], fov: 44, near: 0.1, far: 120 }}
       >
         {/* Warm Caribbean Sunset & Lagoon Lighting */}
-        <color attach="background" args={['#0c4a6e']} />
-        <fog attach="fog" args={['#0c4a6e', 22, 46]} />
+        <color attach="background" args={['#0ea5e9']} />
+        <fog attach="fog" args={['#0ea5e9', 30, 62]} />
 
         <ambientLight intensity={0.75} color="#fef3c7" />
         <hemisphereLight

@@ -496,14 +496,16 @@ const CurvedGoldenReliefBanner: React.FC<{
   // Compact width (< 1.65 tile spacing) and elevated front-rim placement so it never clips terrain or neighbors
   const planeW = isCorner ? 1.38 : 1.28;
   const planeH = planeW * (384 / 1024);
+  const bannerY = tile.level > 0 ? 0.39 : 0.31;
+  const bannerZ = baseRadius * (tile.level > 0 ? 0.58 : 0.52);
 
   return (
     <group
-      position={[0, 0.31, baseRadius * 0.52]}
-      rotation={[-Math.PI / 2 + 0.42, 0, 0]}
+      position={[0, bannerY, bannerZ]}
+      rotation={[-Math.PI / 2 + 0.44, 0, 0]}
     >
-      {/* Subtle 3D Dark Carved Wood Backing Plate (no text ghosting, no shadow map artifacts) */}
-      <mesh position={[0, -0.008, -0.014]} renderOrder={9}>
+      {/* Subtle 3D Dark Carved Wood Backing Plate (always visible in front of fortifications) */}
+      <mesh position={[0, -0.008, -0.014]} renderOrder={24}>
         <planeGeometry args={[planeW, planeH]} />
         <meshStandardMaterial
           map={colorTexture}
@@ -511,14 +513,13 @@ const CurvedGoldenReliefBanner: React.FC<{
           transparent
           alphaTest={0.25}
           roughness={0.85}
-          polygonOffset
-          polygonOffsetFactor={-2}
-          polygonOffsetUnits={-2}
+          depthTest={false}
+          depthWrite={false}
         />
       </mesh>
 
       {/* Main High-Contrast Curved 3D Golden-Brown Relief Plaque */}
-      <mesh position={[0, 0, 0]} renderOrder={10}>
+      <mesh position={[0, 0, 0]} renderOrder={25}>
         <planeGeometry args={[planeW, planeH]} />
         <meshStandardMaterial
           map={colorTexture}
@@ -530,9 +531,8 @@ const CurvedGoldenReliefBanner: React.FC<{
           alphaTest={0.1}
           roughness={0.28}
           metalness={0.25}
-          polygonOffset
-          polygonOffsetFactor={-4}
-          polygonOffsetUnits={-4}
+          depthTest={false}
+          depthWrite={false}
         />
       </mesh>
     </group>
@@ -541,6 +541,7 @@ const CurvedGoldenReliefBanner: React.FC<{
 
 /**
  * NIVEAU 1 : Mur en Bois avec des Pics tout autour de l'île (3D X, Y, Z)
+ * Laisse une ouverture dégagée à l'avant (+Z) pour que le nom de l'île reste parfaitement lisible.
  */
 const WoodenSpikeWallRing3D: React.FC<{
   baseRadius: number;
@@ -551,10 +552,10 @@ const WoodenSpikeWallRing3D: React.FC<{
     const angles: number[] = [];
     const totalPosts = 22;
     for (let i = 0; i < totalPosts; i++) {
-      // Angle 0 is +Z (front banner side); leave a small entrance gap at the front [-0.34, +0.34] rad
+      // Angle 0 is +Z (front banner side); leave a clear opening at the front [-0.66, +0.66] rad for the island name plaque
       const a = (i / totalPosts) * Math.PI * 2;
       const norm = a > Math.PI ? a - Math.PI * 2 : a;
-      if (Math.abs(norm) < 0.34) continue;
+      if (Math.abs(norm) < 0.66) continue;
       angles.push(a);
     }
     return angles;
@@ -562,22 +563,6 @@ const WoodenSpikeWallRing3D: React.FC<{
 
   return (
     <group position={[0, 0.15, 0]}>
-      {/* Deux traverses horizontales en bois qui relient tous les pieux autour de l'île */}
-      <mesh
-        position={[0, 0.08, 0]}
-        rotation={[Math.PI / 2, 0, Math.PI / 2 + 0.36]}
-      >
-        <torusGeometry args={[wallRadius, 0.022, 6, 28, Math.PI * 2 - 0.72]} />
-        <meshStandardMaterial color="#5c2406" roughness={0.85} />
-      </mesh>
-      <mesh
-        position={[0, 0.17, 0]}
-        rotation={[Math.PI / 2, 0, Math.PI / 2 + 0.36]}
-      >
-        <torusGeometry args={[wallRadius, 0.02, 6, 28, Math.PI * 2 - 0.72]} />
-        <meshStandardMaterial color="#78350f" roughness={0.8} />
-      </mesh>
-
       {/* Bandeau de territoire à la couleur du joueur au pied de la palissade */}
       <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[wallRadius - 0.045, wallRadius + 0.045, 28]} />
@@ -589,7 +574,7 @@ const WoodenSpikeWallRing3D: React.FC<{
         />
       </mesh>
 
-      {/* Couronne de rondins en bois verticaux + pics taillés en pointe + pieux obliques externes */}
+      {/* Couronne de rondins en bois verticaux + traverses + pics taillés en pointe + pieux obliques externes */}
       {postAngles.map((angle, idx) => {
         const x = Math.sin(angle) * wallRadius;
         const z = Math.cos(angle) * wallRadius;
@@ -598,6 +583,16 @@ const WoodenSpikeWallRing3D: React.FC<{
 
         return (
           <group key={idx} position={[x, 0, z]} rotation={[0, angle, 0]}>
+            {/* Traverses horizontales en bois reliant les rondins sans passer devant le nom de l'île */}
+            <mesh position={[0, 0.08, 0]}>
+              <boxGeometry args={[0.17, 0.028, 0.028]} />
+              <meshStandardMaterial color="#5c2406" roughness={0.85} />
+            </mesh>
+            <mesh position={[0, 0.16, 0]}>
+              <boxGeometry args={[0.17, 0.026, 0.026]} />
+              <meshStandardMaterial color="#78350f" roughness={0.8} />
+            </mesh>
+
             {/* Rondin vertical en bois */}
             <mesh position={[0, postH / 2, 0]}>
               <cylinderGeometry args={[0.036, 0.042, postH, 6]} />
@@ -635,6 +630,7 @@ const WoodenSpikeWallRing3D: React.FC<{
 
 /**
  * NIVEAU 2 & 3 : Remparts en Pierre Taillée tout autour de l'île (remplace le mur en bois)
+ * Dégage l'avant (+Z) pour laisser le nom de l'île bien visible.
  */
 const CarvedStoneRampartRing3D: React.FC<{
   baseRadius: number;
@@ -648,7 +644,7 @@ const CarvedStoneRampartRing3D: React.FC<{
     for (let i = 0; i < totalSegs; i++) {
       const a = (i / totalSegs) * Math.PI * 2;
       const norm = a > Math.PI ? a - Math.PI * 2 : a;
-      if (Math.abs(norm) < 0.34) continue;
+      if (Math.abs(norm) < 0.66) continue;
       segs.push(a);
     }
 
@@ -657,15 +653,15 @@ const CarvedStoneRampartRing3D: React.FC<{
     for (let i = 0; i < totalMerlons; i++) {
       const a = (i / totalMerlons) * Math.PI * 2;
       const norm = a > Math.PI ? a - Math.PI * 2 : a;
-      if (Math.abs(norm) < 0.36) continue;
+      if (Math.abs(norm) < 0.68) continue;
       merlons.push(a);
     }
 
     const bastions = [
-      Math.PI * 0.28,
-      Math.PI * 0.72,
-      -Math.PI * 0.72,
-      -Math.PI * 0.28,
+      Math.PI * 0.36,
+      Math.PI * 0.74,
+      -Math.PI * 0.74,
+      -Math.PI * 0.36,
     ];
 
     return {

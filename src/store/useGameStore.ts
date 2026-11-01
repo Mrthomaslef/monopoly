@@ -112,6 +112,7 @@ export const FORTIFY_MATERIAL_COST = 1;
 export const INITIAL_MATERIALS = 2;
 export const MAX_FORTIFY_LEVEL = 3;
 export const UPGRADE_COST = 1000;
+export const UPGRADE_MATERIAL_COST = 3;
 export const CULVERIN_RANGE = 3;
 
 export const FORTRESS_LEVEL_NAMES = [
@@ -1117,18 +1118,33 @@ export const useGameStore = create<GameState>()(
     const player = state.players[state.currentPlayerIndex];
     if (!player || player.bankrupt) return;
     if (!canAccessUpgradesShop(player, state.tiles)) return;
-    if (player.hasPerfectBoarding || player.gold < UPGRADE_COST) return;
+    if (
+      player.hasPerfectBoarding ||
+      player.gold < UPGRADE_COST ||
+      player.materials < UPGRADE_MATERIAL_COST
+    ) {
+      return;
+    }
 
     soundEffects.playGoldSound();
     const updatedPlayers = state.players.map((p, idx) =>
       idx === state.currentPlayerIndex
-        ? { ...p, gold: p.gold - UPGRADE_COST, hasPerfectBoarding: true }
+        ? {
+            ...p,
+            gold: p.gold - UPGRADE_COST,
+            materials: p.materials - UPGRADE_MATERIAL_COST,
+            hasPerfectBoarding: true,
+          }
         : p
     );
 
-    state.addFloatingText(player.position, '⚔️ Abordage Parfait (-1000 Or)', '#fbbf24');
+    state.addFloatingText(
+      player.position,
+      `⚔️ Abordage Parfait (-${UPGRADE_COST} Or & -${UPGRADE_MATERIAL_COST} 🪵)`,
+      '#fbbf24'
+    );
     state.addLog(
-      `⚔️ ${player.name} achète Abordage Parfait (1000 Or) : pille 50% de l'or adverse à chaque victoire !`
+      `⚔️ ${player.name} achète Abordage Parfait (${UPGRADE_COST} Or + ${UPGRADE_MATERIAL_COST} 🪵) : pille 50% de l'or adverse à chaque victoire !`
     );
 
     set({ players: updatedPlayers });
@@ -1139,7 +1155,9 @@ export const useGameStore = create<GameState>()(
     const player = state.players[state.currentPlayerIndex];
     if (!player || player.bankrupt) return;
     if (!canAccessUpgradesShop(player, state.tiles)) return;
-    if (player.gold < UPGRADE_COST) return;
+    if (player.gold < UPGRADE_COST || player.materials < UPGRADE_MATERIAL_COST) {
+      return;
+    }
 
     const targetId = tileId !== undefined ? tileId : player.position;
     const tile = state.tiles[targetId];
@@ -1155,15 +1173,25 @@ export const useGameStore = create<GameState>()(
 
     soundEffects.playBuildSound();
     const updatedPlayers = state.players.map((p, idx) =>
-      idx === state.currentPlayerIndex ? { ...p, gold: p.gold - UPGRADE_COST } : p
+      idx === state.currentPlayerIndex
+        ? {
+            ...p,
+            gold: p.gold - UPGRADE_COST,
+            materials: p.materials - UPGRADE_MATERIAL_COST,
+          }
+        : p
     );
     const updatedTiles = state.tiles.map((t) =>
       t.id === tile.id ? { ...t, trapped: true } : t
     );
 
-    state.addFloatingText(tile.id, '💣 Forteresse Piégée (-1000 Or)', '#f97316');
+    state.addFloatingText(
+      tile.id,
+      `💣 Forteresse Piégée (-${UPGRADE_COST} Or & -${UPGRADE_MATERIAL_COST} 🪵)`,
+      '#f97316'
+    );
     state.addLog(
-      `💣 ${player.name} piège la forteresse de ${tile.name} (1000 Or) : -50% d'or pour tout ennemi qui y accoste !`
+      `💣 ${player.name} piège la forteresse de ${tile.name} (${UPGRADE_COST} Or + ${UPGRADE_MATERIAL_COST} 🪵) : -50% d'or pour tout ennemi qui y accoste !`
     );
 
     set({
@@ -1178,18 +1206,33 @@ export const useGameStore = create<GameState>()(
     const player = state.players[state.currentPlayerIndex];
     if (!player || player.bankrupt) return;
     if (!canAccessUpgradesShop(player, state.tiles)) return;
-    if (player.hasCulverin || player.gold < UPGRADE_COST) return;
+    if (
+      player.hasCulverin ||
+      player.gold < UPGRADE_COST ||
+      player.materials < UPGRADE_MATERIAL_COST
+    ) {
+      return;
+    }
 
     soundEffects.playGoldSound();
     const updatedPlayers = state.players.map((p, idx) =>
       idx === state.currentPlayerIndex
-        ? { ...p, gold: p.gold - UPGRADE_COST, hasCulverin: true }
+        ? {
+            ...p,
+            gold: p.gold - UPGRADE_COST,
+            materials: p.materials - UPGRADE_MATERIAL_COST,
+            hasCulverin: true,
+          }
         : p
     );
 
-    state.addFloatingText(player.position, '🎯 Tir de Coulevrine (-1000 Or)', '#38bdf8');
+    state.addFloatingText(
+      player.position,
+      `🎯 Tir de Coulevrine (-${UPGRADE_COST} Or & -${UPGRADE_MATERIAL_COST} 🪵)`,
+      '#38bdf8'
+    );
     state.addLog(
-      `🎯 ${player.name} équipe une Coulevrine (1000 Or) : peut détruire 1 étage d'un bâtiment adverse à ≤ ${CULVERIN_RANGE} cases !`
+      `🎯 ${player.name} équipe une Coulevrine (${UPGRADE_COST} Or + ${UPGRADE_MATERIAL_COST} 🪵) : peut détruire 1 étage d'un bâtiment adverse à ≤ ${CULVERIN_RANGE} cases !`
     );
 
     set({ players: updatedPlayers });
@@ -2028,7 +2071,8 @@ function afterTileActionCheckNavalBattle(): void {
     aiPlayer.isAI &&
     !aiPlayer.bankrupt &&
     canAccessUpgradesShop(aiPlayer, afterFortifyState.tiles) &&
-    aiPlayer.gold >= UPGRADE_COST + 350
+    aiPlayer.gold >= UPGRADE_COST + 350 &&
+    aiPlayer.materials >= UPGRADE_MATERIAL_COST
   ) {
     if (!aiPlayer.hasCulverin) {
       afterFortifyState.buyCulverin();

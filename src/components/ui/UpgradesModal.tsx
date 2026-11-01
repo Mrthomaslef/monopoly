@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   useGameStore,
   UPGRADE_COST,
+  UPGRADE_MATERIAL_COST,
   CULVERIN_RANGE,
   FORTRESS_LEVEL_NAMES,
   canAccessUpgradesShop,
@@ -50,7 +51,9 @@ export const UpgradesModal: React.FC = () => {
 
   const currentTile = tiles[activePlayer.position];
   const canShopHere = canAccessUpgradesShop(activePlayer, tiles);
-  const canAfford = activePlayer.gold >= UPGRADE_COST;
+  const canAfford =
+    activePlayer.gold >= UPGRADE_COST &&
+    activePlayer.materials >= UPGRADE_MATERIAL_COST;
   const culverinTargets = getCulverinTargets(activePlayer, tiles);
 
   const effectiveTrapTileId =
@@ -79,11 +82,16 @@ export const UpgradesModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-900/90 border border-amber-500/40 px-2.5 py-1 rounded-xl">
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 bg-slate-900/90 border border-amber-500/40 px-2 py-1 rounded-xl">
               <Coins className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-xs font-black text-amber-300 tabular-nums">
-                {activePlayer.gold} Or
+                {activePlayer.gold}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 bg-amber-950/85 border border-orange-400/50 px-2 py-1 rounded-xl">
+              <span className="text-xs font-black text-orange-200 tabular-nums">
+                🪵 {activePlayer.materials}
               </span>
             </div>
             <button
@@ -181,8 +189,8 @@ export const UpgradesModal: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg">
-                {UPGRADE_COST} Or
+              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                {UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵
               </span>
             </div>
 
@@ -196,7 +204,7 @@ export const UpgradesModal: React.FC = () => {
                 disabled={!canShopHere || !canAfford}
                 className="w-full py-2 rounded-xl bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-amber-300/60 shadow active:scale-95 transition-all"
               >
-                Acheter ({UPGRADE_COST} Or)
+                Acheter ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
               </button>
             )}
           </div>
@@ -218,8 +226,8 @@ export const UpgradesModal: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg">
-                {UPGRADE_COST} Or
+              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                {UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵
               </span>
             </div>
 
@@ -255,7 +263,7 @@ export const UpgradesModal: React.FC = () => {
                   disabled={!canShopHere || !canAfford || effectiveTrapTileId === null}
                   className="w-full py-2 rounded-xl bg-gradient-to-b from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-orange-300/60 shadow active:scale-95 transition-all"
                 >
-                  Piéger cette forteresse ({UPGRADE_COST} Or)
+                  Piéger ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
                 </button>
               </>
             )}
@@ -278,8 +286,8 @@ export const UpgradesModal: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg">
-                {UPGRADE_COST} Or
+              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                {UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵
               </span>
             </div>
 
@@ -293,7 +301,7 @@ export const UpgradesModal: React.FC = () => {
                 disabled={!canShopHere || !canAfford}
                 className="w-full py-2 rounded-xl bg-gradient-to-b from-sky-400 to-sky-600 hover:from-sky-300 hover:to-sky-500 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-sky-300/60 shadow active:scale-95 transition-all"
               >
-                Acheter ({UPGRADE_COST} Or)
+                Acheter ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
               </button>
             )}
           </div>

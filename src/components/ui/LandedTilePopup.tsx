@@ -634,7 +634,7 @@ export const LandedTilePopup: React.FC = () => {
                   className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-purple-400 to-indigo-600 text-white border-2 border-purple-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 shrink-0" />
-                  <span>Améliorations (1000 Or)</span>
+                  <span>Améliorations (1000 Or + 3 🪵)</span>
                 </motion.button>
               )}
 

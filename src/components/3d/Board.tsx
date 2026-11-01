@@ -217,7 +217,7 @@ export const Board: React.FC = () => {
             owner={owner}
             isFocused={focusedTileIndex === tile.id}
             onSelectTile={(tileId) => {
-              useGameStore.setState({ focusedTileIndex: tileId });
+              useGameStore.getState().inspectTileCard(tileId);
             }}
           />
         );

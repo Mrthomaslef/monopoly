@@ -560,6 +560,13 @@ function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
   }));
 }
 
+export interface LandedTilePopupData {
+  tileId: number;
+  playerId: number;
+  eventSummary?: string;
+  isInspect?: boolean;
+}
+
 interface GameState {
   players: Player[];
   slotConfigs: PlayerSlotConfig[];
@@ -576,6 +583,7 @@ interface GameState {
   actionLogs: string[];
   floatingTexts: FloatingTextItem[];
   activeCard: DrawnCard | null;
+  landedTilePopup: LandedTilePopupData | null;
   navalBattle: NavalBattleState | null;
   cannonShot: CannonShotData | null;
   winner: Player | null;
@@ -584,6 +592,8 @@ interface GameState {
 
   // Actions
   setShowSetupModal: (show: boolean) => void;
+  dismissLandedTilePopup: () => void;
+  inspectTileCard: (tileId: number) => void;
   startCustomGame: (slots: PlayerSlotConfig[]) => void;
   initGame: (aiCount?: number, passAndPlay?: boolean) => void;
   toggleCameraMode: () => void;
@@ -622,6 +632,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   ],
   floatingTexts: [],
   activeCard: null,
+  landedTilePopup: null,
   navalBattle: null,
   cannonShot: null,
   winner: null,
@@ -629,6 +640,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   aiCount: 3,
 
   setShowSetupModal: (show) => set({ showSetupModal: show }),
+
+  dismissLandedTilePopup: () => set({ landedTilePopup: null }),
+
+  inspectTileCard: (tileId) => {
+    const state = get();
+    const activePlayer = state.players[state.currentPlayerIndex];
+    set({
+      focusedTileIndex: tileId,
+      landedTilePopup: {
+        tileId,
+        playerId: activePlayer ? activePlayer.id : 0,
+        isInspect: true,
+      },
+    });
+  },
 
   startCustomGame: (slots) => {
     const builtPlayers = buildPlayersFromSlots(slots);
@@ -649,6 +675,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       cameraShake: 0,
       tortugaJackpot: 150,
       activeCard: null,
+      landedTilePopup: null,
       navalBattle: null,
       cannonShot: null,
       winner: null,
@@ -750,6 +777,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       isRollingDice: true,
       dice: [d1, d2],
       focusedTileIndex: currentPlayer.position,
+      landedTilePopup: null,
     });
 
     setTimeout(() => {
@@ -775,9 +803,14 @@ export const useGameStore = create<GameState>((set, get) => ({
               idx === s.currentPlayerIndex ? { ...p, jailTurns: p.jailTurns + 1 } : p
             ),
             phase: 'END_TURN',
+            landedTilePopup: {
+              tileId: player.position,
+              playerId: player.id,
+              eventSummary: `⛓️ ${player.name} reste aux fers sur l’Île du Crâne (${d1}+${d2})`,
+            },
           }));
           if (player.isAI) {
-            setTimeout(() => get().endTurn(), 1200);
+            setTimeout(() => get().endTurn(), 1400);
           }
           return;
         }
@@ -858,6 +891,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       players: updatedPlayers,
       tiles: updatedTiles,
       phase: 'END_TURN',
+      landedTilePopup: {
+        tileId: tile.id,
+        playerId: player.id,
+        eventSummary: `🏴‍☠️ Île annexée par ${player.name} pour ${tile.price} Or !`,
+      },
     });
   },
 
@@ -894,6 +932,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       players: updatedPlayers,
       tiles: updatedTiles,
       phase: 'END_TURN',
+      landedTilePopup: {
+        tileId: tile.id,
+        playerId: player.id,
+        eventSummary: `🏰 ${buildLabel} érigé sur ${tile.name} (-${tile.upgradeCost} Or)`,
+      },
     });
   },
 
@@ -1142,6 +1185,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         phase: 'GAME_OVER',
         winner: alivePlayers[0] ?? state.players[0],
+        landedTilePopup: null,
       });
       return;
     }
@@ -1159,6 +1203,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       phase: 'IDLE',
       focusedTileIndex: nextPlayer.position,
       activeCard: null,
+      landedTilePopup: null,
       navalBattle: null,
     });
 
@@ -1183,12 +1228,26 @@ function evaluateLandedTile(): void {
   switch (tile.type) {
     case 'start': {
       state.addLog(`⚓ ${player.name} mouille l'ancre à Port Royal.`);
+      useGameStore.setState({
+        landedTilePopup: {
+          tileId: tile.id,
+          playerId: player.id,
+          eventSummary: '⚓ Mouillage à Port Royal (+200 Or de prime de passage)',
+        },
+      });
       afterTileActionCheckNavalBattle();
       break;
     }
 
     case 'jail': {
       state.addLog(`💀 ${player.name} inspecte les cachots de l'Île du Crâne (Simple visite).`);
+      useGameStore.setState({
+        landedTilePopup: {
+          tileId: tile.id,
+          playerId: player.id,
+          eventSummary: '💀 Simple visite aux cachots de l’Île du Crâne',
+        },
+      });
       afterTileActionCheckNavalBattle();
       break;
     }
@@ -1205,6 +1264,11 @@ function evaluateLandedTile(): void {
         players: s.players.map((p, idx) =>
           idx === s.currentPlayerIndex ? { ...p, gold: p.gold + jackpot } : p
         ),
+        landedTilePopup: {
+          tileId: tile.id,
+          playerId: player.id,
+          eventSummary: `🍻 Jackpot de Tortuga raflé : +${jackpot} Doublons !`,
+        },
       }));
       afterTileActionCheckNavalBattle();
       break;
@@ -1225,10 +1289,15 @@ function evaluateLandedTile(): void {
             : p
         ),
         phase: 'END_TURN',
+        landedTilePopup: {
+          tileId: tile.id,
+          playerId: player.id,
+          eventSummary: `🦑 Embuscade du Kraken ! ${player.name} est jeté en Cale !`,
+        },
       }));
       setTimeout(() => useGameStore.setState({ cameraShake: 0 }), 450);
       if (player.isAI) {
-        setTimeout(() => useGameStore.getState().endTurn(), 1200);
+        setTimeout(() => useGameStore.getState().endTurn(), 1400);
       }
       break;
     }
@@ -1245,6 +1314,11 @@ function evaluateLandedTile(): void {
         players: s.players.map((p, idx) =>
           idx === s.currentPlayerIndex ? { ...p, gold: p.gold - taxAmount } : p
         ),
+        landedTilePopup: {
+          tileId: tile.id,
+          playerId: player.id,
+          eventSummary: `👑 Taxe de l’Amirauté : -${taxAmount} Or versés au pot de Tortuga`,
+        },
       }));
       checkPlayerBankruptcy(state.currentPlayerIndex);
       afterTileActionCheckNavalBattle();
@@ -1262,6 +1336,11 @@ function evaluateLandedTile(): void {
       useGameStore.setState({
         phase: 'TILE_ACTION',
         activeCard: drawn,
+        landedTilePopup: {
+          tileId: tile.id,
+          playerId: player.id,
+          eventSummary: drawn.title,
+        },
       });
 
       if (player.isAI) {
@@ -1275,7 +1354,14 @@ function evaluateLandedTile(): void {
     case 'island': {
       if (tile.ownerId === null) {
         // Available to purchase
-        useGameStore.setState({ phase: 'TILE_ACTION' });
+        useGameStore.setState({
+          phase: 'TILE_ACTION',
+          landedTilePopup: {
+            tileId: tile.id,
+            playerId: player.id,
+            eventSummary: `🏝️ Île Vierge — Disponible pour ${tile.price} Doublons`,
+          },
+        });
         if (player.isAI) {
           setTimeout(() => {
             const st = useGameStore.getState();
@@ -1286,14 +1372,24 @@ function evaluateLandedTile(): void {
             }
             setTimeout(() => {
               afterTileActionCheckNavalBattle();
-            }, 600);
+            }, 700);
           }, 1200);
         } else {
           checkAutomaticNavalBattlePrompt();
         }
       } else if (tile.ownerId === player.id) {
         // Player owns this island: can fortify it!
-        useGameStore.setState({ phase: 'TILE_ACTION' });
+        useGameStore.setState({
+          phase: 'TILE_ACTION',
+          landedTilePopup: {
+            tileId: tile.id,
+            playerId: player.id,
+            eventSummary:
+              tile.level < 4
+                ? `🏰 Votre île — Fortifiable pour ${tile.upgradeCost} Or`
+                : '🏰 Forteresse Pirate Maximale !',
+          },
+        });
         if (player.isAI) {
           setTimeout(() => {
             const st = useGameStore.getState();
@@ -1304,7 +1400,7 @@ function evaluateLandedTile(): void {
             }
             setTimeout(() => {
               afterTileActionCheckNavalBattle();
-            }, 600);
+            }, 700);
           }, 1200);
         } else {
           checkAutomaticNavalBattlePrompt();
@@ -1326,6 +1422,11 @@ function evaluateLandedTile(): void {
               if (p.id === owner.id) return { ...p, gold: p.gold + rent };
               return p;
             }),
+            landedTilePopup: {
+              tileId: tile.id,
+              playerId: player.id,
+              eventSummary: `⚓ Droit de mouillage : -${rent} Or versés à ${owner.name}`,
+            },
           }));
           checkPlayerBankruptcy(state.currentPlayerIndex);
         }

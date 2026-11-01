@@ -14,54 +14,95 @@ export const CardModal: React.FC = () => {
 
   return (
     <AnimatePresence>
-      {/* Treasure Chest & Sea Curse Parchment Modal */}
+      {/* Treasure Chest & Sea Curse Parchment Modal styled after the Tile */}
       {activeCard && (
         <motion.div
           key="card-modal"
-          initial={{ opacity: 0, scale: 0.88, y: 20 }}
+          initial={{ opacity: 0, scale: 0.78, y: 24 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.88, y: 20 }}
+          exit={{ opacity: 0, scale: 0.85, y: 20 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 24 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
         >
-          <div className="w-full max-w-xs parchment-card rounded-2xl border-4 border-amber-800 p-5 text-center shadow-2xl relative overflow-hidden">
-            {/* Top Ribbon Icon */}
-            <div
-              className={`w-12 h-12 mx-auto mb-2.5 rounded-full flex items-center justify-center border-2 shadow-md ${
-                activeCard.deck === 'chest'
-                  ? 'bg-amber-500 border-amber-200 text-slate-950'
-                  : 'bg-purple-900 border-purple-400 text-purple-100'
-              }`}
-            >
-              {activeCard.deck === 'chest' ? (
-                <Sparkles className="w-6 h-6" />
-              ) : (
-                <Skull className="w-6 h-6" />
-              )}
+          <div
+            className={`w-full max-w-xs rounded-2xl border-4 overflow-hidden text-center shadow-2xl relative ${
+              activeCard.deck === 'chest'
+                ? 'parchment-card border-yellow-400'
+                : 'border-purple-400 bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 text-purple-50'
+            }`}
+          >
+            {/* Top Tile Terrain Banner & 3D Higgsfield Prop Cutout */}
+            <div className="relative h-28 w-full overflow-hidden border-b-2 border-black/30">
+              <img
+                src={
+                  activeCard.deck === 'chest'
+                    ? './assets/tile_tresor.jpg?v=terrain2'
+                    : './assets/tile_malediction.jpg?v=terrain2'
+                }
+                alt={activeCard.title}
+                className="absolute inset-0 w-full h-full object-cover scale-105"
+              />
+              <div
+                className={`absolute inset-0 ${
+                  activeCard.deck === 'chest'
+                    ? 'bg-gradient-to-b from-amber-950/20 to-amber-950/85'
+                    : 'bg-gradient-to-b from-purple-950/30 to-slate-950/90'
+                }`}
+              />
+              <div className="absolute bottom-2 left-3 z-10 flex items-center gap-1.5">
+                {activeCard.deck === 'chest' ? (
+                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                ) : (
+                  <Skull className="w-4 h-4 text-purple-300" />
+                )}
+                <span className="font-cinzel text-[11px] font-black uppercase tracking-widest text-amber-200">
+                  {activeCard.deck === 'chest'
+                    ? 'Coffre au Trésor'
+                    : 'Malédiction des Mers'}
+                </span>
+              </div>
+              <img
+                src={
+                  activeCard.deck === 'chest'
+                    ? './assets/prop_tresor.png'
+                    : './assets/prop_malediction.png'
+                }
+                alt={activeCard.title}
+                className="absolute right-2 bottom-0.5 w-24 h-24 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
+              />
             </div>
 
-            <div className="text-[11px] font-black uppercase tracking-widest text-amber-800">
-              {activeCard.deck === 'chest'
-                ? '⚓ Coffre au Trésor'
-                : '🦑 Malédiction des Mers'}
+            <div className="p-5">
+              <h3
+                className={`font-pirata text-2xl tracking-wide ${
+                  activeCard.deck === 'chest'
+                    ? 'text-amber-950'
+                    : 'text-purple-200'
+                }`}
+              >
+                {activeCard.title}
+              </h3>
+
+              <p
+                className={`text-xs font-semibold mt-2 leading-relaxed ${
+                  activeCard.deck === 'chest'
+                    ? 'text-amber-900/95'
+                    : 'text-purple-100/90'
+                }`}
+              >
+                {activeCard.description}
+              </p>
+
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={resolveCardModal}
+                className="mt-4 w-full py-2.5 px-4 rounded-xl font-cinzel font-black text-xs uppercase tracking-wider bg-gradient-to-b from-amber-600 to-amber-900 text-amber-100 border border-amber-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Compass className="w-4 h-4 text-amber-300" />
+                <span>Accepter le Destin</span>
+              </motion.button>
             </div>
-
-            <h3 className="text-lg font-black text-amber-950 mt-1">
-              {activeCard.title}
-            </h3>
-
-            <p className="text-xs font-medium text-amber-900/90 mt-2 leading-relaxed">
-              {activeCard.description}
-            </p>
-
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              type="button"
-              onClick={resolveCardModal}
-              className="mt-4 w-full py-2.5 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-b from-amber-700 to-amber-900 text-amber-100 border border-amber-500 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Compass className="w-4 h-4 text-amber-300" />
-              <span>Accepter le Destin</span>
-            </motion.button>
           </div>
         </motion.div>
       )}

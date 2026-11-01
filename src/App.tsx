@@ -7,6 +7,7 @@ import { BottomDeck } from './components/ui/BottomDeck';
 import { NavalBattleModal } from './components/ui/NavalBattleModal';
 import { CardModal } from './components/ui/CardModal';
 import { GameSetupModal } from './components/ui/GameSetupModal';
+import { LandedTilePopup } from './components/ui/LandedTilePopup';
 import { useGameStore } from './store/useGameStore';
 
 export const App: React.FC = () => {
@@ -107,7 +108,8 @@ export const App: React.FC = () => {
       {/* Zone Basse (25%): Tiroir de commandement Planches de Bois & Parchemin */}
       <BottomDeck />
 
-      {/* Modales : Configuration Joueurs/IA, Bataille Navale & Cartes Parchemin */}
+      {/* Modales : Carte de Case à l'Accostage, Configuration, Bataille Navale & Cartes Parchemin */}
+      <LandedTilePopup />
       <GameSetupModal />
       <NavalBattleModal />
       <CardModal />

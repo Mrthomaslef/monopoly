@@ -99,7 +99,7 @@ export const FortifySelectorModal: React.FC = () => {
           <div className="px-3 py-1.5 bg-black/45 border-b border-amber-900/50 text-[10px] font-semibold text-amber-200/90 flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
             <span>
-              Bois → Pierre → Pierre Taillée (avec votre drapeau) :
+              Mur en Bois à Pics → Remparts en Pierre Taillée → Château Pirate 3D :
             </span>
           </div>
 

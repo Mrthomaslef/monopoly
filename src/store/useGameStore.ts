@@ -110,9 +110,9 @@ export const MAX_FORTIFY_LEVEL = 3;
 
 export const FORTRESS_LEVEL_NAMES = [
   'Mouillage du Capitaine',
-  'Forteresse en Bois',
-  'Forteresse en Pierre',
-  'Forteresse en Pierre Taillée',
+  'Mur en Bois à Pics',
+  'Remparts en Pierre Taillée',
+  'Château Pirate 3D',
 ] as const;
 
 export const FORTRESS_LEVEL_IMAGES: Record<number, string | null> = {

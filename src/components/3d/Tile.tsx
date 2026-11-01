@@ -539,6 +539,400 @@ const CurvedGoldenReliefBanner: React.FC<{
   );
 };
 
+/**
+ * NIVEAU 1 : Mur en Bois avec des Pics tout autour de l'île (3D X, Y, Z)
+ */
+const WoodenSpikeWallRing3D: React.FC<{
+  baseRadius: number;
+  ownerColor: string;
+}> = React.memo(({ baseRadius, ownerColor }) => {
+  const wallRadius = baseRadius * 0.77;
+  const postAngles = useMemo(() => {
+    const angles: number[] = [];
+    const totalPosts = 22;
+    for (let i = 0; i < totalPosts; i++) {
+      // Angle 0 is +Z (front banner side); leave a small entrance gap at the front [-0.34, +0.34] rad
+      const a = (i / totalPosts) * Math.PI * 2;
+      const norm = a > Math.PI ? a - Math.PI * 2 : a;
+      if (Math.abs(norm) < 0.34) continue;
+      angles.push(a);
+    }
+    return angles;
+  }, []);
+
+  return (
+    <group position={[0, 0.15, 0]}>
+      {/* Deux traverses horizontales en bois qui relient tous les pieux autour de l'île */}
+      <mesh
+        position={[0, 0.08, 0]}
+        rotation={[Math.PI / 2, 0, Math.PI / 2 + 0.36]}
+      >
+        <torusGeometry args={[wallRadius, 0.022, 6, 28, Math.PI * 2 - 0.72]} />
+        <meshStandardMaterial color="#5c2406" roughness={0.85} />
+      </mesh>
+      <mesh
+        position={[0, 0.17, 0]}
+        rotation={[Math.PI / 2, 0, Math.PI / 2 + 0.36]}
+      >
+        <torusGeometry args={[wallRadius, 0.02, 6, 28, Math.PI * 2 - 0.72]} />
+        <meshStandardMaterial color="#78350f" roughness={0.8} />
+      </mesh>
+
+      {/* Bandeau de territoire à la couleur du joueur au pied de la palissade */}
+      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[wallRadius - 0.045, wallRadius + 0.045, 28]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={0.85}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Couronne de rondins en bois verticaux + pics taillés en pointe + pieux obliques externes */}
+      {postAngles.map((angle, idx) => {
+        const x = Math.sin(angle) * wallRadius;
+        const z = Math.cos(angle) * wallRadius;
+        const isTallPost = idx % 2 === 0;
+        const postH = isTallPost ? 0.25 : 0.21;
+
+        return (
+          <group key={idx} position={[x, 0, z]} rotation={[0, angle, 0]}>
+            {/* Rondin vertical en bois */}
+            <mesh position={[0, postH / 2, 0]}>
+              <cylinderGeometry args={[0.036, 0.042, postH, 6]} />
+              <meshStandardMaterial
+                color={isTallPost ? '#78350f' : '#92400e'}
+                roughness={0.78}
+              />
+            </mesh>
+
+            {/* Pic supérieur taillé en pointe acérée */}
+            <mesh position={[0, postH + 0.055, 0]}>
+              <coneGeometry args={[0.038, 0.11, 6]} />
+              <meshStandardMaterial color="#fde68a" roughness={0.55} />
+            </mesh>
+
+            {/* Pieux défensifs obliques à pics pointés vers l'extérieur (1 rondin sur 2) */}
+            {isTallPost && (
+              <group position={[0, 0.09, 0.045]} rotation={[0.95, 0, 0]}>
+                <mesh>
+                  <cylinderGeometry args={[0.018, 0.024, 0.14, 5]} />
+                  <meshStandardMaterial color="#78350f" roughness={0.8} />
+                </mesh>
+                <mesh position={[0, 0.095, 0]}>
+                  <coneGeometry args={[0.02, 0.065, 5]} />
+                  <meshStandardMaterial color="#fef08a" roughness={0.5} />
+                </mesh>
+              </group>
+            )}
+          </group>
+        );
+      })}
+    </group>
+  );
+});
+
+/**
+ * NIVEAU 2 & 3 : Remparts en Pierre Taillée tout autour de l'île (remplace le mur en bois)
+ */
+const CarvedStoneRampartRing3D: React.FC<{
+  baseRadius: number;
+  ownerColor: string;
+}> = React.memo(({ baseRadius, ownerColor }) => {
+  const wallRadius = baseRadius * 0.78;
+
+  const { wallSegments, merlonAngles, bastionAngles } = useMemo(() => {
+    const segs: number[] = [];
+    const totalSegs = 22;
+    for (let i = 0; i < totalSegs; i++) {
+      const a = (i / totalSegs) * Math.PI * 2;
+      const norm = a > Math.PI ? a - Math.PI * 2 : a;
+      if (Math.abs(norm) < 0.34) continue;
+      segs.push(a);
+    }
+
+    const merlons: number[] = [];
+    const totalMerlons = 18;
+    for (let i = 0; i < totalMerlons; i++) {
+      const a = (i / totalMerlons) * Math.PI * 2;
+      const norm = a > Math.PI ? a - Math.PI * 2 : a;
+      if (Math.abs(norm) < 0.36) continue;
+      merlons.push(a);
+    }
+
+    const bastions = [
+      Math.PI * 0.28,
+      Math.PI * 0.72,
+      -Math.PI * 0.72,
+      -Math.PI * 0.28,
+    ];
+
+    return {
+      wallSegments: segs,
+      merlonAngles: merlons,
+      bastionAngles: bastions,
+    };
+  }, []);
+
+  return (
+    <group position={[0, 0.15, 0]}>
+      {/* Assise de fondation circulaire en pierre taillée + liseré couleur du joueur */}
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[wallRadius - 0.065, wallRadius + 0.065, 28]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={0.9}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Blocs de muraille continue en pierre taillée (Ashlar Stone) tout autour de l'île */}
+      {wallSegments.map((angle, idx) => {
+        const x = Math.sin(angle) * wallRadius;
+        const z = Math.cos(angle) * wallRadius;
+        return (
+          <group key={idx} position={[x, 0.11, z]} rotation={[0, angle, 0]}>
+            {/* Bloc de rempart en pierre de taille */}
+            <mesh>
+              <boxGeometry args={[0.16, 0.2, 0.095]} />
+              <meshStandardMaterial
+                color={idx % 2 === 0 ? '#e7e5e4' : '#d6d3d1'}
+                roughness={0.45}
+                metalness={0.08}
+              />
+            </mesh>
+            {/* Corniche supérieure moulurée en pierre */}
+            <mesh position={[0, 0.105, 0]}>
+              <boxGeometry args={[0.17, 0.028, 0.115]} />
+              <meshStandardMaterial color="#a8a29e" roughness={0.5} />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/* Créneaux 3D (Merlons en pierre taillée) sur tout le pourtour du rempart */}
+      {merlonAngles.map((angle, idx) => {
+        const x = Math.sin(angle) * wallRadius;
+        const z = Math.cos(angle) * wallRadius;
+        return (
+          <group key={idx} position={[x, 0.255, z]} rotation={[0, angle, 0]}>
+            <mesh>
+              <boxGeometry args={[0.095, 0.075, 0.105]} />
+              <meshStandardMaterial color="#f5f5f4" roughness={0.4} />
+            </mesh>
+            <mesh position={[0, 0.042, 0]}>
+              <boxGeometry args={[0.105, 0.016, 0.115]} />
+              <meshStandardMaterial
+                color={ownerColor}
+                emissive={ownerColor}
+                emissiveIntensity={0.65}
+              />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/* 4 Tourelles / Bastions d'angle en pierre taillée autour de l'île */}
+      {bastionAngles.map((angle, idx) => {
+        const x = Math.sin(angle) * (wallRadius + 0.02);
+        const z = Math.cos(angle) * (wallRadius + 0.02);
+        return (
+          <group key={idx} position={[x, 0, z]} rotation={[0, angle, 0]}>
+            <mesh position={[0, 0.16, 0]}>
+              <cylinderGeometry args={[0.085, 0.1, 0.32, 8]} />
+              <meshStandardMaterial color="#e7e5e4" roughness={0.42} />
+            </mesh>
+            {/* Anneau doré et couleur du capitaine au sommet de chaque tourelle */}
+            <mesh position={[0, 0.33, 0]}>
+              <cylinderGeometry args={[0.098, 0.092, 0.045, 8]} />
+              <meshStandardMaterial
+                color={ownerColor}
+                emissive={ownerColor}
+                emissiveIntensity={0.75}
+              />
+            </mesh>
+            <mesh position={[0, 0.365, 0]}>
+              <cylinderGeometry args={[0.088, 0.098, 0.03, 8]} />
+              <meshStandardMaterial
+                color="#fbbf24"
+                metalness={0.65}
+                roughness={0.3}
+              />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+});
+
+/**
+ * NIVEAU 3 : Vrai Château Pirate modélisé en 3D (X, Y, Z) au centre de l'île
+ */
+const True3DPirateCastleKeep: React.FC<{
+  ownerColor: string;
+}> = React.memo(({ ownerColor }) => {
+  const cornerOffsets: [number, number][] = [
+    [-0.22, -0.2],
+    [0.22, -0.2],
+    [-0.22, 0.2],
+    [0.22, 0.2],
+  ];
+
+  return (
+    <group position={[0, 0.15, -0.05]}>
+      {/* 1. Soubassement octogonal en pierre taillée & halo du Capitaine */}
+      <mesh position={[0, 0.04, 0]}>
+        <cylinderGeometry args={[0.38, 0.44, 0.08, 8]} />
+        <meshStandardMaterial color="#a8a29e" roughness={0.55} />
+      </mesh>
+      <mesh position={[0, 0.084, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.32, 0.42, 16]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={0.95}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* 2. Corps Principal du Donjon 3D (X=0.42, Y=0.38, Z=0.38) */}
+      <mesh position={[0, 0.26, 0]}>
+        <boxGeometry args={[0.42, 0.36, 0.38]} />
+        <meshStandardMaterial
+          color="#e7e5e4"
+          roughness={0.42}
+          metalness={0.08}
+        />
+      </mesh>
+
+      {/* Ceinture architecturale en pierre sombre + Or autour du Donjon */}
+      <mesh position={[0, 0.44, 0]}>
+        <boxGeometry args={[0.45, 0.04, 0.41]} />
+        <meshStandardMaterial color="#78716c" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.468, 0]}>
+        <boxGeometry args={[0.46, 0.022, 0.42]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={0.8}
+        />
+      </mesh>
+
+      {/* Grande Porte Fortifiée & Herse sur la face avant (+Z) */}
+      <mesh position={[0, 0.18, 0.195]}>
+        <boxGeometry args={[0.14, 0.2, 0.025]} />
+        <meshStandardMaterial color="#292524" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.28, 0.198]}>
+        <boxGeometry args={[0.17, 0.032, 0.03]} />
+        <meshStandardMaterial
+          color="#fbbf24"
+          metalness={0.7}
+          roughness={0.28}
+        />
+      </mesh>
+
+      {/* Fenêtres / Meurtrières illuminées sur les 4 faces (X et Z) */}
+      <mesh position={[0, 0.34, 0.195]}>
+        <boxGeometry args={[0.18, 0.045, 0.018]} />
+        <meshStandardMaterial
+          color="#fde047"
+          emissive="#f59e0b"
+          emissiveIntensity={1.2}
+        />
+      </mesh>
+      <mesh position={[0, 0.32, -0.195]}>
+        <boxGeometry args={[0.18, 0.045, 0.018]} />
+        <meshStandardMaterial
+          color="#fde047"
+          emissive="#f59e0b"
+          emissiveIntensity={1.2}
+        />
+      </mesh>
+      <mesh position={[0.215, 0.32, 0]}>
+        <boxGeometry args={[0.018, 0.045, 0.16]} />
+        <meshStandardMaterial
+          color="#fde047"
+          emissive="#f59e0b"
+          emissiveIntensity={1.2}
+        />
+      </mesh>
+      <mesh position={[-0.215, 0.32, 0]}>
+        <boxGeometry args={[0.018, 0.045, 0.16]} />
+        <meshStandardMaterial
+          color="#fde047"
+          emissive="#f59e0b"
+          emissiveIntensity={1.2}
+        />
+      </mesh>
+
+      {/* 3. Quatre Tours d'Angle Cylindriques 3D avec Toits Coniques aux couleurs du Joueur */}
+      {cornerOffsets.map(([cx, cz], idx) => (
+        <group key={idx} position={[cx, 0, cz]}>
+          {/* Fût de la tour en pierre taillée */}
+          <mesh position={[0, 0.28, 0]}>
+            <cylinderGeometry args={[0.095, 0.11, 0.48, 10]} />
+            <meshStandardMaterial color="#f5f5f4" roughness={0.38} />
+          </mesh>
+          {/* Couronne crénelée de la tour */}
+          <mesh position={[0, 0.53, 0]}>
+            <cylinderGeometry args={[0.112, 0.1, 0.05, 8]} />
+            <meshStandardMaterial color="#a8a29e" roughness={0.48} />
+          </mesh>
+          {/* Toit conique 3D de la tour aux couleurs du joueur */}
+          <mesh position={[0, 0.63, 0]}>
+            <coneGeometry args={[0.125, 0.17, 8]} />
+            <meshStandardMaterial
+              color={ownerColor}
+              emissive={ownerColor}
+              emissiveIntensity={0.65}
+              roughness={0.35}
+            />
+          </mesh>
+          {/* Pointe dorée au sommet de chaque tour */}
+          <mesh position={[0, 0.725, 0]}>
+            <sphereGeometry args={[0.024, 6, 6]} />
+            <meshStandardMaterial
+              color="#fde047"
+              emissive="#f59e0b"
+              emissiveIntensity={0.6}
+              metalness={0.85}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 4. Tour Maîtresse Centrale (Beffroi Pirate 3D) au sommet du château */}
+      <mesh position={[0, 0.56, 0]}>
+        <cylinderGeometry args={[0.14, 0.16, 0.2, 8]} />
+        <meshStandardMaterial color="#f5f5f4" roughness={0.36} />
+      </mesh>
+      <mesh position={[0, 0.7, 0]}>
+        <coneGeometry args={[0.17, 0.14, 8]} />
+        <meshStandardMaterial
+          color="#1e293b"
+          roughness={0.4}
+          metalness={0.3}
+        />
+      </mesh>
+
+      {/* Canons 3D en bronze sur les flancs du Château Pirate */}
+      <mesh position={[-0.25, 0.22, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.022, 0.028, 0.12, 6]} />
+        <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.25} />
+      </mesh>
+      <mesh position={[0.25, 0.22, 0]} rotation={[0, 0, -Math.PI / 2]}>
+        <cylinderGeometry args={[0.022, 0.028, 0.12, 6]} />
+        <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.25} />
+      </mesh>
+    </group>
+  );
+});
+
 export const Tile: React.FC<TileProps> = React.memo(
   ({
     tile,
@@ -562,17 +956,11 @@ export const Tile: React.FC<TileProps> = React.memo(
       propTexture,
       sandTexture,
       rockTexture,
-      fortWoodTexture,
-      fortStoneTexture,
-      fortCarvedStoneTexture,
     ] = useTexture([
       TERRAIN_TEXTURE_MAP[theme],
       PROP_TEXTURE_MAP[theme],
       './assets/sand_beach.jpg',
       './assets/coastal_rock.jpg',
-      './assets/fort_wood.png',
-      './assets/fort_stone.png',
-      './assets/fort_carved_stone.png',
     ]);
 
     const islandSeedAngle = useMemo(
@@ -581,31 +969,19 @@ export const Tile: React.FC<TileProps> = React.memo(
     );
 
     // Place the 3D scenery prop on the BACK-OUTER periphery of the island
-    // so the center of the tile is 100% open for the ships and the red treasure map path!
+    // so the center of the tile is open for ships and the Level 3 3D Pirate Castle!
     const propOffsetX = useMemo(() => {
       if (isCorner) return tile.id === 0 || tile.id === 18 ? 0.36 : -0.36;
       return tile.id % 2 === 0 ? -0.34 : 0.34;
     }, [isCorner, tile.id]);
     const propOffsetZ = isCorner ? -0.52 : -0.46;
 
-    // Opposite back corner for the 3D Captain Ownership Flag & Higgsfield Fortress
-    const flagOffsetX = -propOffsetX * 0.95;
-    const flagOffsetZ = propOffsetZ * 0.88;
+    // Opposite back corner for the 3D Captain Ownership Flag (moves to top of Central 3D Castle at Level 3!)
+    const flagOffsetX = tile.level >= 3 ? 0 : -propOffsetX * 0.95;
+    const flagOffsetZ = tile.level >= 3 ? -0.05 : propOffsetZ * 0.88;
 
     const baseRadius = isCorner ? 0.88 : 0.78;
     const propSize = isCorner ? 0.78 : 0.68;
-
-    const activeFortressTexture =
-      tile.level === 1
-        ? fortWoodTexture
-        : tile.level === 2
-        ? fortStoneTexture
-        : tile.level >= 3
-        ? fortCarvedStoneTexture
-        : null;
-
-    const fortressSize =
-      tile.level === 1 ? 0.62 : tile.level === 2 ? 0.7 : 0.78;
 
     const levelStars =
       tile.level >= 3
@@ -734,7 +1110,7 @@ export const Tile: React.FC<TileProps> = React.memo(
           </mesh>
         )}
 
-        {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop, 3D Ownership Flag & Higgsfield Fortress */}
+        {/* 3. Viewer-Aligned Island Surface, 3D Perimeter Fortifications (Wood Spikes -> Carved Stone) & 3D Center Pirate Castle */}
         <group rotation={[0, -rotationY, 0]}>
           {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
           <mesh position={[0, 0.125, -0.02]} receiveShadow>
@@ -784,6 +1160,7 @@ export const Tile: React.FC<TileProps> = React.memo(
           <group
             position={[propOffsetX, 0.44, propOffsetZ]}
             rotation={[-0.26, 0, 0]}
+            scale={tile.level >= 3 ? 0.78 : 1}
           >
             <mesh position={[0, 0, -0.02]}>
               <planeGeometry args={[propSize, propSize]} />
@@ -811,97 +1188,69 @@ export const Tile: React.FC<TileProps> = React.memo(
             </mesh>
           </group>
 
-          {/* 3D CAPTAIN OWNERSHIP FLAG & HIGGSFIELD FORTRESS (BOIS -> PIERRE -> PIERRE TAILLÉE) */}
+          {/* 3D PERIMETER WALLS & CENTER 3D PIRATE CASTLE */}
+          {owner && tile.level === 1 && (
+            <WoodenSpikeWallRing3D
+              baseRadius={baseRadius}
+              ownerColor={owner.color}
+            />
+          )}
+
+          {owner && tile.level >= 2 && (
+            <CarvedStoneRampartRing3D
+              baseRadius={baseRadius}
+              ownerColor={owner.color}
+            />
+          )}
+
+          {owner && tile.level >= 3 && (
+            <True3DPirateCastleKeep ownerColor={owner.color} />
+          )}
+
+          {/* 3D CAPTAIN OWNERSHIP FLAG (At corner for Levels 0-2, or crowning the Central 3D Castle at Level 3!) */}
           {owner && (
-            <group position={[flagOffsetX, 0.16, flagOffsetZ]}>
-              {/* Base Pedestal styled by Fortification Tier (0: Captain Base, 1: Wood, 2: Stone, 3: Carved Stone) */}
-              <mesh position={[0, 0.04, 0]}>
-                <cylinderGeometry
-                  args={[
-                    tile.level >= 3 ? 0.27 : tile.level >= 1 ? 0.24 : 0.17,
-                    tile.level >= 3 ? 0.32 : tile.level >= 1 ? 0.29 : 0.21,
-                    0.09,
-                    tile.level >= 2 ? 8 : 10,
-                  ]}
-                />
-                <meshStandardMaterial
-                  color={
-                    tile.level === 1
-                      ? '#78350f'
-                      : tile.level === 2
-                      ? '#64748b'
-                      : tile.level >= 3
-                      ? '#e7e5e4'
-                      : owner.color
-                  }
-                  emissive={tile.level === 0 ? owner.color : '#000000'}
-                  emissiveIntensity={tile.level === 0 ? 0.65 : 0}
-                  roughness={tile.level >= 3 ? 0.35 : 0.65}
-                />
-              </mesh>
-
-              {/* Glowing Player-Color Territory Collar around the Fortress Foundation */}
-              <mesh position={[0, 0.088, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry
-                  args={[
-                    tile.level >= 1 ? 0.21 : 0.13,
-                    tile.level >= 3 ? 0.33 : tile.level >= 1 ? 0.29 : 0.21,
-                    16,
-                  ]}
-                />
-                <meshStandardMaterial
-                  color={owner.color}
-                  emissive={owner.color}
-                  emissiveIntensity={1.0}
-                  side={THREE.DoubleSide}
-                />
-              </mesh>
-
-              {/* HIGGSFIELD 3D FORTRESS (Niv.1 = Bois, Niv.2 = Pierre, Niv.3 = Pierre Taillée) */}
-              {activeFortressTexture && (
-                <group
-                  position={[0, 0.34, 0.02]}
-                  rotation={[-0.24, 0, 0]}
-                >
-                  {/* 3D Volumetric Back Depth Layer */}
-                  <mesh position={[0, 0, -0.025]}>
-                    <planeGeometry args={[fortressSize, fortressSize]} />
+            <group
+              position={[
+                flagOffsetX,
+                tile.level >= 3 ? 0.72 : 0.16,
+                flagOffsetZ,
+              ]}
+            >
+              {tile.level < 3 && (
+                <>
+                  {/* Base Pedestal for Flag when Castle isn't built yet */}
+                  <mesh position={[0, 0.04, 0]}>
+                    <cylinderGeometry args={[0.17, 0.21, 0.09, 10]} />
                     <meshStandardMaterial
-                      map={activeFortressTexture}
                       color={
                         tile.level === 1
                           ? '#78350f'
                           : tile.level === 2
-                          ? '#475569'
-                          : '#d6d3d1'
+                          ? '#d6d3d1'
+                          : owner.color
                       }
-                      transparent
-                      alphaTest={0.16}
-                      roughness={0.7}
-                      side={THREE.DoubleSide}
+                      emissive={tile.level === 0 ? owner.color : '#000000'}
+                      emissiveIntensity={tile.level === 0 ? 0.65 : 0}
+                      roughness={0.5}
                     />
                   </mesh>
-                  {/* Front Relief Fortress Layer with Bump Map */}
-                  <mesh position={[0, 0, 0]}>
-                    <planeGeometry args={[fortressSize, fortressSize]} />
+
+                  <mesh position={[0, 0.088, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[0.13, 0.21, 16]} />
                     <meshStandardMaterial
-                      map={activeFortressTexture}
-                      bumpMap={activeFortressTexture}
-                      bumpScale={0.035}
-                      transparent
-                      alphaTest={0.12}
-                      roughness={tile.level >= 3 ? 0.32 : 0.48}
-                      metalness={tile.level >= 3 ? 0.18 : 0.06}
+                      color={owner.color}
+                      emissive={owner.color}
+                      emissiveIntensity={1.0}
                       side={THREE.DoubleSide}
                     />
                   </mesh>
-                </group>
+                </>
               )}
 
-              {/* Tall Wooden / Royal Flagstaff Mast rising above the Fortress (or Island Base at Level 0) */}
-              <group position={[0, tile.level >= 1 ? 0.28 : 0, -0.02]}>
-                <mesh position={[0, 0.38, 0]}>
-                  <cylinderGeometry args={[0.022, 0.032, 0.66, 8]} />
+              {/* Tall Wooden / Royal Flagstaff Mast */}
+              <group position={[0, 0, 0]}>
+                <mesh position={[0, 0.34, 0]}>
+                  <cylinderGeometry args={[0.022, 0.032, 0.62, 8]} />
                   <meshStandardMaterial
                     color={tile.level >= 3 ? '#fbbf24' : '#451a03'}
                     metalness={tile.level >= 3 ? 0.65 : 0.1}
@@ -910,7 +1259,7 @@ export const Tile: React.FC<TileProps> = React.memo(
                 </mesh>
 
                 {/* Golden Finial Sphere at the top of the Mast */}
-                <mesh position={[0, 0.73, 0]}>
+                <mesh position={[0, 0.67, 0]}>
                   <sphereGeometry args={[0.05, 8, 8]} />
                   <meshStandardMaterial
                     color="#fde047"
@@ -922,7 +1271,7 @@ export const Tile: React.FC<TileProps> = React.memo(
                 </mesh>
 
                 {/* Large Vibrant 3D Captain Flag / Pennant in the Player's Color */}
-                <group position={[0.165, 0.57, 0]}>
+                <group position={[0.165, 0.52, 0]}>
                   {/* Golden Flag Trim Border */}
                   <mesh position={[0, 0, -0.008]}>
                     <boxGeometry args={[0.33, 0.22, 0.014]} />
@@ -963,6 +1312,7 @@ export const Tile: React.FC<TileProps> = React.memo(
   },
   (prev, next) =>
     prev.tile === next.tile &&
+    prev.tile.level === next.tile.level &&
     prev.currentRent === next.currentRent &&
     prev.owner?.id === next.owner?.id &&
     prev.owner?.color === next.owner?.color &&

@@ -222,7 +222,8 @@ def main() -> None:
     ao_img = Image.open(io.BytesIO(img_bytes)).convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
     # Le canal R contient l'Ambient Occlusion cuite du crâne 3D
     r_ch, g_ch, _ = ao_img.split()
-    ao_enh = ImageEnhance.Contrast(r_ch).enhance(1.35)
+    # Assombrir fortement en noir profond les cavités internes (orbites, cavité nasale, centre du crâne)
+    ao_enh = r_ch.point(lambda p: 0 if p < 72 else min(255, int((p - 72) * 255 / (225 - 72))))
 
     # Mélanger avec la texture de pierre côtière / sable doré Higgsfield pour un aspect crâne de pierre pirate
     rock_img = Image.open("public/assets/coastal_rock.jpg").convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
@@ -255,20 +256,16 @@ def main() -> None:
     span = max(max_x - min_x, max_y - min_y, max_z - min_z)
     target_scale = 2.05 / span
 
-    # 3. Décimation par clustering sur grille 3D fine + UV pour conserver chaque détail
-    #    (orbites, cavité nasale, dents, pommettes, sutures) tout en réduisant le poids du .glb
-    CELL_RES = 44.0
-    cluster_map: dict[tuple[int, int, int, int, int], int] = {}
-    cluster_pos_sum: list[list[float]] = []
-    cluster_norm_sum: list[list[float]] = []
-    cluster_uv: list[tuple[float, float]] = []
-    vertex_remap = [0] * v_count
+    # 3. Étape A : Calculer une position 3D et une normale UNIFIÉES par cellule spatiale (gx, gy, gz)
+    #    afin qu'aucune couture UV ne puisse écarter deux sommets adjacents et créer des trous !
+    CELL_RES = 52.0
+    spatial_pos_sum: dict[tuple[int, int, int], list[float]] = {}
+    spatial_norm_sum: dict[tuple[int, int, int], list[float]] = {}
+    vertex_spatial_key: list[tuple[int, int, int]] = []
 
     for i in range(v_count):
         px, py, pz = raw_pos[i]
         nx, ny, nz = raw_norm[i]
-        u, v = raw_uv[i]
-
         sx = (px - cx) * target_scale
         sy = (py - cy) * target_scale
         sz = (pz - cz) * target_scale
@@ -276,37 +273,63 @@ def main() -> None:
         gx = int(round((px - min_x) / span * CELL_RES))
         gy = int(round((py - min_y) / span * CELL_RES))
         gz = int(round((pz - min_z) / span * CELL_RES))
-        # Séparer les coutures UV éventuelles
-        gu = int(round(u * 8.0))
-        gv = int(round(v * 8.0))
-        key = (gx, gy, gz, gu, gv)
+        skey = (gx, gy, gz)
+        vertex_spatial_key.append(skey)
+
+        if skey not in spatial_pos_sum:
+            spatial_pos_sum[skey] = [sx, sy, sz, 1.0]
+            spatial_norm_sum[skey] = [nx, ny, nz]
+        else:
+            sp = spatial_pos_sum[skey]
+            sp[0] += sx
+            sp[1] += sy
+            sp[2] += sz
+            sp[3] += 1.0
+            sn = spatial_norm_sum[skey]
+            sn[0] += nx
+            sn[1] += ny
+            sn[2] += nz
+
+    spatial_avg_pos: dict[tuple[int, int, int], tuple[float, float, float]] = {}
+    spatial_avg_norm: dict[tuple[int, int, int], tuple[float, float, float]] = {}
+    for skey, sp in spatial_pos_sum.items():
+        cnt = sp[3]
+        spatial_avg_pos[skey] = (sp[0] / cnt, sp[1] / cnt, sp[2] / cnt)
+        sn = spatial_norm_sum[skey]
+        spatial_avg_norm[skey] = normalize_v3(sn[0], sn[1], sn[2])
+
+    # Étape B : Regrouper par (gx, gy, gz, gu, gv) en réutilisant la position 3D exacte de (gx, gy, gz)
+    cluster_map: dict[tuple[int, int, int, int, int], int] = {}
+    out_positions: list[tuple[float, float, float]] = []
+    out_normals: list[tuple[float, float, float]] = []
+    cluster_uv_sum: list[list[float]] = []
+    vertex_remap = [0] * v_count
+
+    for i in range(v_count):
+        skey = vertex_spatial_key[i]
+        u, v = raw_uv[i]
+        gu = int(round(u * 12.0))
+        gv = int(round(v * 12.0))
+        key = (skey[0], skey[1], skey[2], gu, gv)
 
         c_idx = cluster_map.get(key)
         if c_idx is None:
-            c_idx = len(cluster_pos_sum)
+            c_idx = len(out_positions)
             cluster_map[key] = c_idx
-            cluster_pos_sum.append([sx, sy, sz, 1.0])
-            cluster_norm_sum.append([nx, ny, nz])
-            # Inverser V pour correspondre à Three.js TextureLoader (flipY=true par défaut)
-            cluster_uv.append((u, 1.0 - v))
+            out_positions.append(spatial_avg_pos[skey])
+            out_normals.append(spatial_avg_norm[skey])
+            cluster_uv_sum.append([u, 1.0 - v, 1.0])
         else:
-            cluster_pos_sum[c_idx][0] += sx
-            cluster_pos_sum[c_idx][1] += sy
-            cluster_pos_sum[c_idx][2] += sz
-            cluster_pos_sum[c_idx][3] += 1.0
-            cluster_norm_sum[c_idx][0] += nx
-            cluster_norm_sum[c_idx][1] += ny
-            cluster_norm_sum[c_idx][2] += nz
+            uvs_acc = cluster_uv_sum[c_idx]
+            uvs_acc[0] += u
+            uvs_acc[1] += 1.0 - v
+            uvs_acc[2] += 1.0
 
         vertex_remap[i] = c_idx
 
-    out_positions: list[tuple[float, float, float]] = []
-    out_normals: list[tuple[float, float, float]] = []
-    for c_idx in range(len(cluster_pos_sum)):
-        sx, sy, sz, cnt = cluster_pos_sum[c_idx]
-        out_positions.append((sx / cnt, sy / cnt, sz / cnt))
-        nx, ny, nz = cluster_norm_sum[c_idx]
-        out_normals.append(normalize_v3(nx, ny, nz))
+    cluster_uv: list[tuple[float, float]] = [
+        (u_sum / cnt, v_sum / cnt) for u_sum, v_sum, cnt in cluster_uv_sum
+    ]
 
     out_indices: list[int] = []
     for t in range(0, i_count, 3):

@@ -322,9 +322,28 @@ export const Ocean: React.FC = () => {
           />
         </mesh>
 
-        {/* TRUE 3D SCULPTED SKULL MODEL (with Baked 3D AO & Stone/Bone Texture) */}
+        {/* TRUE 3D SCULPTED SKULL MODEL (with Baked 3D AO, Pitch-Black Interior Core & Stone/Bone Texture) */}
         {nodes?.HiggsfieldSkullCave3D && (
           <group position={[0, 0.32, -0.14]} rotation={[-0.08, 0, 0]}>
+            {/* Solid Pitch-Black 3D Inner Core inside the Center of the Skull (blocks all see-through gaps in eye sockets, nose & jaw) */}
+            <mesh position={[0, 0.94, -0.12]} scale={[0.48, 0.56, 0.58]}>
+              <sphereGeometry args={[1, 20, 20]} />
+              <meshBasicMaterial color="#02040a" />
+            </mesh>
+            <mesh position={[0, 0.36, 0.08]} scale={[0.38, 0.35, 0.48]}>
+              <cylinderGeometry args={[0.92, 1.05, 1, 20]} />
+              <meshBasicMaterial color="#02040a" />
+            </mesh>
+
+            {/* Inner Pitch-Black Backface Shell of the 3D Skull Cavern */}
+            <mesh
+              geometry={nodes.HiggsfieldSkullCave3D.geometry}
+              scale={[1.26, 1.26, 1.26]}
+            >
+              <meshBasicMaterial color="#02040a" side={THREE.BackSide} />
+            </mesh>
+
+            {/* Outer 3D Sculpted Bone/Stone Skull Mesh */}
             <mesh
               geometry={nodes.HiggsfieldSkullCave3D.geometry}
               scale={[1.28, 1.28, 1.28]}
@@ -336,19 +355,26 @@ export const Ocean: React.FC = () => {
                 color="#f5ead6"
                 roughness={0.58}
                 metalness={0.08}
+                side={THREE.DoubleSide}
               />
             </mesh>
 
-            {/* Glowing Golden Pirate Eye Orbs deep inside the 3D Skull Eye Sockets */}
+            {/* Deep Black Eye Socket Backing behind the Golden Orbs */}
             {[-0.25, 0.25].map((eyeX, idx) => (
-              <mesh key={idx} position={[eyeX, 0.82, 0.72]}>
-                <sphereGeometry args={[0.075, 12, 12]} />
-                <meshStandardMaterial
-                  color="#fde047"
-                  emissive="#f59e0b"
-                  emissiveIntensity={2.2}
-                />
-              </mesh>
+              <group key={idx}>
+                <mesh position={[eyeX, 0.82, 0.67]}>
+                  <sphereGeometry args={[0.105, 12, 12]} />
+                  <meshBasicMaterial color="#02040a" />
+                </mesh>
+                <mesh position={[eyeX, 0.82, 0.72]}>
+                  <sphereGeometry args={[0.072, 12, 12]} />
+                  <meshStandardMaterial
+                    color="#fde047"
+                    emissive="#f59e0b"
+                    emissiveIntensity={2.2}
+                  />
+                </mesh>
+              </group>
             ))}
           </group>
         )}

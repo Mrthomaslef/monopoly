@@ -13,6 +13,7 @@ import {
   useGameStore,
   calculateIslandRent,
   TileData,
+  FORTIFY_MATERIAL_COST,
 } from '../../store/useGameStore';
 import { getTileTerrainTheme, TerrainTheme } from '../3d/Tile';
 
@@ -211,6 +212,7 @@ export const LandedTilePopup: React.FC = () => {
   const phase = useGameStore((s) => s.phase);
   const activeCard = useGameStore((s) => s.activeCard);
   const navalBattle = useGameStore((s) => s.navalBattle);
+  const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
 
   const buyIsland = useGameStore((s) => s.buyIsland);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
@@ -255,7 +257,8 @@ export const LandedTilePopup: React.FC = () => {
     tile.type === 'island' &&
     tile.ownerId === activePlayer.id &&
     tile.level < 4 &&
-    (tile.upgradeCost ?? 0) <= activePlayer.gold;
+    (tile.upgradeCost ?? 0) <= activePlayer.gold &&
+    activePlayer.materials >= FORTIFY_MATERIAL_COST;
 
   const rivalsOnTile = activePlayer
     ? players.filter(
@@ -267,7 +270,8 @@ export const LandedTilePopup: React.FC = () => {
       )
     : [];
 
-  const canFireCannon = isHumanActiveOnThisTile && rivalsOnTile.length > 0;
+  const canFireCannon =
+    isHumanActiveOnThisTile && !hasAttackedThisTurn && rivalsOnTile.length > 0;
   const currentRent =
     tile.type === 'island' ? calculateIslandRent(tile, tiles) : 0;
 
@@ -433,7 +437,7 @@ export const LandedTilePopup: React.FC = () => {
                   Défense : <strong className={styleCfg.textColor}>{LEVEL_NAMES[tile.level]}</strong>
                 </span>
                 <span className={`font-bold ${styleCfg.subTextColor}`}>
-                  Fortif. : {tile.upgradeCost} Or
+                  Fortif. : {tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
                 </span>
               </div>
             )}
@@ -464,7 +468,7 @@ export const LandedTilePopup: React.FC = () => {
                   className="flex-1 wood-plank wood-nails py-2.5 px-3 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider text-cyan-200 ring-2 ring-cyan-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Castle className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span>Fortifier ({tile.upgradeCost} Or)</span>
+                  <span>Fortifier ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)</span>
                 </motion.button>
               )}
 

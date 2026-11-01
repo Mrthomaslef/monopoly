@@ -49,7 +49,7 @@ export const NavalBattleModal: React.FC = () => {
               </div>
             </div>
             <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300">
-              Enjeu: 150 Or
+              Enjeu: 150 Or + 1 🪵
             </span>
           </div>
 
@@ -125,9 +125,9 @@ export const NavalBattleModal: React.FC = () => {
               <div className="space-y-2">
                 <div className="bg-emerald-950/80 border border-emerald-500/60 rounded-lg px-3 py-1.5 text-center">
                   <div className="text-xs font-black text-emerald-300 flex items-center justify-center gap-1">
-                    <Coins className="w-4 h-4 text-amber-400" />
+                    <Coins className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>
-                      {winner.name} remporte l&apos;abordage (+{navalBattle.plunderAmount} Or) !
+                      {winner.name} remporte l&apos;abordage (+{navalBattle.plunderAmount} Or &amp; +{navalBattle.materialsLooted ?? 1} Matériau 🪵) !
                     </span>
                   </div>
                 </div>

@@ -143,13 +143,17 @@ export const TopHUD: React.FC = () => {
                   {player.name}
                 </div>
 
-                {/* Gold & Islands Row */}
-                <div className="flex items-center justify-between text-[10px] leading-tight mt-0.5">
-                  <span className="flex items-center gap-0.5 font-black text-amber-300">
+                {/* Gold, Materials & Islands Row */}
+                <div className="flex items-center justify-between text-[10px] leading-tight mt-0.5 gap-1">
+                  <span className="flex items-center gap-0.5 font-black text-amber-300" title="Or (Doublons)">
                     <Coins className="w-2.5 h-2.5 text-amber-400 shrink-0" />
                     {player.gold}
                   </span>
-                  <span className="flex items-center gap-0.5 text-cyan-300 font-bold">
+                  <span className="flex items-center gap-0.5 font-extrabold text-orange-300" title="Matériaux de construction">
+                    <span>🪵</span>
+                    {player.materials}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-cyan-300 font-bold" title="Îles possédées">
                     <MapPin className="w-2.5 h-2.5 shrink-0" />
                     {islandCount}
                   </span>

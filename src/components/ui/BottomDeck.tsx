@@ -10,6 +10,7 @@ import {
 import {
   useGameStore,
   calculateIslandRent,
+  FORTIFY_MATERIAL_COST,
 } from '../../store/useGameStore';
 
 export const BottomDeck: React.FC = () => {
@@ -19,6 +20,7 @@ export const BottomDeck: React.FC = () => {
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
   const phase = useGameStore((s) => s.phase);
   const actionLogs = useGameStore((s) => s.actionLogs);
+  const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
 
   const buyIsland = useGameStore((s) => s.buyIsland);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
@@ -66,9 +68,10 @@ export const BottomDeck: React.FC = () => {
     isHumanTurn &&
     (phase === 'TILE_ACTION' || phase === 'END_TURN') &&
     targetFortifyTile !== null &&
-    (targetFortifyTile.upgradeCost ?? 0) <= activePlayer.gold;
+    (targetFortifyTile.upgradeCost ?? 0) <= activePlayer.gold &&
+    activePlayer.materials >= FORTIFY_MATERIAL_COST;
 
-  // Rivals on the active player's tile for "Tirer au Canon"
+  // Rivals on the active player's tile for "Tirer au Canon" (only 1 attack allowed per turn)
   const rivalsOnCurrentTile = activePlayer
     ? players.filter(
         (p) =>
@@ -80,6 +83,7 @@ export const BottomDeck: React.FC = () => {
 
   const canFireCannon =
     isHumanTurn &&
+    !hasAttackedThisTurn &&
     (phase === 'TILE_ACTION' || phase === 'END_TURN') &&
     rivalsOnCurrentTile.length > 0;
 
@@ -147,7 +151,7 @@ export const BottomDeck: React.FC = () => {
                   </span>
                   {inspectedTile.level < 4 && (
                     <span className="text-[10px] font-bold text-amber-900 mt-0.5">
-                      Fortif: {inspectedTile.upgradeCost} Or
+                      Fortif: {inspectedTile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
                     </span>
                   )}
                 </div>
@@ -212,9 +216,9 @@ export const BottomDeck: React.FC = () => {
           >
             <Castle className="w-4 h-4 shrink-0 text-cyan-400" />
             <span className="truncate">
-              {canFortify && targetFortifyTile
-                ? `Fortifier (${targetFortifyTile.upgradeCost})`
-                : 'Fortifier'}
+              {targetFortifyTile
+                ? `Fortifier (${targetFortifyTile.upgradeCost} Or + ${FORTIFY_MATERIAL_COST} 🪵)`
+                : 'Fortifier (Or + 1 🪵)'}
             </span>
           </motion.button>
         )}

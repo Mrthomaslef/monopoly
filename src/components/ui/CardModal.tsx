@@ -93,6 +93,27 @@ export const CardModal: React.FC = () => {
                 {activeCard.description}
               </p>
 
+              {(activeCard.goldDelta || activeCard.materialsDelta) && (
+                <div className="mt-2.5 flex items-center justify-center gap-2 flex-wrap">
+                  {typeof activeCard.goldDelta === 'number' && activeCard.goldDelta !== 0 && (
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                        activeCard.goldDelta > 0
+                          ? 'bg-amber-900/85 text-amber-200 border-amber-400/60'
+                          : 'bg-rose-950/85 text-rose-200 border-rose-400/60'
+                      }`}
+                    >
+                      {activeCard.goldDelta > 0 ? `+${activeCard.goldDelta}` : activeCard.goldDelta} Or
+                    </span>
+                  )}
+                  {typeof activeCard.materialsDelta === 'number' && activeCard.materialsDelta > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-950/90 text-emerald-200 border border-emerald-400/70">
+                      +{activeCard.materialsDelta} {activeCard.materialsDelta > 1 ? 'Matériaux' : 'Matériau'} 🪵
+                    </span>
+                  )}
+                </div>
+              )}
+
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 type="button"

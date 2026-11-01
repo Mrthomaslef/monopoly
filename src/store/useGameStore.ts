@@ -34,6 +34,7 @@ export interface Player {
   accentColor: string;
   isAI: boolean;
   gold: number;
+  materials: number;
   position: number;
   inJail: boolean;
   jailTurns: number;
@@ -63,6 +64,7 @@ export interface DrawnCard {
   title: string;
   description: string;
   goldDelta?: number;
+  materialsDelta?: number;
   moveToTile?: number;
   goToJail?: boolean;
 }
@@ -78,6 +80,7 @@ export interface NavalBattleState {
   winnerId: number | null;
   loserId: number | null;
   plunderAmount: number;
+  materialsLooted?: number;
 }
 
 export interface CannonShotData {
@@ -101,6 +104,7 @@ export type TurnPhase =
 export type CameraMode = 'GLOBAL' | 'FOLLOW';
 
 export const BOARD_SPACING = 1.65;
+export const FORTIFY_MATERIAL_COST = 1;
 
 export const DEFAULT_CAPTAIN_ROSTER: PlayerSlotConfig[] = [
   {
@@ -471,29 +475,38 @@ export const INITIAL_TILES: TileData[] = [
 
 const TREASURE_CHEST_CARDS: Omit<DrawnCard, 'deck'>[] = [
   {
+    title: 'Cargaison de Bois & Pierre',
+    description:
+      'Vous récupérez des matériaux de construction dans une épave marchande : +2 Matériaux 🪵 & +120 Doublons !',
+    goldDelta: 120,
+    materialsDelta: 2,
+  },
+  {
     title: 'Galion Espagnol Échoué',
-    description: 'Vos vigies repèrent une cargaison d’or dans les récifs. Recevez +200 Doublons !',
+    description:
+      'Vos vigies repèrent une cargaison d’or et de poutres de chêne. Recevez +200 Doublons & +1 Matériau 🪵 !',
     goldDelta: 200,
+    materialsDelta: 1,
   },
   {
     title: 'Carte au Trésor Secrète',
-    description: 'Vous déterrez le coffre d’un ancien flibustier. Recevez +150 Doublons !',
+    description:
+      'Vous déterrez le coffre et le matériel d’un ancien flibustier : +150 Doublons & +1 Matériau 🪵 !',
     goldDelta: 150,
+    materialsDelta: 1,
   },
   {
     title: 'Vents Alizés Favorables',
-    description: 'Cap sur Port Royal toutes voiles dehors ! Avancez jusqu’à Port Royal (+200 Or).',
+    description:
+      'Cap sur Port Royal toutes voiles dehors ! Avancez jusqu’à Port Royal (+200 Or & +1 Matériau 🪵).',
     moveToTile: 0,
   },
   {
-    title: 'Tournée Générale à Tortuga',
-    description: 'Les contrebandiers vous offrent une part de leur butin : +120 Doublons.',
-    goldDelta: 120,
-  },
-  {
-    title: 'Prise de Corsaire',
-    description: 'Vous revendez des épices rares aux marchands. Recevez +180 Doublons.',
-    goldDelta: 180,
+    title: 'Convoi des Bâtisseurs',
+    description:
+      'Vous interceptez un navire d’architectes coloniaux : +2 Matériaux 🪵 & +150 Doublons !',
+    goldDelta: 150,
+    materialsDelta: 2,
   },
 ];
 
@@ -553,6 +566,7 @@ function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
     accentColor: s.accentColor,
     isAI: s.isAI,
     gold: 1500,
+    materials: 0,
     position: 0,
     inJail: false,
     jailTurns: 0,
@@ -576,6 +590,7 @@ interface GameState {
   phase: TurnPhase;
   dice: [number, number];
   isRollingDice: boolean;
+  hasAttackedThisTurn: boolean;
   cameraMode: CameraMode;
   focusedTileIndex: number;
   cameraShake: number;
@@ -621,14 +636,15 @@ export const useGameStore = create<GameState>((set, get) => ({
   phase: 'IDLE',
   dice: [2, 3],
   isRollingDice: false,
+  hasAttackedThisTurn: false,
   cameraMode: 'GLOBAL',
   focusedTileIndex: 0,
   cameraShake: 0,
   tortugaJackpot: 150,
   actionLogs: [
     '⚓ Bienvenue dans Pirate’s Plunder !',
-    '🎲 Dés Pirates adaptés (2 dés de 1 à 3 = 2 à 6 cases) pour les 24 îles.',
-    '💥 Arrêtez-vous sur un navire ennemi pour déclencher un Abordage !',
+    '🪵 Obtenez des Matériaux (Port Royal, Coffre, Set complet, Abordage) pour fortifier vos îles !',
+    '💥 Tombez sur la case d’un rival pour lancer 1 Abordage (+150 Or & +1 Matériau) !',
   ],
   floatingTexts: [],
   activeCard: null,
@@ -671,6 +687,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       phase: 'IDLE',
       dice: [2, 2],
       isRollingDice: false,
+      hasAttackedThisTurn: false,
       focusedTileIndex: 0,
       cameraShake: 0,
       tortugaJackpot: 150,
@@ -683,8 +700,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       aiCount: aiTotal,
       actionLogs: [
         `⚓ Flotte en mer : ${humanTotal} Joueur(s) et ${aiTotal} Capitaine(s) IA !`,
-        '🎲 Dés Pirates 1–3 calibrés pour les 24 cases du plateau.',
-        '💣 Abordez les galions adverses pour piller 150 Doublons !',
+        '🪵 Fortifier coûte de l’Or + 1 Matériau (obtenu via Port Royal, Coffres, Set complet ou Abordage).',
+        '💥 1 seule attaque possible lorsque vous tombez sur la même case qu’un navire adverse !',
       ],
     });
 
@@ -775,6 +792,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       phase: 'ROLLING',
       isRollingDice: true,
+      hasAttackedThisTurn: false,
       dice: [d1, d2],
       focusedTileIndex: currentPlayer.position,
       landedTilePopup: null,
@@ -845,6 +863,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                   ...p,
                   position: nextPos,
                   gold: passedStart ? p.gold + 200 : p.gold,
+                  materials: passedStart ? p.materials + 1 : p.materials,
                 }
               : p
           ),
@@ -852,8 +871,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         if (passedStart) {
           soundEffects.playGoldSound();
-          st.addFloatingText(0, '+200 Or (Port Royal)', '#4ade80');
-          st.addLog(`⚓ ${activePlayer.name} franchit Port Royal et touche +200 Doublons !`);
+          st.addFloatingText(0, '+200 Or & +1 🪵 (Port Royal)', '#4ade80');
+          st.addLog(
+            `⚓ ${activePlayer.name} franchit Port Royal : +200 Doublons & +1 Matériau de construction 🪵 !`
+          );
         }
 
         if (stepsRemaining <= 0) {
@@ -877,15 +898,40 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (player.gold < tile.price) return;
 
     soundEffects.playGoldSound();
-    const updatedPlayers = state.players.map((p, idx) =>
-      idx === state.currentPlayerIndex ? { ...p, gold: p.gold - tile.price! } : p
-    );
     const updatedTiles = state.tiles.map((t) =>
       t.id === tile.id ? { ...t, ownerId: player.id, level: 0 } : t
     );
 
+    // Check if buying this island completes the entire color property set!
+    const groupIslands = updatedTiles.filter(
+      (t) => t.type === 'island' && t.group === tile.group
+    );
+    const completedSet =
+      groupIslands.length > 1 &&
+      groupIslands.every((t) => t.ownerId === player.id);
+    const bonusMaterials = completedSet ? 2 : 0;
+
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex
+        ? {
+            ...p,
+            gold: p.gold - tile.price!,
+            materials: p.materials + bonusMaterials,
+          }
+        : p
+    );
+
     state.addFloatingText(tile.id, `-${tile.price} Or`, '#fbbf24');
     state.addLog(`🏴‍☠️ ${player.name} annexe ${tile.name} pour ${tile.price} Doublons !`);
+
+    if (completedSet) {
+      setTimeout(() => {
+        get().addFloatingText(tile.id, '+2 🪵 (Set Complet !)', '#34d399');
+      }, 240);
+      state.addLog(
+        `🪵 Set complet (${tile.group}) ! ${player.name} reçoit +2 Matériaux de construction !`
+      );
+    }
 
     set({
       players: updatedPlayers,
@@ -894,7 +940,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       landedTilePopup: {
         tileId: tile.id,
         playerId: player.id,
-        eventSummary: `🏴‍☠️ Île annexée par ${player.name} pour ${tile.price} Or !`,
+        eventSummary: completedSet
+          ? `🏴‍☠️ Île annexée ! Set ${tile.group} complet (+2 Matériaux 🪵) !`
+          : `🏴‍☠️ Île annexée par ${player.name} pour ${tile.price} Or !`,
       },
     });
   },
@@ -909,12 +957,20 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     if (!tile || tile.type !== 'island' || tile.ownerId !== player.id) return;
     if (tile.level >= 4 || !tile.upgradeCost) return;
-    if (player.gold < tile.upgradeCost) return;
+    if (player.gold < tile.upgradeCost || player.materials < FORTIFY_MATERIAL_COST) {
+      return;
+    }
 
     soundEffects.playBuildSound();
     const newLevel = tile.level + 1;
     const updatedPlayers = state.players.map((p, idx) =>
-      idx === state.currentPlayerIndex ? { ...p, gold: p.gold - tile.upgradeCost! } : p
+      idx === state.currentPlayerIndex
+        ? {
+            ...p,
+            gold: p.gold - tile.upgradeCost!,
+            materials: p.materials - FORTIFY_MATERIAL_COST,
+          }
+        : p
     );
     const updatedTiles = state.tiles.map((t) =>
       t.id === tile.id ? { ...t, level: newLevel } : t
@@ -923,9 +979,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const buildLabel =
       newLevel === 4 ? 'Forteresse Pirate !' : `Avant-poste Niv.${newLevel}`;
 
-    state.addFloatingText(tile.id, `🏰 ${buildLabel}`, '#38bdf8');
+    state.addFloatingText(
+      tile.id,
+      `🏰 ${buildLabel} (-1 🪵)`,
+      '#38bdf8'
+    );
     state.addLog(
-      `🛠️ ${player.name} construit ${buildLabel} sur ${tile.name} (-${tile.upgradeCost} Or).`
+      `🛠️ ${player.name} construit ${buildLabel} sur ${tile.name} (-${tile.upgradeCost} Or, -${FORTIFY_MATERIAL_COST} Matériau 🪵).`
     );
 
     set({
@@ -935,7 +995,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       landedTilePopup: {
         tileId: tile.id,
         playerId: player.id,
-        eventSummary: `🏰 ${buildLabel} érigé sur ${tile.name} (-${tile.upgradeCost} Or)`,
+        eventSummary: `🏰 ${buildLabel} érigé (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} 🪵)`,
       },
     });
   },
@@ -948,15 +1008,31 @@ export const useGameStore = create<GameState>((set, get) => ({
     const player = state.players[state.currentPlayerIndex];
     set({ activeCard: null });
 
-    if (card.goldDelta) {
-      const delta = card.goldDelta;
-      if (delta > 0) {
+    if (card.goldDelta || card.materialsDelta) {
+      const delta = card.goldDelta ?? 0;
+      const matDelta = card.materialsDelta ?? 0;
+
+      if (delta >= 0) {
         soundEffects.playGoldSound();
-        state.addFloatingText(player.position, `+${delta} Or`, '#4ade80');
-        state.addLog(`💰 ${player.name} gagne ${delta} Doublons (${card.title}).`);
+        const floatMsg =
+          matDelta > 0
+            ? `+${delta} Or & +${matDelta} 🪵`
+            : `+${delta} Or`;
+        state.addFloatingText(player.position, floatMsg, '#4ade80');
+        state.addLog(
+          matDelta > 0
+            ? `💰 ${player.name} gagne ${delta} Doublons et +${matDelta} Matériau(x) 🪵 (${card.title}).`
+            : `💰 ${player.name} gagne ${delta} Doublons (${card.title}).`
+        );
         set((s) => ({
           players: s.players.map((p, idx) =>
-            idx === s.currentPlayerIndex ? { ...p, gold: p.gold + delta } : p
+            idx === s.currentPlayerIndex
+              ? {
+                  ...p,
+                  gold: p.gold + delta,
+                  materials: Math.max(0, p.materials + matDelta),
+                }
+              : p
           ),
         }));
       } else {
@@ -1009,12 +1085,13 @@ export const useGameStore = create<GameState>((set, get) => ({
                 ...p,
                 position: dest,
                 gold: passedStart ? p.gold + 200 : p.gold,
+                materials: passedStart ? p.materials + 1 : p.materials,
               }
             : p
         ),
       }));
       if (passedStart) {
-        state.addFloatingText(0, '+200 Or', '#4ade80');
+        state.addFloatingText(0, '+200 Or & +1 🪵', '#4ade80');
       }
       setTimeout(() => {
         evaluateLandedTile();
@@ -1027,6 +1104,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerManualNavalBattle: () => {
     const state = get();
+    if (state.hasAttackedThisTurn) return;
+
     const player = state.players[state.currentPlayerIndex];
     if (!player) return;
 
@@ -1038,6 +1117,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const defender = rivalsOnTile[0];
     set({
       phase: 'NAVAL_BATTLE',
+      hasAttackedThisTurn: true,
       focusedTileIndex: player.position,
       navalBattle: {
         active: true,
@@ -1050,6 +1130,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         winnerId: null,
         loserId: null,
         plunderAmount: 150,
+        materialsLooted: 1,
       },
     });
   },
@@ -1105,7 +1186,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ cameraShake: 0 });
       }, 500);
 
-      // Apply 150 Doublons plunder after cannonball impact
+      // Apply 150 Doublons + 1 Building Material plunder after cannonball impact
       setTimeout(() => {
         const cur = get();
         const b = cur.navalBattle;
@@ -1116,24 +1197,37 @@ export const useGameStore = create<GameState>((set, get) => ({
         const plunder = Math.min(150, Math.max(50, loser.gold));
 
         soundEffects.playGoldSound();
-        cur.addFloatingText(b.tileIndex, `+${plunder} Or (${winner.name})`, '#4ade80');
+        cur.addFloatingText(
+          b.tileIndex,
+          `+${plunder} Or & +1 🪵 (${winner.name})`,
+          '#4ade80'
+        );
         setTimeout(() => {
           get().addFloatingText(b.tileIndex, `-${plunder} Or (${loser.name})`, '#f87171');
         }, 220);
 
         cur.addLog(
-          `💥 Abordage ! ${winner.name} (${b.attackerId === winner.id ? b.attackerRoll : b.defenderRoll}) canonne ${loser.name} (${b.attackerId === loser.id ? b.attackerRoll : b.defenderRoll}) et pille ${plunder} Doublons !`
+          `💥 Abordage ! ${winner.name} (${b.attackerId === winner.id ? b.attackerRoll : b.defenderRoll}) canonne ${loser.name} (${b.attackerId === loser.id ? b.attackerRoll : b.defenderRoll}) et gagne +${plunder} Or & +1 Matériau 🪵 !`
         );
 
         set((s) => ({
           cannonShot: null,
           players: s.players.map((p) => {
-            if (p.id === b.winnerId) return { ...p, gold: p.gold + plunder };
-            if (p.id === b.loserId) return { ...p, gold: p.gold - plunder };
+            if (p.id === b.winnerId) {
+              return { ...p, gold: p.gold + plunder, materials: p.materials + 1 };
+            }
+            if (p.id === b.loserId) {
+              return { ...p, gold: p.gold - plunder };
+            }
             return p;
           }),
           navalBattle: s.navalBattle
-            ? { ...s.navalBattle, phase: 'resolved', plunderAmount: plunder }
+            ? {
+                ...s.navalBattle,
+                phase: 'resolved',
+                plunderAmount: plunder,
+                materialsLooted: 1,
+              }
             : null,
         }));
 
@@ -1201,6 +1295,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       currentPlayerIndex: nextIndex,
       phase: 'IDLE',
+      hasAttackedThisTurn: false,
       focusedTileIndex: nextPlayer.position,
       activeCard: null,
       landedTilePopup: null,
@@ -1232,7 +1327,7 @@ function evaluateLandedTile(): void {
         landedTilePopup: {
           tileId: tile.id,
           playerId: player.id,
-          eventSummary: '⚓ Mouillage à Port Royal (+200 Or de prime de passage)',
+          eventSummary: '⚓ Mouillage à Port Royal (+200 Or & +1 Matériau 🪵)',
         },
       });
       afterTileActionCheckNavalBattle();
@@ -1378,7 +1473,7 @@ function evaluateLandedTile(): void {
           checkAutomaticNavalBattlePrompt();
         }
       } else if (tile.ownerId === player.id) {
-        // Player owns this island: can fortify it!
+        // Player owns this island: can fortify it if they have Gold + 1 Material!
         useGameStore.setState({
           phase: 'TILE_ACTION',
           landedTilePopup: {
@@ -1386,7 +1481,7 @@ function evaluateLandedTile(): void {
             playerId: player.id,
             eventSummary:
               tile.level < 4
-                ? `🏰 Votre île — Fortifiable pour ${tile.upgradeCost} Or`
+                ? `🏰 Votre île — Fortifier : ${tile.upgradeCost} Or + 1 Matériau 🪵`
                 : '🏰 Forteresse Pirate Maximale !',
           },
         });
@@ -1395,7 +1490,12 @@ function evaluateLandedTile(): void {
             const st = useGameStore.getState();
             const ai = st.players[st.currentPlayerIndex];
             const t = st.tiles[ai.position];
-            if (t.upgradeCost && t.level < 4 && ai.gold >= t.upgradeCost + 200) {
+            if (
+              t.upgradeCost &&
+              t.level < 4 &&
+              ai.materials >= FORTIFY_MATERIAL_COST &&
+              ai.gold >= t.upgradeCost + 200
+            ) {
               st.fortifyIsland(t.id);
             }
             setTimeout(() => {
@@ -1438,7 +1538,7 @@ function evaluateLandedTile(): void {
 }
 
 /**
- * Checks if the player landed on a tile with rival ship(s) to trigger Naval Battle
+ * Checks if the player landed on a tile with rival ship(s) to trigger Naval Battle (at most 1 attack per turn)
  */
 function afterTileActionCheckNavalBattle(): void {
   const state = useGameStore.getState();
@@ -1454,13 +1554,14 @@ function afterTileActionCheckNavalBattle(): void {
     (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
   );
 
-  if (rivals.length > 0) {
+  if (rivals.length > 0 && !state.hasAttackedThisTurn) {
     const defender = rivals[0];
     state.addLog(
       `⚔️ BATAILLE NAVALE sur ${state.tiles[player.position].name} : ${player.name} aborde ${defender.name} !`
     );
     useGameStore.setState({
       phase: 'NAVAL_BATTLE',
+      hasAttackedThisTurn: true,
       focusedTileIndex: player.position,
       navalBattle: {
         active: true,
@@ -1473,6 +1574,7 @@ function afterTileActionCheckNavalBattle(): void {
         winnerId: null,
         loserId: null,
         plunderAmount: 150,
+        materialsLooted: 1,
       },
     });
 
@@ -1494,6 +1596,8 @@ function afterTileActionCheckNavalBattle(): void {
 
 function checkAutomaticNavalBattlePrompt(): void {
   const state = useGameStore.getState();
+  if (state.hasAttackedThisTurn) return;
+
   const player = state.players[state.currentPlayerIndex];
   if (!player) return;
 
@@ -1507,6 +1611,7 @@ function checkAutomaticNavalBattlePrompt(): void {
     );
     useGameStore.setState({
       phase: 'NAVAL_BATTLE',
+      hasAttackedThisTurn: true,
       focusedTileIndex: player.position,
       navalBattle: {
         active: true,
@@ -1519,6 +1624,7 @@ function checkAutomaticNavalBattlePrompt(): void {
         winnerId: null,
         loserId: null,
         plunderAmount: 150,
+        materialsLooted: 1,
       },
     });
   }

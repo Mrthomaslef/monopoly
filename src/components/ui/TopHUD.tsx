@@ -40,9 +40,14 @@ export const TopHUD: React.FC = () => {
     <header className="relative z-20 h-[15dvh] min-h-[100px] max-h-[136px] w-full wood-panel border-b-4 border-amber-950 px-2.5 py-1.5 flex flex-col justify-between select-none">
       {/* Top Bar: Carved Wooden Sign + Audio, Camera & Crew Setup Plank Buttons */}
       <div className="flex items-center justify-between gap-1.5">
-        <div className="wood-plank wood-nails px-2.5 py-0.5 rounded-lg flex items-center gap-1.5">
+        <div className="wood-plank wood-nails px-2 py-0.5 rounded-lg flex items-center gap-1.5">
+          <img
+            src="./assets/pirate_logo.png"
+            alt="Pirate's Plunder Logo"
+            className="w-6 h-6 sm:w-7 sm:h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] shrink-0"
+          />
           <span className="text-amber-300 text-xs sm:text-sm font-black tracking-wider drop-shadow">
-            🏴‍☠️ PIRATE&apos;S PLUNDER
+            PIRATE&apos;S PLUNDER
           </span>
           <span className="hidden sm:inline-block text-[10px] font-bold px-1.5 py-0.2 rounded bg-black/35 text-amber-200 border border-amber-700/50">
             Dés 1–3

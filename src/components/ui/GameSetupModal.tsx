@@ -174,10 +174,22 @@ export const GameSetupModal: React.FC = () => {
                       key={slot.id}
                       className="wood-plank wood-nails rounded-xl px-3 py-2 flex items-center justify-between gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span
-                          className="w-4 h-4 rounded-full shrink-0 border-2 border-amber-200 shadow"
-                          style={{ backgroundColor: slot.color }}
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div
+                          className="w-9 h-9 rounded-lg shrink-0 border-2 shadow overflow-hidden"
+                          style={{
+                            borderColor: slot.color,
+                            backgroundImage: 'url(./assets/captains_sheet.jpg)',
+                            backgroundSize: '215% 215%',
+                            backgroundPosition:
+                              idx === 0
+                                ? '4% 4%'
+                                : idx === 1
+                                ? '96% 4%'
+                                : idx === 2
+                                ? '4% 96%'
+                                : '96% 96%',
+                          }}
                         />
                         <div className="min-w-0 flex-1">
                           <input

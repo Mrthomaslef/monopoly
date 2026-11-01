@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useGameStore } from '../../store/useGameStore';
 import { soundEffects } from '../../utils/soundEffects';
+import { CaptainAvatar } from './CaptainAvatar';
 
 export const TopHUD: React.FC = () => {
   const players = useGameStore((s) => s.players);
@@ -114,7 +115,7 @@ export const TopHUD: React.FC = () => {
                 scale: isCurrent ? 1.03 : 1,
                 y: isCurrent ? -1 : 0,
               }}
-              className={`wood-plank wood-nails cursor-pointer rounded-lg px-2 py-1 transition-all overflow-hidden ${
+              className={`wood-plank wood-nails cursor-pointer rounded-lg px-1.5 py-1 transition-all overflow-hidden flex items-center gap-1.5 ${
                 player.bankrupt
                   ? 'opacity-45 grayscale'
                   : isCurrent
@@ -122,51 +123,53 @@ export const TopHUD: React.FC = () => {
                   : 'opacity-90 hover:opacity-100'
               }`}
             >
-              {/* Active Captain Glowing Indicator Dot */}
-              {isCurrent && (
-                <span className="absolute top-1.5 right-2 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                </span>
-              )}
+              {/* Illustrated Captain Portrait */}
+              <CaptainAvatar
+                captainId={player.id}
+                color={player.color}
+                size="sm"
+              />
 
-              {/* Captain Name + Color Crest */}
-              <div className="flex items-center gap-1 truncate">
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/50 shadow"
-                  style={{ backgroundColor: player.color }}
-                />
-                <span className="text-[11px] font-black text-amber-100 truncate drop-shadow">
+              <div className="min-w-0 flex-1">
+                {/* Active Captain Glowing Indicator Dot */}
+                {isCurrent && (
+                  <span className="absolute top-1 right-1.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+                  </span>
+                )}
+
+                <div className="text-[11px] font-black text-amber-100 truncate drop-shadow leading-tight">
                   {player.name}
-                </span>
-              </div>
+                </div>
 
-              {/* Gold & Islands Row */}
-              <div className="mt-0.5 flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-0.5 font-black text-amber-300">
-                  <Coins className="w-3 h-3 text-amber-400 shrink-0" />
-                  {player.gold}
-                </span>
-                <span className="flex items-center gap-0.5 text-cyan-300 font-bold">
-                  <MapPin className="w-2.5 h-2.5 shrink-0" />
-                  {islandCount}
-                </span>
-              </div>
+                {/* Gold & Islands Row */}
+                <div className="flex items-center justify-between text-[10px] leading-tight mt-0.5">
+                  <span className="flex items-center gap-0.5 font-black text-amber-300">
+                    <Coins className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                    {player.gold}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-cyan-300 font-bold">
+                    <MapPin className="w-2.5 h-2.5 shrink-0" />
+                    {islandCount}
+                  </span>
+                </div>
 
-              {/* Status Overlay Badge (Jail / AI / Bankrupt) */}
-              {player.bankrupt ? (
-                <div className="text-[9px] text-rose-300 font-bold flex items-center gap-0.5">
-                  <Skull className="w-2.5 h-2.5" /> Naufragé
-                </div>
-              ) : player.inJail ? (
-                <div className="text-[9px] text-amber-300 font-bold truncate">
-                  ⛓️ En Cale
-                </div>
-              ) : (
-                <div className="text-[9px] text-amber-200/80 font-semibold truncate">
-                  {player.isAI ? '🤖 Capitaine IA' : '⚓ Joueur Humain'}
-                </div>
-              )}
+                {/* Status Overlay Badge */}
+                {player.bankrupt ? (
+                  <div className="text-[8px] text-rose-300 font-bold flex items-center gap-0.5">
+                    <Skull className="w-2 h-2" /> Naufragé
+                  </div>
+                ) : player.inJail ? (
+                  <div className="text-[8px] text-amber-300 font-bold truncate">
+                    ⛓️ En Cale
+                  </div>
+                ) : (
+                  <div className="text-[8px] text-amber-200/80 font-semibold truncate">
+                    {player.isAI ? '🤖 Cap. IA' : '⚓ Humain'}
+                  </div>
+                )}
+              </div>
             </motion.div>
           );
         })}

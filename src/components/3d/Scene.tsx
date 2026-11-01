@@ -135,8 +135,10 @@ export const Scene: React.FC = () => {
           shadow-camera-bottom={-10}
         />
 
-        <Ocean />
-        <Board />
+        <React.Suspense fallback={null}>
+          <Ocean />
+          <Board />
+        </React.Suspense>
         <SmartCameraRig />
       </Canvas>
     </div>

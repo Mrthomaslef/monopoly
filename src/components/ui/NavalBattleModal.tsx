@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Flame, Coins, ShieldAlert } from 'lucide-react';
 import { useGameStore } from '../../store/useGameStore';
+import { CaptainAvatar } from './CaptainAvatar';
 
 export const NavalBattleModal: React.FC = () => {
   const navalBattle = useGameStore((s) => s.navalBattle);
@@ -52,21 +53,22 @@ export const NavalBattleModal: React.FC = () => {
             </span>
           </div>
 
-          {/* Combatants Duel Row */}
+          {/* Combatants Duel Row with Illustrated Portraits */}
           <div className="grid grid-cols-7 items-center gap-2 my-2">
             {/* Attacker Card */}
-            <div className="col-span-3 parchment-card rounded-xl p-2 text-center border-2 border-amber-700">
-              <span
-                className="inline-block w-3 h-3 rounded-full mb-0.5 border border-black/30"
-                style={{ backgroundColor: attacker.color }}
+            <div className="col-span-3 parchment-card rounded-xl p-2 text-center border-2 border-amber-700 flex flex-col items-center">
+              <CaptainAvatar
+                captainId={attacker.id}
+                color={attacker.color}
+                size="md"
               />
-              <div className="text-xs font-black truncate text-amber-950">
+              <div className="text-xs font-black truncate text-amber-950 mt-1 max-w-full">
                 {attacker.name}
               </div>
               <div className="text-[10px] font-bold text-rose-800 uppercase">
                 Attaquant
               </div>
-              <div className="mt-1.5 h-10 w-10 mx-auto rounded-lg bg-amber-950 text-amber-200 flex items-center justify-center text-xl font-black border border-amber-500 shadow-inner">
+              <div className="mt-1 h-9 w-9 mx-auto rounded-lg bg-amber-950 text-amber-200 flex items-center justify-center text-lg font-black border border-amber-500 shadow-inner">
                 {navalBattle.attackerRoll ?? '?'}
               </div>
             </div>
@@ -78,18 +80,19 @@ export const NavalBattleModal: React.FC = () => {
             </div>
 
             {/* Defender Card */}
-            <div className="col-span-3 parchment-card rounded-xl p-2 text-center border-2 border-amber-700">
-              <span
-                className="inline-block w-3 h-3 rounded-full mb-0.5 border border-black/30"
-                style={{ backgroundColor: defender.color }}
+            <div className="col-span-3 parchment-card rounded-xl p-2 text-center border-2 border-amber-700 flex flex-col items-center">
+              <CaptainAvatar
+                captainId={defender.id}
+                color={defender.color}
+                size="md"
               />
-              <div className="text-xs font-black truncate text-amber-950">
+              <div className="text-xs font-black truncate text-amber-950 mt-1 max-w-full">
                 {defender.name}
               </div>
               <div className="text-[10px] font-bold text-sky-900 uppercase">
                 Défenseur
               </div>
-              <div className="mt-1.5 h-10 w-10 mx-auto rounded-lg bg-amber-950 text-amber-200 flex items-center justify-center text-xl font-black border border-amber-500 shadow-inner">
+              <div className="mt-1 h-9 w-9 mx-auto rounded-lg bg-amber-950 text-amber-200 flex items-center justify-center text-lg font-black border border-amber-500 shadow-inner">
                 {navalBattle.defenderRoll ?? '?'}
               </div>
             </div>

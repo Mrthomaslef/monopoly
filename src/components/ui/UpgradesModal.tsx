@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   useGameStore,
   UPGRADE_COST,
@@ -34,33 +34,18 @@ export const UpgradesModal: React.FC = () => {
 
   const activePlayer = players[currentPlayerIndex];
 
-  // Owned fortresses (level >= 1) that are not yet trapped
-  const trappableFortresses = activePlayer
-    ? tiles.filter(
-        (t) =>
-          t.type === 'island' &&
-          t.ownerId === activePlayer.id &&
-          t.level >= 1 &&
-          !t.trapped
-      )
-    : [];
-
-  const [selectedTrapTileId, setSelectedTrapTileId] = useState<number | null>(null);
-
   if (!showUpgradesModal || !activePlayer || activePlayer.isAI) return null;
 
   const currentTile = tiles[activePlayer.position];
+  const isOnOwnIsland =
+    Boolean(currentTile) &&
+    currentTile.type === 'island' &&
+    currentTile.ownerId === activePlayer.id;
   const canShopHere = canAccessUpgradesShop(activePlayer, tiles);
   const canAfford =
     activePlayer.gold >= UPGRADE_COST &&
     activePlayer.materials >= UPGRADE_MATERIAL_COST;
   const culverinTargets = getCulverinTargets(activePlayer, tiles);
-
-  const effectiveTrapTileId =
-    selectedTrapTileId !== null &&
-    trappableFortresses.some((t) => t.id === selectedTrapTileId)
-      ? selectedTrapTileId
-      : trappableFortresses[0]?.id ?? null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pointer-events-auto bg-slate-950/80 backdrop-blur-md animate-fadeIn">
@@ -209,65 +194,48 @@ export const UpgradesModal: React.FC = () => {
             )}
           </div>
 
-          {/* 2. Forteresse Piégée */}
-          <div className="rounded-2xl bg-slate-900/90 border border-amber-500/35 p-3 flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-orange-500/15 border border-orange-400/40 flex items-center justify-center text-orange-300 shrink-0">
-                  <Bomb className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-white uppercase tracking-wide">
-                    Forteresse Piégée
+          {/* 2. Forteresse Piégée (uniquement proposée lorsque le joueur se situe sur l'une de ses îles, jamais à la Taverne ni à la Case Départ) */}
+          {isOnOwnIsland && currentTile && (
+            <div className="rounded-2xl bg-slate-900/90 border border-amber-500/35 p-3 flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-orange-500/15 border border-orange-400/40 flex items-center justify-center text-orange-300 shrink-0">
+                    <Bomb className="w-4 h-4" />
                   </div>
-                  <div className="text-[11px] font-semibold text-slate-300 leading-tight">
-                    Sur une de vos forteresses : fait perdre{' '}
-                    <span className="text-orange-300 font-black">50% de son or</span> à l’ennemi qui tombe dessus.
+                  <div>
+                    <div className="text-xs font-black text-white uppercase tracking-wide">
+                      Forteresse Piégée ({currentTile.name})
+                    </div>
+                    <div className="text-[11px] font-semibold text-slate-300 leading-tight">
+                      Piège cette île : fait perdre{' '}
+                      <span className="text-orange-300 font-black">50% de son or</span> à l’ennemi qui tombe dessus.
+                    </div>
                   </div>
                 </div>
+                <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                  {UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵
+                </span>
               </div>
-              <span className="shrink-0 text-[11px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                {UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵
-              </span>
-            </div>
 
-            {trappableFortresses.length === 0 ? (
-              <div className="py-1.5 px-2.5 rounded-xl bg-slate-950/70 border border-slate-700/60 text-slate-400 text-[11px] font-bold text-center">
-                Construisez d’abord au moins 1 étage de fortification sur une de vos îles.
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-1.5">
-                  {trappableFortresses.map((fort) => {
-                    const isSelected = fort.id === effectiveTrapTileId;
-                    return (
-                      <button
-                        key={fort.id}
-                        type="button"
-                        onClick={() => setSelectedTrapTileId(fort.id)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold border transition-all ${
-                          isSelected
-                            ? 'bg-orange-500/25 border-orange-400 text-orange-200'
-                            : 'bg-slate-950/70 border-slate-700 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        🏰 {fort.name} (Niv.{fort.level})
-                      </button>
-                    );
-                  })}
+              {currentTile.trapped ? (
+                <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-black uppercase">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Cette forteresse est déjà piégée
                 </div>
+              ) : currentTile.level < 1 ? (
+                <div className="py-1.5 px-2.5 rounded-xl bg-slate-950/70 border border-slate-700/60 text-slate-400 text-[11px] font-bold text-center">
+                  Construisez d’abord au moins 1 étage de fortification sur {currentTile.name}.
+                </div>
+              ) : (
                 <button
-                  onClick={() =>
-                    effectiveTrapTileId !== null && buyTrappedFortress(effectiveTrapTileId)
-                  }
-                  disabled={!canShopHere || !canAfford || effectiveTrapTileId === null}
+                  onClick={() => buyTrappedFortress()}
+                  disabled={!canAfford}
                   className="w-full py-2 rounded-xl bg-gradient-to-b from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-orange-300/60 shadow active:scale-95 transition-all"
                 >
-                  Piéger ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
+                  Piéger {currentTile.name} ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
                 </button>
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* 3. Tir de Coulevrine */}
           <div className="rounded-2xl bg-slate-900/90 border border-amber-500/35 p-3 flex flex-col gap-2">

@@ -686,7 +686,7 @@ interface GameState {
   buyIsland: () => void;
   fortifyIsland: (tileId?: number) => void;
   buyPerfectBoarding: () => void;
-  buyTrappedFortress: (tileId: number) => void;
+  buyTrappedFortress: () => void;
   buyCulverin: () => void;
   fireCulverin: (targetTileId: number) => void;
   payBailAndRoll: () => void;
@@ -1150,17 +1150,16 @@ export const useGameStore = create<GameState>()(
     set({ players: updatedPlayers });
   },
 
-  buyTrappedFortress: (tileId) => {
+  buyTrappedFortress: () => {
     const state = get();
     const player = state.players[state.currentPlayerIndex];
     if (!player || player.bankrupt) return;
-    if (!canAccessUpgradesShop(player, state.tiles)) return;
     if (player.gold < UPGRADE_COST || player.materials < UPGRADE_MATERIAL_COST) {
       return;
     }
 
-    const targetId = tileId !== undefined ? tileId : player.position;
-    const tile = state.tiles[targetId];
+    // Forteresse Piégée is only possible on the island where the player is currently located
+    const tile = state.tiles[player.position];
     if (
       !tile ||
       tile.type !== 'island' ||
@@ -2079,15 +2078,15 @@ function afterTileActionCheckNavalBattle(): void {
     } else if (!aiPlayer.hasPerfectBoarding) {
       afterFortifyState.buyPerfectBoarding();
     } else {
-      const fortToTrap = afterFortifyState.tiles.find(
-        (t) =>
-          t.type === 'island' &&
-          t.ownerId === aiPlayer.id &&
-          t.level >= 1 &&
-          !t.trapped
-      );
-      if (fortToTrap) {
-        afterFortifyState.buyTrappedFortress(fortToTrap.id);
+      const currentAiTile = afterFortifyState.tiles[aiPlayer.position];
+      if (
+        currentAiTile &&
+        currentAiTile.type === 'island' &&
+        currentAiTile.ownerId === aiPlayer.id &&
+        currentAiTile.level >= 1 &&
+        !currentAiTile.trapped
+      ) {
+        afterFortifyState.buyTrappedFortress();
       }
     }
   }

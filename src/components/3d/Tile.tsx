@@ -578,11 +578,22 @@ export const Tile: React.FC<TileProps> = React.memo(
     const isMixedCove =
       theme === 'port' || theme === 'temple' || theme === 'eldorado';
 
-    const [tileArtTexture, propTexture, sandTexture, rockTexture] = useTexture([
+    const [
+      tileArtTexture,
+      propTexture,
+      sandTexture,
+      rockTexture,
+      fortWoodTexture,
+      fortStoneTexture,
+      fortCarvedStoneTexture,
+    ] = useTexture([
       TERRAIN_TEXTURE_MAP[theme],
       PROP_TEXTURE_MAP[theme],
       './assets/sand_beach.jpg',
       './assets/coastal_rock.jpg',
+      './assets/fort_wood.png',
+      './assets/fort_stone.png',
+      './assets/fort_carved_stone.png',
     ]);
 
     const islandSeedAngle = useMemo(
@@ -598,16 +609,28 @@ export const Tile: React.FC<TileProps> = React.memo(
     }, [isCorner, tile.id]);
     const propOffsetZ = isCorner ? -0.52 : -0.46;
 
-    // Opposite back corner for the 3D Captain Ownership Flag & Fortification Towers
+    // Opposite back corner for the 3D Captain Ownership Flag & Higgsfield Fortress
     const flagOffsetX = -propOffsetX * 0.95;
     const flagOffsetZ = propOffsetZ * 0.88;
 
     const baseRadius = isCorner ? 0.88 : 0.78;
     const propSize = isCorner ? 0.78 : 0.68;
 
+    const activeFortressTexture =
+      tile.level === 1
+        ? fortWoodTexture
+        : tile.level === 2
+        ? fortStoneTexture
+        : tile.level >= 3
+        ? fortCarvedStoneTexture
+        : null;
+
+    const fortressSize =
+      tile.level === 1 ? 0.62 : tile.level === 2 ? 0.7 : 0.78;
+
     const levelStars =
-      tile.level >= 4
-        ? ' ★4'
+      tile.level >= 3
+        ? ' ★★★'
         : tile.level > 0
         ? ` ${'★'.repeat(tile.level)}`
         : '';
@@ -732,7 +755,7 @@ export const Tile: React.FC<TileProps> = React.memo(
           </mesh>
         )}
 
-        {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop, 3D Ownership Flag & Curved Banner */}
+        {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop, 3D Ownership Flag & Higgsfield Fortress */}
         <group rotation={[0, -rotationY, 0]}>
           {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
           <mesh position={[0, 0.125, -0.02]} receiveShadow>
@@ -809,122 +832,139 @@ export const Tile: React.FC<TileProps> = React.memo(
             </mesh>
           </group>
 
-          {/* 3D CAPTAIN OWNERSHIP FLAG MAST & FORTIFICATION BASTION TOWERS */}
+          {/* 3D CAPTAIN OWNERSHIP FLAG & HIGGSFIELD FORTRESS (BOIS -> PIERRE -> PIERRE TAILLÉE) */}
           {owner && (
             <group position={[flagOffsetX, 0.16, flagOffsetZ]}>
-              {/* Captain Color Octagonal Pedestal Base */}
+              {/* Base Pedestal styled by Fortification Tier (0: Captain Base, 1: Wood, 2: Stone, 3: Carved Stone) */}
               <mesh position={[0, 0.04, 0]}>
-                <cylinderGeometry args={[0.17, 0.21, 0.08, 8]} />
+                <cylinderGeometry
+                  args={[
+                    tile.level >= 3 ? 0.27 : tile.level >= 1 ? 0.24 : 0.17,
+                    tile.level >= 3 ? 0.32 : tile.level >= 1 ? 0.29 : 0.21,
+                    0.09,
+                    tile.level >= 2 ? 8 : 10,
+                  ]}
+                />
+                <meshStandardMaterial
+                  color={
+                    tile.level === 1
+                      ? '#78350f'
+                      : tile.level === 2
+                      ? '#64748b'
+                      : tile.level >= 3
+                      ? '#e7e5e4'
+                      : owner.color
+                  }
+                  emissive={tile.level === 0 ? owner.color : '#000000'}
+                  emissiveIntensity={tile.level === 0 ? 0.65 : 0}
+                  roughness={tile.level >= 3 ? 0.35 : 0.65}
+                />
+              </mesh>
+
+              {/* Glowing Player-Color Territory Collar around the Fortress Foundation */}
+              <mesh position={[0, 0.088, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry
+                  args={[
+                    tile.level >= 1 ? 0.21 : 0.13,
+                    tile.level >= 3 ? 0.33 : tile.level >= 1 ? 0.29 : 0.21,
+                    16,
+                  ]}
+                />
                 <meshStandardMaterial
                   color={owner.color}
                   emissive={owner.color}
-                  emissiveIntensity={0.65}
-                  roughness={0.35}
+                  emissiveIntensity={1.0}
+                  side={THREE.DoubleSide}
                 />
               </mesh>
 
-              {/* Tall Wooden Flagstaff Mast */}
-              <mesh position={[0, 0.38, 0]}>
-                <cylinderGeometry args={[0.022, 0.032, 0.68, 8]} />
-                <meshStandardMaterial color="#451a03" roughness={0.7} />
-              </mesh>
+              {/* HIGGSFIELD 3D FORTRESS (Niv.1 = Bois, Niv.2 = Pierre, Niv.3 = Pierre Taillée) */}
+              {activeFortressTexture && (
+                <group
+                  position={[0, 0.34, 0.02]}
+                  rotation={[-0.24, 0, 0]}
+                >
+                  {/* 3D Volumetric Back Depth Layer */}
+                  <mesh position={[0, 0, -0.025]}>
+                    <planeGeometry args={[fortressSize, fortressSize]} />
+                    <meshStandardMaterial
+                      map={activeFortressTexture}
+                      color={
+                        tile.level === 1
+                          ? '#78350f'
+                          : tile.level === 2
+                          ? '#475569'
+                          : '#d6d3d1'
+                      }
+                      transparent
+                      alphaTest={0.16}
+                      roughness={0.7}
+                      side={THREE.DoubleSide}
+                    />
+                  </mesh>
+                  {/* Front Relief Fortress Layer with Bump Map */}
+                  <mesh position={[0, 0, 0]}>
+                    <planeGeometry args={[fortressSize, fortressSize]} />
+                    <meshStandardMaterial
+                      map={activeFortressTexture}
+                      bumpMap={activeFortressTexture}
+                      bumpScale={0.035}
+                      transparent
+                      alphaTest={0.12}
+                      roughness={tile.level >= 3 ? 0.32 : 0.48}
+                      metalness={tile.level >= 3 ? 0.18 : 0.06}
+                      side={THREE.DoubleSide}
+                    />
+                  </mesh>
+                </group>
+              )}
 
-              {/* Golden Finial Sphere at the top of the Mast */}
-              <mesh position={[0, 0.74, 0]}>
-                <sphereGeometry args={[0.048, 8, 8]} />
-                <meshStandardMaterial
-                  color="#fde047"
-                  emissive="#f59e0b"
-                  emissiveIntensity={0.6}
-                  metalness={0.8}
-                  roughness={0.2}
-                />
-              </mesh>
+              {/* Tall Wooden / Royal Flagstaff Mast rising above the Fortress (or Island Base at Level 0) */}
+              <group position={[0, tile.level >= 1 ? 0.28 : 0, -0.02]}>
+                <mesh position={[0, 0.38, 0]}>
+                  <cylinderGeometry args={[0.022, 0.032, 0.66, 8]} />
+                  <meshStandardMaterial
+                    color={tile.level >= 3 ? '#fbbf24' : '#451a03'}
+                    metalness={tile.level >= 3 ? 0.65 : 0.1}
+                    roughness={0.45}
+                  />
+                </mesh>
 
-              {/* Large Vibrant 3D Captain Flag / Pennant in Owner's Color */}
-              <group position={[0.16, 0.58, 0]}>
-                {/* Golden Flag Border */}
-                <mesh position={[0, 0, -0.008]}>
-                  <boxGeometry args={[0.32, 0.22, 0.014]} />
+                {/* Golden Finial Sphere at the top of the Mast */}
+                <mesh position={[0, 0.73, 0]}>
+                  <sphereGeometry args={[0.05, 8, 8]} />
                   <meshStandardMaterial
                     color="#fde047"
                     emissive="#f59e0b"
-                    emissiveIntensity={0.45}
-                  />
-                </mesh>
-                {/* Owner Colored Flag Cloth */}
-                <mesh>
-                  <boxGeometry args={[0.29, 0.18, 0.024]} />
-                  <meshStandardMaterial
-                    color={owner.color}
-                    emissive={owner.color}
-                    emissiveIntensity={0.85}
-                    roughness={0.3}
-                  />
-                </mesh>
-              </group>
-
-              {/* 3D Fortification Bastion Towers (Levels 1 to 4) */}
-              {tile.level >= 1 && (
-                <group position={[-0.14, 0.14, 0.06]}>
-                  <mesh>
-                    <cylinderGeometry args={[0.085, 0.105, 0.24, 8]} />
-                    <meshStandardMaterial color="#e7e5e4" roughness={0.75} />
-                  </mesh>
-                  <mesh position={[0, 0.17, 0]}>
-                    <coneGeometry args={[0.115, 0.14, 8]} />
-                    <meshStandardMaterial
-                      color={owner.color}
-                      emissive={owner.color}
-                      emissiveIntensity={0.55}
-                    />
-                  </mesh>
-                </group>
-              )}
-              {tile.level >= 2 && (
-                <group position={[0.14, 0.16, 0.06]}>
-                  <mesh>
-                    <cylinderGeometry args={[0.09, 0.11, 0.28, 8]} />
-                    <meshStandardMaterial color="#e7e5e4" roughness={0.75} />
-                  </mesh>
-                  <mesh position={[0, 0.19, 0]}>
-                    <coneGeometry args={[0.12, 0.15, 8]} />
-                    <meshStandardMaterial
-                      color={owner.color}
-                      emissive={owner.color}
-                      emissiveIntensity={0.55}
-                    />
-                  </mesh>
-                </group>
-              )}
-              {tile.level >= 3 && (
-                <group position={[0, 0.19, -0.11]}>
-                  <mesh>
-                    <cylinderGeometry args={[0.1, 0.12, 0.34, 8]} />
-                    <meshStandardMaterial color="#f5f5f4" roughness={0.7} />
-                  </mesh>
-                  <mesh position={[0, 0.22, 0]}>
-                    <coneGeometry args={[0.135, 0.16, 8]} />
-                    <meshStandardMaterial
-                      color={owner.color}
-                      emissive={owner.color}
-                      emissiveIntensity={0.6}
-                    />
-                  </mesh>
-                </group>
-              )}
-              {tile.level >= 4 && (
-                <mesh position={[0, 0.44, -0.11]}>
-                  <octahedronGeometry args={[0.09, 0]} />
-                  <meshStandardMaterial
-                    color="#fde047"
-                    emissive="#f59e0b"
-                    emissiveIntensity={1.1}
+                    emissiveIntensity={0.7}
                     metalness={0.85}
-                    roughness={0.15}
+                    roughness={0.2}
                   />
                 </mesh>
-              )}
+
+                {/* Large Vibrant 3D Captain Flag / Pennant in the Player's Color */}
+                <group position={[0.165, 0.57, 0]}>
+                  {/* Golden Flag Trim Border */}
+                  <mesh position={[0, 0, -0.008]}>
+                    <boxGeometry args={[0.33, 0.22, 0.014]} />
+                    <meshStandardMaterial
+                      color="#fde047"
+                      emissive="#f59e0b"
+                      emissiveIntensity={0.5}
+                    />
+                  </mesh>
+                  {/* Player Colored Flag Cloth */}
+                  <mesh>
+                    <boxGeometry args={[0.295, 0.185, 0.026]} />
+                    <meshStandardMaterial
+                      color={owner.color}
+                      emissive={owner.color}
+                      emissiveIntensity={0.9}
+                      roughness={0.28}
+                    />
+                  </mesh>
+                </group>
+              </group>
             </group>
           )}
 

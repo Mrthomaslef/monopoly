@@ -5,16 +5,11 @@ import {
   useGameStore,
   calculateIslandRent,
   FORTIFY_MATERIAL_COST,
+  MAX_FORTIFY_LEVEL,
+  FORTRESS_LEVEL_NAMES,
+  FORTRESS_LEVEL_IMAGES,
   TileData,
 } from '../../store/useGameStore';
-
-const LEVEL_NAMES = [
-  'Mouillage Vierge',
-  'Avant-poste Niv.1',
-  'Avant-poste Niv.2',
-  'Avant-poste Niv.3',
-  '🏰 Forteresse Pirate',
-];
 
 export const FortifySelectorModal: React.FC = () => {
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
@@ -39,7 +34,7 @@ export const FortifySelectorModal: React.FC = () => {
     ownedIslands.find((t) => t.id === focusedTileIndex) ??
     ownedIslands.find(
       (t) =>
-        t.level < 4 &&
+        t.level < MAX_FORTIFY_LEVEL &&
         (t.upgradeCost ?? 0) <= activePlayer.gold &&
         activePlayer.materials >= FORTIFY_MATERIAL_COST
     ) ??
@@ -47,7 +42,7 @@ export const FortifySelectorModal: React.FC = () => {
     null;
 
   const canFortifyTile = (tile: TileData) =>
-    tile.level < 4 &&
+    tile.level < MAX_FORTIFY_LEVEL &&
     (tile.upgradeCost ?? 0) <= activePlayer.gold &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
 
@@ -98,8 +93,7 @@ export const FortifySelectorModal: React.FC = () => {
           <div className="px-3 py-1.5 bg-black/45 border-b border-amber-900/50 text-[10px] font-semibold text-amber-200/90 flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
             <span>
-              Sélectionnez une île dans la liste ou touchez-la directement sur
-              le plateau 3D :
+              Bois → Pierre → Pierre Taillée (avec votre drapeau) :
             </span>
           </div>
 
@@ -109,58 +103,86 @@ export const FortifySelectorModal: React.FC = () => {
               const isSelected = focusedOwnedIsland?.id === tile.id;
               const eligible = canFortifyTile(tile);
               const currentRent = calculateIslandRent(tile, tiles);
+              const nextLevel = Math.min(MAX_FORTIFY_LEVEL, tile.level + 1);
               const nextLevelTile: TileData = {
                 ...tile,
-                level: Math.min(4, tile.level + 1),
+                level: nextLevel,
               };
               const nextRent = calculateIslandRent(nextLevelTile, tiles);
+              const previewImg =
+                FORTRESS_LEVEL_IMAGES[
+                  tile.level < MAX_FORTIFY_LEVEL ? nextLevel : tile.level
+                ];
 
               return (
                 <div
                   key={tile.id}
                   onClick={() => focusTileOnBoard(tile.id)}
-                  className={`parchment-card rounded-xl p-2.5 border-2 transition cursor-pointer flex items-center justify-between gap-2 ${
+                  className={`parchment-card rounded-xl p-2 border-2 transition cursor-pointer flex items-center justify-between gap-2 ${
                     isSelected
                       ? 'border-cyan-500 ring-2 ring-cyan-400/60 shadow-md'
                       : 'border-amber-900/70 opacity-90 hover:opacity-100'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {/* Property Group Color Bar */}
-                    <div
-                      className="w-3 h-10 rounded-sm shrink-0 border border-black/40 shadow-inner"
-                      style={{ backgroundColor: tile.color }}
-                    />
+                    {/* Higgsfield 3D Fortress Thumbnail + Player Color Flag Badge */}
+                    <div className="relative w-11 h-11 rounded-lg bg-amber-950/20 border border-amber-900/40 flex items-center justify-center shrink-0 overflow-hidden">
+                      {previewImg && (
+                        <img
+                          src={previewImg}
+                          alt={FORTRESS_LEVEL_NAMES[nextLevel]}
+                          className="w-10 h-10 object-contain drop-shadow"
+                        />
+                      )}
+                      <span
+                        className="absolute top-0.5 right-0.5 w-3 h-2.5 rounded-[2px] border border-amber-200 shadow"
+                        style={{ backgroundColor: activePlayer.color }}
+                        title={`Drapeau ${activePlayer.name}`}
+                      />
+                    </div>
+
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-950 text-amber-200 shrink-0">
-                          Case #{tile.id}
+                        <span
+                          className="text-[9px] font-extrabold px-1.5 py-0.5 rounded text-white shrink-0 border border-black/30"
+                          style={{ backgroundColor: tile.color }}
+                        >
+                          #{tile.id}
                         </span>
                         <span className="text-xs font-black text-amber-950 truncate">
                           {tile.name}
                         </span>
                       </div>
 
-                      <div className="text-[10px] font-bold text-amber-900/90 flex items-center gap-1.5 mt-0.5">
-                        <span>{LEVEL_NAMES[tile.level]}</span>
-                        {tile.level < 4 && (
-                          <>
-                            <span>•</span>
-                            <span className="inline-flex items-center gap-0.5 text-emerald-900 font-extrabold">
-                              Loyer {currentRent} <ArrowRight className="w-2.5 h-2.5" />{' '}
-                              {nextRent} Or
-                            </span>
-                          </>
+                      <div className="text-[10px] font-bold text-amber-900/95 truncate mt-0.5">
+                        {tile.level < MAX_FORTIFY_LEVEL ? (
+                          <span>
+                            Prochain :{' '}
+                            <strong className="text-amber-950">
+                              {FORTRESS_LEVEL_NAMES[nextLevel]}
+                            </strong>
+                          </span>
+                        ) : (
+                          <span className="text-amber-950 font-black">
+                            🏰 {FORTRESS_LEVEL_NAMES[MAX_FORTIFY_LEVEL]}
+                          </span>
                         )}
                       </div>
+
+                      {tile.level < MAX_FORTIFY_LEVEL && (
+                        <div className="text-[10px] font-extrabold text-emerald-900 inline-flex items-center gap-0.5">
+                          Loyer {currentRent} <ArrowRight className="w-2.5 h-2.5" />{' '}
+                          {nextRent} Or
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Direct Fortify Action Button for this Island */}
                   <div className="shrink-0">
-                    {tile.level >= 4 ? (
+                    {tile.level >= MAX_FORTIFY_LEVEL ? (
                       <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-amber-900/20 text-amber-900">
-                        Niveau Max ★4
+                        Max ★★★
                       </span>
                     ) : (
                       <button
@@ -178,7 +200,7 @@ export const FortifySelectorModal: React.FC = () => {
                       >
                         <span className="flex items-center gap-1">
                           <Castle className="w-3 h-3" />
-                          <span>Fortifier</span>
+                          <span>Construire</span>
                         </span>
                         <span className="text-[9px] font-extrabold opacity-95 flex items-center gap-0.5">
                           <Coins className="w-2.5 h-2.5" />
@@ -198,7 +220,7 @@ export const FortifySelectorModal: React.FC = () => {
               <div className="text-[11px] font-bold text-amber-100 truncate">
                 Cible :{' '}
                 <span className="text-cyan-300 font-black">
-                  {focusedOwnedIsland.name} (Case #{focusedOwnedIsland.id})
+                  {focusedOwnedIsland.name} (#{focusedOwnedIsland.id})
                 </span>
               </div>
               <button
@@ -208,7 +230,8 @@ export const FortifySelectorModal: React.FC = () => {
               >
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                 <span>
-                  Fortifier ({focusedOwnedIsland.upgradeCost} Or + 1 🪵)
+                  {FORTRESS_LEVEL_NAMES[focusedOwnedIsland.level + 1]} (
+                  {focusedOwnedIsland.upgradeCost} Or + 1 🪵)
                 </span>
               </button>
             </div>

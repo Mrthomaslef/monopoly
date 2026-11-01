@@ -11,6 +11,8 @@ import {
   useGameStore,
   calculateIslandRent,
   FORTIFY_MATERIAL_COST,
+  MAX_FORTIFY_LEVEL,
+  FORTRESS_LEVEL_NAMES,
 } from '../../store/useGameStore';
 
 export const BottomDeck: React.FC = () => {
@@ -53,7 +55,7 @@ export const BottomDeck: React.FC = () => {
         (t) =>
           t.type === 'island' &&
           t.ownerId === activePlayer.id &&
-          t.level < 4 &&
+          t.level < MAX_FORTIFY_LEVEL &&
           (t.upgradeCost ?? 0) <= activePlayer.gold
       )
     : [];
@@ -82,14 +84,6 @@ export const BottomDeck: React.FC = () => {
 
   const canEndTurn =
     isHumanTurn && (phase === 'TILE_ACTION' || phase === 'END_TURN');
-
-  const levelLabels = [
-    'Mouillage Vierge',
-    'Avant-poste Niv.1',
-    'Avant-poste Niv.2',
-    'Avant-poste Niv.3',
-    '🏰 Forteresse Pirate',
-  ];
 
   return (
     <section className="relative z-20 h-[25dvh] min-h-[182px] max-h-[244px] w-full wood-panel border-t-4 border-amber-950 px-3 py-2 flex flex-col justify-between select-none">
@@ -120,7 +114,7 @@ export const BottomDeck: React.FC = () => {
                   </span>
                   <span>•</span>
                   <span className="text-amber-800 font-bold">
-                    {levelLabels[inspectedTile.level]}
+                    {FORTRESS_LEVEL_NAMES[inspectedTile.level] ?? 'Forteresse'}
                   </span>
                 </div>
               ) : (
@@ -142,7 +136,7 @@ export const BottomDeck: React.FC = () => {
                   >
                     {tileOwner.name}
                   </span>
-                  {inspectedTile.level < 4 && (
+                  {inspectedTile.level < MAX_FORTIFY_LEVEL && (
                     <span className="text-[10px] font-bold text-amber-900 mt-0.5">
                       Fortif: {inspectedTile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
                     </span>

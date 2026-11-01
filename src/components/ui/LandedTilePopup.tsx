@@ -14,6 +14,9 @@ import {
   calculateIslandRent,
   TileData,
   FORTIFY_MATERIAL_COST,
+  MAX_FORTIFY_LEVEL,
+  FORTRESS_LEVEL_NAMES,
+  FORTRESS_LEVEL_IMAGES,
 } from '../../store/useGameStore';
 import { getTileTerrainTheme, TerrainTheme } from '../3d/Tile';
 
@@ -195,14 +198,6 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   },
 };
 
-const LEVEL_NAMES = [
-  'Mouillage Vierge',
-  'Avant-poste Niv.1',
-  'Avant-poste Niv.2',
-  'Avant-poste Niv.3',
-  '🏰 Forteresse Pirate',
-];
-
 export const LandedTilePopup: React.FC = () => {
   const landedTilePopup = useGameStore((s) => s.landedTilePopup);
   const dismissLandedTilePopup = useGameStore((s) => s.dismissLandedTilePopup);
@@ -267,7 +262,7 @@ export const LandedTilePopup: React.FC = () => {
     isHumanTurnActive &&
     tile.type === 'island' &&
     tile.ownerId === activePlayer.id &&
-    tile.level < 4 &&
+    tile.level < MAX_FORTIFY_LEVEL &&
     (tile.upgradeCost ?? 0) <= activePlayer.gold &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
 
@@ -279,7 +274,7 @@ export const LandedTilePopup: React.FC = () => {
         t.id !== tile.id &&
         t.type === 'island' &&
         t.ownerId === activePlayer.id &&
-        t.level < 4 &&
+        t.level < MAX_FORTIFY_LEVEL &&
         (t.upgradeCost ?? 0) <= activePlayer.gold
     );
 
@@ -455,12 +450,32 @@ export const LandedTilePopup: React.FC = () => {
 
             {/* Fortification Level Indicator for Islands */}
             {tile.type === 'island' && (
-              <div className="mt-2 flex items-center justify-between px-2.5 py-1 rounded-lg bg-black/15 text-[11px]">
-                <span className={`font-bold ${styleCfg.subTextColor}`}>
-                  Défense : <strong className={styleCfg.textColor}>{LEVEL_NAMES[tile.level]}</strong>
+              <div className="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-black/15 text-[11px] gap-2">
+                <span className={`font-bold flex items-center gap-1.5 min-w-0 ${styleCfg.subTextColor}`}>
+                  {FORTRESS_LEVEL_IMAGES[tile.level] && (
+                    <img
+                      src={FORTRESS_LEVEL_IMAGES[tile.level]!}
+                      alt={FORTRESS_LEVEL_NAMES[tile.level]}
+                      className="w-6 h-6 object-contain shrink-0 drop-shadow"
+                    />
+                  )}
+                  {tileOwner && (
+                    <span
+                      className="w-2.5 h-2.5 rounded-[2px] border border-white/70 shrink-0"
+                      style={{ backgroundColor: tileOwner.color }}
+                    />
+                  )}
+                  <span className="truncate">
+                    Défense :{' '}
+                    <strong className={styleCfg.textColor}>
+                      {FORTRESS_LEVEL_NAMES[tile.level] ?? 'Forteresse'}
+                    </strong>
+                  </span>
                 </span>
-                <span className={`font-bold ${styleCfg.subTextColor}`}>
-                  Fortif. : {tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
+                <span className={`font-bold shrink-0 ${styleCfg.subTextColor}`}>
+                  {tile.level < MAX_FORTIFY_LEVEL
+                    ? `Fortif. : ${tile.upgradeCost} Or + ${FORTIFY_MATERIAL_COST} 🪵`
+                    : 'Max ★★★'}
                 </span>
               </div>
             )}
@@ -491,7 +506,9 @@ export const LandedTilePopup: React.FC = () => {
                   className="flex-1 wood-plank wood-nails py-2.5 px-3 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider text-cyan-200 ring-2 ring-cyan-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Castle className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <span>Fortifier ici ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)</span>
+                  <span>
+                    {FORTRESS_LEVEL_NAMES[tile.level + 1]} ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)
+                  </span>
                 </motion.button>
               )}
 

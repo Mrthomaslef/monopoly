@@ -105,6 +105,21 @@ export type CameraMode = 'GLOBAL' | 'FOLLOW';
 
 export const BOARD_SPACING = 1.65;
 export const FORTIFY_MATERIAL_COST = 1;
+export const MAX_FORTIFY_LEVEL = 3;
+
+export const FORTRESS_LEVEL_NAMES = [
+  'Mouillage du Capitaine',
+  'Forteresse en Bois',
+  'Forteresse en Pierre',
+  'Forteresse en Pierre Taillée',
+] as const;
+
+export const FORTRESS_LEVEL_IMAGES: Record<number, string | null> = {
+  0: null,
+  1: './assets/fort_wood.png',
+  2: './assets/fort_stone.png',
+  3: './assets/fort_carved_stone.png',
+};
 
 export const DEFAULT_CAPTAIN_ROSTER: PlayerSlotConfig[] = [
   {
@@ -540,7 +555,7 @@ const SEA_CURSE_CARDS: Omit<DrawnCard, 'deck'>[] = [
 
 export function calculateIslandRent(tile: TileData, allTiles: TileData[]): number {
   if (!tile.baseRent) return 0;
-  const multipliers = [1, 1.8, 2.8, 4.2, 6.0];
+  const multipliers = [1, 2.0, 3.6, 6.0, 6.0];
   let rent = Math.round(tile.baseRent * (multipliers[tile.level] ?? 1));
 
   // Monopoly bonus if owner controls all islands in the same group
@@ -970,7 +985,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const tile = state.tiles[targetTileId];
 
     if (!tile || tile.type !== 'island' || tile.ownerId !== player.id) return;
-    if (tile.level >= 4 || !tile.upgradeCost) return;
+    if (tile.level >= MAX_FORTIFY_LEVEL || !tile.upgradeCost) return;
     if (player.gold < tile.upgradeCost || player.materials < FORTIFY_MATERIAL_COST) {
       return;
     }
@@ -990,8 +1005,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       t.id === tile.id ? { ...t, level: newLevel } : t
     );
 
-    const buildLabel =
-      newLevel === 4 ? 'Forteresse Pirate !' : `Avant-poste Niv.${newLevel}`;
+    const buildLabel = FORTRESS_LEVEL_NAMES[newLevel] ?? `Forteresse Niv.${newLevel}`;
 
     state.addFloatingText(
       tile.id,
@@ -999,7 +1013,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       '#38bdf8'
     );
     state.addLog(
-      `🛠️ ${player.name} construit ${buildLabel} sur ${tile.name} (-${tile.upgradeCost} Or, -${FORTIFY_MATERIAL_COST} Matériau 🪵).`
+      `🛠️ ${player.name} construit une ${buildLabel} (drapeau ${player.name}) sur ${tile.name} (-${tile.upgradeCost} Or, -${FORTIFY_MATERIAL_COST} Matériau 🪵).`
     );
 
     set({
@@ -1011,7 +1025,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       landedTilePopup: {
         tileId: tile.id,
         playerId: player.id,
-        eventSummary: `🏰 ${buildLabel} érigé sur ${tile.name} (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} 🪵)`,
+        eventSummary: `🏰 ${buildLabel} érigée sur ${tile.name} avec le pavillon de ${player.name} (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} 🪵)`,
       },
     });
   },
@@ -1492,9 +1506,9 @@ function evaluateLandedTile(): void {
             tileId: tile.id,
             playerId: player.id,
             eventSummary:
-              tile.level < 4
-                ? `🏰 Votre île — Fortifier : ${tile.upgradeCost} Or + 1 Matériau 🪵`
-                : '🏰 Forteresse Pirate Maximale !',
+              tile.level < MAX_FORTIFY_LEVEL
+                ? `🏰 Votre île — Fortifier (${FORTRESS_LEVEL_NAMES[tile.level + 1]}) : ${tile.upgradeCost} Or + 1 Matériau 🪵`
+                : '🏰 Forteresse en Pierre Taillée (Max) !',
           },
         });
         if (player.isAI) {
@@ -1504,7 +1518,7 @@ function evaluateLandedTile(): void {
             const t = st.tiles[ai.position];
             if (
               t.upgradeCost &&
-              t.level < 4 &&
+              t.level < MAX_FORTIFY_LEVEL &&
               ai.materials >= FORTIFY_MATERIAL_COST &&
               ai.gold >= t.upgradeCost + 200
             ) {

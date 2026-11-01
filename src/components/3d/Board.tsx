@@ -7,6 +7,7 @@ import {
   getTileTransform,
   calculateIslandRent,
   FloatingTextItem,
+  MAX_FORTIFY_LEVEL,
 } from '../../store/useGameStore';
 import { Tile } from './Tile';
 import { ShipToken } from './ShipToken';
@@ -238,7 +239,7 @@ export const Board: React.FC = () => {
           Boolean(activePlayer) &&
           tile.type === 'island' &&
           tile.ownerId === activePlayer.id &&
-          tile.level < 4 &&
+          tile.level < MAX_FORTIFY_LEVEL &&
           (tile.upgradeCost ?? 0) <= activePlayer.gold;
 
         return (

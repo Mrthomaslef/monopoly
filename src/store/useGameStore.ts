@@ -110,10 +110,10 @@ export const INITIAL_MATERIALS = 2;
 export const MAX_FORTIFY_LEVEL = 3;
 
 export const FORTRESS_LEVEL_NAMES = [
-  'Mouillage du Capitaine',
-  'Mur en Bois à Pics',
-  'Remparts en Pierre Taillée',
-  'Château Pirate 3D',
+  'Mouillage',
+  'Mur en Bois',
+  'Mur en Pierre',
+  'Château Pirate',
 ] as const;
 
 export const FORTRESS_LEVEL_IMAGES: Record<number, string | null> = {
@@ -493,35 +493,30 @@ export const INITIAL_TILES: TileData[] = [
 const TREASURE_CHEST_CARDS: Omit<DrawnCard, 'deck'>[] = [
   {
     title: 'Cargaison de Bois & Pierre',
-    description:
-      'Vous récupérez des matériaux de construction dans une épave marchande : +2 Matériaux 🪵 & +120 Doublons !',
+    description: 'Épave marchande récupérée !',
     goldDelta: 120,
     materialsDelta: 2,
   },
   {
     title: 'Galion Espagnol Échoué',
-    description:
-      'Vos vigies repèrent une cargaison d’or et de poutres de chêne. Recevez +200 Doublons & +1 Matériau 🪵 !',
+    description: 'Cargaison d’or et de bois repérée !',
     goldDelta: 200,
     materialsDelta: 1,
   },
   {
-    title: 'Carte au Trésor Secrète',
-    description:
-      'Vous déterrez le coffre et le matériel d’un ancien flibustier : +150 Doublons & +1 Matériau 🪵 !',
+    title: 'Carte au Trésor',
+    description: 'Vous déterrez le coffre d’un flibustier !',
     goldDelta: 150,
     materialsDelta: 1,
   },
   {
-    title: 'Vents Alizés Favorables',
-    description:
-      'Cap sur Port Royal toutes voiles dehors ! Avancez jusqu’à Port Royal (+200 Or & +1 Matériau 🪵).',
+    title: 'Vents Favorables',
+    description: 'Cap sur Port Royal (+200 Or & +1 Matériau) !',
     moveToTile: 0,
   },
   {
     title: 'Convoi des Bâtisseurs',
-    description:
-      'Vous interceptez un navire d’architectes coloniaux : +2 Matériaux 🪵 & +150 Doublons !',
+    description: 'Navire de matériaux intercepté !',
     goldDelta: 150,
     materialsDelta: 2,
   },
@@ -529,28 +524,28 @@ const TREASURE_CHEST_CARDS: Omit<DrawnCard, 'deck'>[] = [
 
 const SEA_CURSE_CARDS: Omit<DrawnCard, 'deck'>[] = [
   {
-    title: 'Colère du Hollandais Volant',
-    description: 'Un vaisseau fantôme crible votre coque ! Payez 140 Doublons de réparations au pot de Tortuga.',
+    title: 'Hollandais Volant',
+    description: 'Réparations versées au pot de Tortuga.',
     goldDelta: -140,
   },
   {
     title: 'Chant des Sirènes',
-    description: 'Votre équipage perd le nord et s’échoue à la Taverne de Tortuga.',
+    description: 'Cap direct vers la Taverne de Tortuga.',
     moveToTile: 12,
   },
   {
-    title: 'Tentacules des Abysses',
-    description: 'Le Kraken surgit des profondeurs ! Vous êtes envoyé directement à l’Île du Crâne (La Cale).',
+    title: 'Attaque du Kraken',
+    description: 'Direction La Cale (Île du Crâne) !',
     goToJail: true,
   },
   {
     title: 'Mutinerie à Bord',
-    description: 'Vous devez calmer l’équipage avec une prime de rhum. Perdez 100 Doublons.',
+    description: 'Prime de rhum versée à l’équipage.',
     goldDelta: -100,
   },
   {
     title: 'Brouillard Mystique',
-    description: 'Un courant surnaturel vous propulse vers l’Île du Trésor Maudit !',
+    description: 'Un courant vous pousse vers l’Île du Trésor Maudit !',
     moveToTile: 23,
   },
 ];
@@ -982,8 +977,8 @@ export const useGameStore = create<GameState>()(
         tileId: tile.id,
         playerId: player.id,
         eventSummary: completedSet
-          ? `🏴‍☠️ Île annexée ! Set ${tile.group} complet (+2 Matériaux 🪵) !`
-          : `🏴‍☠️ Île annexée par ${player.name} pour ${tile.price} Or !`,
+          ? `🏴‍☠️ Île conquise ! Set complet (+2 Matériaux 🪵)`
+          : `🏴‍☠️ Île conquise par ${player.name} !`,
       },
     });
   },
@@ -1024,15 +1019,15 @@ export const useGameStore = create<GameState>()(
       t.id === tile.id ? { ...t, level: newLevel } : t
     );
 
-    const buildLabel = FORTRESS_LEVEL_NAMES[newLevel] ?? `Forteresse Niv.${newLevel}`;
+    const buildLabel = FORTRESS_LEVEL_NAMES[newLevel] ?? `Niv.${newLevel}`;
 
     state.addFloatingText(
       tile.id,
-      `🏰 ${buildLabel} (-1 Matériau 🪵)`,
+      `🏰 ${buildLabel} (-1 🪵)`,
       '#38bdf8'
     );
     state.addLog(
-      `🛠️ ${player.name} construit ${buildLabel} sur ${tile.name} (-${tile.upgradeCost} Or, -${FORTIFY_MATERIAL_COST} Matériau 🪵).`
+      `🛠️ ${player.name} construit : ${buildLabel} sur ${tile.name}.`
     );
 
     set({
@@ -1045,7 +1040,7 @@ export const useGameStore = create<GameState>()(
       landedTilePopup: {
         tileId: tile.id,
         playerId: player.id,
-        eventSummary: `🏰 ${buildLabel} érigée sur ${tile.name} (-${tile.upgradeCost} Or & -${FORTIFY_MATERIAL_COST} Matériau 🪵)`,
+        eventSummary: `🏰 ${buildLabel} construite !`,
       },
     });
   },
@@ -1653,8 +1648,8 @@ function evaluateLandedTile(): void {
             playerId: player.id,
             eventSummary:
               tile.level < MAX_FORTIFY_LEVEL
-                ? `🏰 Votre île — Fortifier (${FORTRESS_LEVEL_NAMES[tile.level + 1]}) : ${tile.upgradeCost} Or + 1 Matériau 🪵`
-                : '🏰 Château Pirate 3D (Niveau Max) !',
+                ? `🏰 Votre île — ${FORTRESS_LEVEL_NAMES[tile.level + 1]} disponible`
+                : '🏰 Château Pirate (Niveau Max)',
           },
         });
         if (player.isAI) {

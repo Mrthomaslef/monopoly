@@ -121,7 +121,7 @@ export const CardModal: React.FC = () => {
                 className="mt-4 w-full py-2.5 px-4 rounded-xl font-cinzel font-black text-xs uppercase tracking-wider bg-gradient-to-b from-amber-600 to-amber-900 text-amber-100 border border-amber-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Compass className="w-4 h-4 text-amber-300" />
-                <span>Accepter le Destin</span>
+                <span>Continuer</span>
               </motion.button>
             </div>
           </div>
@@ -143,16 +143,15 @@ export const CardModal: React.FC = () => {
             </div>
 
             <div className="text-xs font-extrabold uppercase tracking-widest text-amber-300">
-              Seigneur des Sept Mers
+              Victoire !
             </div>
 
             <h2 className="text-2xl font-black mt-1 text-white">
-              {winner.name} Triomphe !
+              {winner.name} Gagne !
             </h2>
 
             <p className="text-xs text-amber-200/85 mt-2">
-              Avec un trésor de <strong className="text-amber-300">{winner.gold} Doublons</strong>,{' '}
-              {winner.name} règne sans partage sur l&apos;archipel des Caraïbes !
+              Trésor : <strong className="text-amber-300">{winner.gold} Or</strong>
             </p>
 
             <motion.button
@@ -162,7 +161,7 @@ export const CardModal: React.FC = () => {
               className="mt-5 w-full py-3 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 border border-amber-200 shadow-lg flex items-center justify-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Rejouer une Expédition</span>
+              <span>Rejouer</span>
             </motion.button>
           </div>
         </motion.div>

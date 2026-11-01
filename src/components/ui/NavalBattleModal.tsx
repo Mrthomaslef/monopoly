@@ -281,16 +281,14 @@ export const NavalBattleModal: React.FC = () => {
                 className="w-full py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-rose-600 via-red-600 to-orange-600 text-white border border-rose-300 shadow-[0_0_20px_rgba(225,29,72,0.65)] flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Swords className="w-4 h-4" />
-                <span>Lancer le Dé de Combat &amp; Canonnade !</span>
+                <span>Canonnade !</span>
               </motion.button>
             )}
 
             {navalBattle.phase === 'firing' && (
               <div className="py-2 text-center text-xs font-bold text-orange-300 flex items-center justify-center gap-1.5 animate-pulse">
                 <ShieldAlert className="w-4 h-4 text-rose-400" />
-                <span>
-                  BOULET DE CANON EN VOL ! {winner?.name} ouvre le feu !
-                </span>
+                <span>{winner?.name} ouvre le feu !</span>
               </div>
             )}
 
@@ -304,7 +302,7 @@ export const NavalBattleModal: React.FC = () => {
                   <div className="text-xs sm:text-sm font-black text-emerald-200 flex items-center justify-center gap-1.5">
                     <Trophy className="w-4 h-4 text-amber-300 shrink-0" />
                     <span>
-                      {winner.name} pille +{navalBattle.plunderAmount} Or &amp; +{navalBattle.materialsLooted ?? 1} 🪵 !
+                      {winner.name} gagne +{navalBattle.plunderAmount} Or &amp; +{navalBattle.materialsLooted ?? 1} 🪵 !
                     </span>
                   </div>
                 </div>
@@ -314,7 +312,7 @@ export const NavalBattleModal: React.FC = () => {
                   onClick={completeNavalBattle}
                   className="w-full py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-100 shadow-lg cursor-pointer"
                 >
-                  Continuer l&apos;Expédition
+                  Continuer
                 </motion.button>
               </motion.div>
             )}

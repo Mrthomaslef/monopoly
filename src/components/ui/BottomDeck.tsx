@@ -187,7 +187,7 @@ export const BottomDeck: React.FC = () => {
               >
                 J{currentPlayerIndex + 1}
               </span>
-              <span className="truncate">Lancer les Dés — {activePlayer.name}</span>
+              <span className="truncate">Lancer les Dés</span>
             </motion.button>
 
             {canFortify && (
@@ -196,10 +196,10 @@ export const BottomDeck: React.FC = () => {
                 type="button"
                 onClick={() => setShowFortifyModal(!showFortifyModal)}
                 className="py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-                title="Fortifier 1 de vos îles n'importe où sur la carte"
+                title="Fortifier une île"
               >
                 <Castle className="w-4 h-4 shrink-0" />
-                <span>Fortifier ({fortifiableIslands.length})</span>
+                <span>Fortifier</span>
               </motion.button>
             )}
 
@@ -247,12 +247,10 @@ export const BottomDeck: React.FC = () => {
                 type="button"
                 onClick={() => setShowFortifyModal(!showFortifyModal)}
                 className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
-                title="Fortifier 1 de vos îles n'importe où sur la carte"
+                title="Fortifier une île"
               >
                 <Castle className="w-4 h-4 shrink-0" />
-                <span className="truncate">
-                  Fortifier ({fortifiableIslands.length})
-                </span>
+                <span className="truncate">Fortifier</span>
               </motion.button>
             )}
 
@@ -271,12 +269,12 @@ export const BottomDeck: React.FC = () => {
             {activePlayer?.isAI ? (
               <>
                 <Bot className="w-4 h-4 text-cyan-300 animate-spin shrink-0" />
-                <span>{activePlayer.name} (IA) joue son tour...</span>
+                <span>{activePlayer.name} joue...</span>
               </>
             ) : (
               <>
                 <Dices className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                <span>Déplacement du navire en cours...</span>
+                <span>Navigation...</span>
               </>
             )}
           </div>
@@ -297,17 +295,6 @@ export const BottomDeck: React.FC = () => {
             <span className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-orange-400/50 text-[11px] font-black text-orange-200 whitespace-nowrap">
               🪵 Matériaux : {activePlayer.materials}
             </span>
-            {ownedUpgradableIslands.length > 0 && (
-              <span
-                className={`px-2 py-0.5 rounded-md border text-[10px] font-black whitespace-nowrap ${
-                  hasFortifiedThisTurn
-                    ? 'bg-emerald-950/80 border-emerald-400/50 text-emerald-300'
-                    : 'bg-cyan-950/80 border-cyan-400/50 text-cyan-200'
-                }`}
-              >
-                {hasFortifiedThisTurn ? '🏰 1/1 Fortifiée' : '🏰 1 Fortif./tour'}
-              </span>
-            )}
           </div>
         )}
       </div>

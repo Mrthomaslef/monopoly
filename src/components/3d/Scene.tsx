@@ -13,8 +13,9 @@ const SmartCameraRig: React.FC = () => {
 
   const cameraMode = useGameStore((s) => s.cameraMode);
   const phase = useGameStore((s) => s.phase);
-  const players = useGameStore((s) => s.players);
-  const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
+  const activePlayerPosition = useGameStore(
+    (s) => s.players[s.currentPlayerIndex]?.position ?? 0
+  );
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
   const navalBattle = useGameStore((s) => s.navalBattle);
   const cameraShake = useGameStore((s) => s.cameraShake);
@@ -29,12 +30,11 @@ const SmartCameraRig: React.FC = () => {
     // Automatically scale global distance on narrow 9:16 portrait screens so all 24 tiles fit
     const portraitMultiplier = aspect < 0.75 ? 1.26 : aspect < 1.0 ? 1.12 : 0.95;
 
-    const activePlayer = players[currentPlayerIndex];
     const tileIndexToTrack =
       navalBattle?.active
         ? navalBattle.tileIndex
-        : phase === 'MOVING' && activePlayer
-        ? activePlayer.position
+        : phase === 'MOVING'
+        ? activePlayerPosition
         : focusedTileIndex;
 
     const tilePos = getTileTransform(tileIndexToTrack).position;
@@ -107,7 +107,8 @@ export const Scene: React.FC = () => {
     <div className="relative w-full h-full bg-gradient-to-b from-sky-900 via-cyan-900 to-slate-950">
       <Canvas
         shadows
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
+        gl={{ powerPreference: 'high-performance', antialias: true }}
         camera={{ position: [0, 15, 11.5], fov: 44, near: 0.1, far: 120 }}
       >
         {/* Warm Caribbean Sunset & Lagoon Lighting */}
@@ -125,8 +126,8 @@ export const Scene: React.FC = () => {
           position={[9, 16, 10]}
           intensity={1.65}
           color="#ffedd5"
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={512}
+          shadow-mapSize-height={512}
           shadow-camera-near={1}
           shadow-camera-far={40}
           shadow-camera-left={-10}

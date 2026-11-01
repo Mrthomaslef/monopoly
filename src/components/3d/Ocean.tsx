@@ -241,9 +241,9 @@ export const Ocean: React.FC = () => {
 
   return (
     <group>
-      {/* Custom Shader Caribbean Ocean */}
+      {/* Custom Shader Caribbean Ocean (72x72 subdivisions for 60 FPS mobile performance) */}
       <mesh position={[0, -0.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[76, 76, 112, 112]} />
+        <planeGeometry args={[76, 76, 72, 72]} />
         <shaderMaterial
           ref={shaderRef}
           vertexShader={CARIBBEAN_WATER_VERTEX}
@@ -256,7 +256,7 @@ export const Ocean: React.FC = () => {
       <group position={[0, -0.08, 0]}>
         {/* Outer Submerged Golden Sandbar */}
         <mesh position={[0, 0.06, 0]} receiveShadow>
-          <cylinderGeometry args={[2.12, 2.42, 0.22, 32]} />
+          <cylinderGeometry args={[2.12, 2.42, 0.22, 24]} />
           <meshStandardMaterial
             map={sandTexture}
             bumpMap={sandTexture}
@@ -267,8 +267,8 @@ export const Ocean: React.FC = () => {
         </mesh>
 
         {/* Upper Sandy Beach Terrace */}
-        <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[1.76, 2.08, 0.28, 32]} />
+        <mesh position={[0, 0.22, 0]} receiveShadow>
+          <cylinderGeometry args={[1.76, 2.08, 0.28, 24]} />
           <meshStandardMaterial
             map={sandTexture}
             bumpMap={sandTexture}
@@ -284,7 +284,7 @@ export const Ocean: React.FC = () => {
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow
         >
-          <circleGeometry args={[1.48, 32]} />
+          <circleGeometry args={[1.48, 24]} />
           <meshStandardMaterial
             map={compassTexture}
             roughness={0.55}
@@ -296,7 +296,6 @@ export const Ocean: React.FC = () => {
         <mesh
           position={[-0.86, 0.54, -0.28]}
           rotation={[0.12, -0.45, -0.15]}
-          castShadow
           receiveShadow
         >
           <dodecahedronGeometry args={[0.52, 1]} />
@@ -311,7 +310,6 @@ export const Ocean: React.FC = () => {
         <mesh
           position={[0.86, 0.52, -0.28]}
           rotation={[0.1, 0.55, 0.14]}
-          castShadow
           receiveShadow
         >
           <dodecahedronGeometry args={[0.5, 1]} />
@@ -324,14 +322,12 @@ export const Ocean: React.FC = () => {
           />
         </mesh>
 
-        {/* TRUE 3D SCULPTED SKULL MODEL (50,319 Triangles in X, Y, Z with Baked 3D AO & Stone/Bone Texture) */}
+        {/* TRUE 3D SCULPTED SKULL MODEL (with Baked 3D AO & Stone/Bone Texture) */}
         {nodes?.HiggsfieldSkullCave3D && (
           <group position={[0, 0.32, -0.14]} rotation={[-0.08, 0, 0]}>
             <mesh
               geometry={nodes.HiggsfieldSkullCave3D.geometry}
               scale={[1.28, 1.28, 1.28]}
-              castShadow
-              receiveShadow
             >
               <meshStandardMaterial
                 map={skullAlbedoTexture}

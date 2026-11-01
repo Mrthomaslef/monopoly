@@ -257,7 +257,7 @@ def main() -> None:
 
     # 3. Décimation par clustering sur grille 3D fine + UV pour conserver chaque détail
     #    (orbites, cavité nasale, dents, pommettes, sutures) tout en réduisant le poids du .glb
-    CELL_RES = 88.0
+    CELL_RES = 44.0
     cluster_map: dict[tuple[int, int, int, int, int], int] = {}
     cluster_pos_sum: list[list[float]] = []
     cluster_norm_sum: list[list[float]] = []
@@ -277,8 +277,8 @@ def main() -> None:
         gy = int(round((py - min_y) / span * CELL_RES))
         gz = int(round((pz - min_z) / span * CELL_RES))
         # Séparer les coutures UV éventuelles
-        gu = int(round(u * 12.0))
-        gv = int(round(v * 12.0))
+        gu = int(round(u * 8.0))
+        gv = int(round(v * 8.0))
         key = (gx, gy, gz, gu, gv)
 
         c_idx = cluster_map.get(key)

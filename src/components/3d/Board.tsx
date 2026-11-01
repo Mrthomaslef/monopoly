@@ -1,10 +1,11 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   useGameStore,
   getTileTransform,
+  calculateIslandRent,
   FloatingTextItem,
 } from '../../store/useGameStore';
 import { Tile } from './Tile';
@@ -14,146 +15,156 @@ import { CannonballEffect } from './CannonballEffect';
 
 /**
  * Red Dashed Pirate Treasure Map Trail ("Tracé rouge style carte de pirate")
- * connecting all 24 island centers with organic hand-drawn map dashes,
- * directional chevrons, and classic crimson "X" marks on each island center.
+ * Optimized into 3 static InstancedMeshes (3 draw calls instead of 216) for 60 FPS movement.
  */
-const PirateMapRedTrail: React.FC = () => {
-  const pulseRef = useRef<THREE.Group>(null);
+const PirateMapRedTrail: React.FC = React.memo(() => {
+  const shadowInstRef = useRef<THREE.InstancedMesh>(null);
+  const crimsonInstRef = useRef<THREE.InstancedMesh>(null);
+  const arrowInstRef = useRef<THREE.InstancedMesh>(null);
 
-  const { dashes, waypoints } = useMemo(() => {
+  const { shadowMatrices, crimsonMatrices, arrowMatrices } = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i < 24; i++) {
       const [x, , z] = getTileTransform(i).position;
       pts.push(new THREE.Vector3(x, 0.168, z));
     }
 
-    const dashItems: Array<{
-      position: [number, number, number];
-      rotationY: number;
-      length: number;
-      isArrow: boolean;
-    }> = [];
+    const shadows: THREE.Matrix4[] = [];
+    const crimsons: THREE.Matrix4[] = [];
+    const arrows: THREE.Matrix4[] = [];
 
-    // 4 dashes per segment between consecutive tiles (24 * 4 = 96 dashes)
+    const dummy = new THREE.Object3D();
     const dashesPerTile = 4;
+
     for (let i = 0; i < 24; i++) {
       const p1 = pts[i];
       const p2 = pts[(i + 1) % 24];
       const dir = new THREE.Vector3().subVectors(p2, p1);
       const segLen = dir.length();
       const angleY = Math.atan2(dir.x, dir.z);
-
-      // Perpendicular vector for slight hand-drawn map wave
       const perp = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
 
       for (let d = 0; d < dashesPerTile; d++) {
         const t = (d + 0.5) / dashesPerTile;
-        // Skip the very center of the tile where the 'X' waypoint sits
         if (t < 0.14 || t > 0.86) continue;
 
         const pos = new THREE.Vector3().lerpVectors(p1, p2, t);
         const wave = Math.sin(t * Math.PI * 2 + i * 0.9) * 0.045;
         pos.addScaledVector(perp, wave);
 
-        dashItems.push({
-          position: [pos.x, 0.168, pos.z],
-          rotationY: angleY + Math.cos(t * Math.PI + i) * 0.06,
-          length: (segLen / dashesPerTile) * 0.52,
-          isArrow: d === 2 && i % 2 === 0,
-        });
+        const rotY = angleY + Math.cos(t * Math.PI + i) * 0.06;
+        const len = (segLen / dashesPerTile) * 0.52;
+
+        // Shadow box matrix
+        dummy.position.set(pos.x, 0.166, pos.z);
+        dummy.rotation.set(0, rotY, 0);
+        dummy.scale.set(0.13, 0.012, len + 0.04);
+        dummy.updateMatrix();
+        shadows.push(dummy.matrix.clone());
+
+        // Crimson dash matrix
+        dummy.position.set(pos.x, 0.168, pos.z);
+        dummy.rotation.set(0, rotY, 0);
+        dummy.scale.set(0.095, 0.016, len);
+        dummy.updateMatrix();
+        crimsons.push(dummy.matrix.clone());
+
+        // Arrowhead every 2 tiles
+        if (d === 2 && i % 2 === 0) {
+          const forwardOffset = len * 0.55;
+          dummy.position.set(
+            pos.x + Math.sin(rotY) * forwardOffset,
+            0.173,
+            pos.z + Math.cos(rotY) * forwardOffset
+          );
+          dummy.rotation.set(Math.PI / 2, rotY, 0);
+          dummy.scale.set(1, 1, 1);
+          dummy.updateMatrix();
+          arrows.push(dummy.matrix.clone());
+        }
       }
     }
 
-    const waypointItems = pts.map((p, idx) => ({
-      id: idx,
-      position: [p.x, 0.169, p.z] as [number, number, number],
-      isCorner: idx % 6 === 0,
-    }));
+    // Add 24 Red "X" Waypoints (2 diagonal strokes per tile = 48 instances) into the same crimson InstancedMesh
+    for (let idx = 0; idx < 24; idx++) {
+      const p = pts[idx];
+      const isCorner = idx % 6 === 0;
+      const armLen = isCorner ? 0.34 : 0.26;
+      const armWidth = isCorner ? 0.075 : 0.06;
 
-    return { dashes: dashItems, waypoints: waypointItems };
+      for (const sign of [-1, 1]) {
+        dummy.position.set(p.x, 0.169, p.z);
+        dummy.rotation.set(0, (sign * Math.PI) / 4, 0);
+        dummy.scale.set(armWidth, 0.018, armLen);
+        dummy.updateMatrix();
+        crimsons.push(dummy.matrix.clone());
+      }
+    }
+
+    return {
+      shadowMatrices: shadows,
+      crimsonMatrices: crimsons,
+      arrowMatrices: arrows,
+    };
   }, []);
 
-  useFrame(({ clock }) => {
-    if (pulseRef.current) {
-      const t = clock.getElapsedTime();
-      pulseRef.current.position.y = Math.sin(t * 2.5) * 0.004;
+  useEffect(() => {
+    if (shadowInstRef.current) {
+      shadowMatrices.forEach((m, i) => shadowInstRef.current!.setMatrixAt(i, m));
+      shadowInstRef.current.instanceMatrix.needsUpdate = true;
     }
-  });
+    if (crimsonInstRef.current) {
+      crimsonMatrices.forEach((m, i) =>
+        crimsonInstRef.current!.setMatrixAt(i, m)
+      );
+      crimsonInstRef.current.instanceMatrix.needsUpdate = true;
+    }
+    if (arrowInstRef.current) {
+      arrowMatrices.forEach((m, i) => arrowInstRef.current!.setMatrixAt(i, m));
+      arrowInstRef.current.instanceMatrix.needsUpdate = true;
+    }
+  }, [shadowMatrices, crimsonMatrices, arrowMatrices]);
 
   return (
-    <group ref={pulseRef}>
-      {/* Red Hand-Drawn Treasure Map Dashes along the entire 24-Tile Circuit */}
-      {dashes.map((dash, idx) => (
-        <group
-          key={`dash-${idx}`}
-          position={dash.position}
-          rotation={[0, dash.rotationY, 0]}
-        >
-          {/* Dark Parchment Ink Shadow Outline */}
-          <mesh position={[0, -0.002, 0]}>
-            <boxGeometry args={[0.13, 0.012, dash.length + 0.04]} />
-            <meshBasicMaterial color="#450a0a" transparent opacity={0.85} />
-          </mesh>
-          {/* Crimson Pirate Map Dash */}
-          <mesh>
-            <boxGeometry args={[0.095, 0.016, dash.length]} />
-            <meshStandardMaterial
-              color="#ef4444"
-              emissive="#dc2626"
-              emissiveIntensity={0.75}
-              roughness={0.35}
-            />
-          </mesh>
+    <group>
+      <instancedMesh
+        ref={shadowInstRef}
+        args={[undefined, undefined, shadowMatrices.length]}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="#450a0a" transparent opacity={0.85} />
+      </instancedMesh>
 
-          {/* Directional Pirate Map Arrowhead every 2 tiles showing clockwise sailing direction */}
-          {dash.isArrow && (
-            <mesh
-              position={[0, 0.005, dash.length * 0.55]}
-              rotation={[Math.PI / 2, 0, 0]}
-            >
-              <coneGeometry args={[0.11, 0.18, 3]} />
-              <meshStandardMaterial
-                color="#f87171"
-                emissive="#dc2626"
-                emissiveIntensity={0.85}
-              />
-            </mesh>
-          )}
-        </group>
-      ))}
+      <instancedMesh
+        ref={crimsonInstRef}
+        args={[undefined, undefined, crimsonMatrices.length]}
+        frustumCulled={false}
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial
+          color="#ef4444"
+          emissive="#dc2626"
+          emissiveIntensity={0.75}
+          roughness={0.35}
+        />
+      </instancedMesh>
 
-      {/* Classic Pirate Treasure Map Red "X" Marks at the Center of Each Tile */}
-      {waypoints.map((wp) => {
-        const armLen = wp.isCorner ? 0.34 : 0.26;
-        const armWidth = wp.isCorner ? 0.075 : 0.06;
-        return (
-          <group key={`wp-${wp.id}`} position={wp.position}>
-            {/* First diagonal stroke of the Red X */}
-            <mesh rotation={[0, Math.PI / 4, 0]}>
-              <boxGeometry args={[armWidth, 0.018, armLen]} />
-              <meshStandardMaterial
-                color="#dc2626"
-                emissive="#b91c1c"
-                emissiveIntensity={0.8}
-                roughness={0.35}
-              />
-            </mesh>
-            {/* Second diagonal stroke of the Red X */}
-            <mesh rotation={[0, -Math.PI / 4, 0]}>
-              <boxGeometry args={[armWidth, 0.018, armLen]} />
-              <meshStandardMaterial
-                color="#dc2626"
-                emissive="#b91c1c"
-                emissiveIntensity={0.8}
-                roughness={0.35}
-              />
-            </mesh>
-          </group>
-        );
-      })}
+      <instancedMesh
+        ref={arrowInstRef}
+        args={[undefined, undefined, arrowMatrices.length]}
+        frustumCulled={false}
+      >
+        <coneGeometry args={[0.11, 0.18, 3]} />
+        <meshStandardMaterial
+          color="#f87171"
+          emissive="#dc2626"
+          emissiveIntensity={0.85}
+        />
+      </instancedMesh>
     </group>
   );
-};
+});
 
 const FloatingGoldText3D: React.FC<{ item: FloatingTextItem }> = ({ item }) => {
   const groupRef = useRef<THREE.Group>(null);
@@ -201,10 +212,22 @@ export const Board: React.FC = () => {
 
   const activePlayer = players[currentPlayerIndex];
 
+  const handleSelectTile = useCallback((tileId: number) => {
+    useGameStore.getState().inspectTileCard(tileId);
+  }, []);
+
+  const rentsByTile = useMemo(
+    () =>
+      tiles.map((t) =>
+        t.type === 'island' ? calculateIslandRent(t, tiles) : 0
+      ),
+    [tiles]
+  );
+
   return (
     <group>
-      {/* Render all 24 Tiles */}
-      {tiles.map((tile) => {
+      {/* Render all 24 Tiles (memoized so only focused/changed tiles re-render on ship step) */}
+      {tiles.map((tile, idx) => {
         const owner =
           tile.ownerId !== null
             ? players.find((p) => p.id === tile.ownerId) ?? null
@@ -213,12 +236,10 @@ export const Board: React.FC = () => {
           <Tile
             key={tile.id}
             tile={tile}
-            allTiles={tiles}
+            currentRent={rentsByTile[idx]}
             owner={owner}
             isFocused={focusedTileIndex === tile.id}
-            onSelectTile={(tileId) => {
-              useGameStore.getState().inspectTileCard(tileId);
-            }}
+            onSelectTile={handleSelectTile}
           />
         );
       })}

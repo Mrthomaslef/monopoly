@@ -1,17 +1,15 @@
-import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   TileData,
   Player,
   getTileTransform,
-  calculateIslandRent,
 } from '../../store/useGameStore';
 
 interface TileProps {
   tile: TileData;
-  allTiles: TileData[];
+  currentRent: number;
   owner: Player | null;
   isFocused: boolean;
   onSelectTile?: (tileId: number) => void;
@@ -54,6 +52,12 @@ const PROP_TEXTURE_MAP: Record<TerrainTheme, string> = {
   tresor: './assets/prop_tresor.png',
   malediction: './assets/prop_malediction.png',
 };
+
+// Persistent cache of generated curved banner textures so moving the ship NEVER recreates canvases or uploads textures
+const BANNER_TEXTURE_CACHE = new Map<
+  string,
+  { colorTexture: THREE.CanvasTexture; bumpTexture: THREE.CanvasTexture }
+>();
 
 /**
  * Maps each of the 24 tiles to its dedicated Higgsfield Soul V2 terrain & 3D relief prop
@@ -156,24 +160,29 @@ function drawCurvedEmbossedText(
   }
 
   // PASS 1: 3D Extruded Roasted-Brown Block Depth & Drop Shadow (drawn behind all letters)
-  const depthSteps = variant === 'title' ? 7 : 4;
+  const depthSteps = variant === 'title' ? 6 : 3;
   for (const { ch, px, py, angle } of placements) {
     colorCtx.save();
     colorCtx.translate(px, py);
     colorCtx.rotate(angle);
     colorCtx.lineJoin = 'round';
     colorCtx.miterLimit = 2;
-
-    colorCtx.shadowColor = 'rgba(0, 0, 0, 0.95)';
-    colorCtx.shadowBlur = variant === 'title' ? 8 : 5;
-    colorCtx.shadowOffsetX = 0;
-    colorCtx.shadowOffsetY = variant === 'title' ? 6 : 4;
+    colorCtx.lineWidth = variant === 'title' ? 11 : 7;
 
     for (let d = depthSteps; d >= 1; d--) {
-      colorCtx.lineWidth = variant === 'title' ? 11 : 7;
+      if (d === depthSteps) {
+        colorCtx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+        colorCtx.shadowBlur = variant === 'title' ? 6 : 4;
+        colorCtx.shadowOffsetX = 0;
+        colorCtx.shadowOffsetY = variant === 'title' ? 5 : 3;
+      } else {
+        colorCtx.shadowColor = 'transparent';
+        colorCtx.shadowBlur = 0;
+        colorCtx.shadowOffsetY = 0;
+      }
       colorCtx.strokeStyle =
         d > 4 ? '#120501' : d > 2 ? '#290f02' : '#451a03';
-      colorCtx.strokeText(ch, 0, d * 1.15);
+      colorCtx.strokeText(ch, 0, d * 1.2);
     }
     colorCtx.restore();
   }
@@ -254,9 +263,26 @@ function drawCurvedEmbossedText(
   }
 }
 
+// Single global font readiness listener so we don't attach 24 separate Promise listeners
+let globalFontsReady = false;
+const fontListeners = new Set<() => void>();
+if (typeof document !== 'undefined' && 'fonts' in document) {
+  Promise.all([
+    document.fonts.load('900 74px "CinzelBold"'),
+    document.fonts.load('400 74px "PirataOne"'),
+  ])
+    .then(() => {
+      globalFontsReady = true;
+      fontListeners.forEach((fn) => fn());
+      fontListeners.clear();
+    })
+    .catch(() => {});
+}
+
 /**
  * Curved 3D Embossed Golden-Brown Rim Banner ("Arrondi suivant le bord de la case en texte brun doré en relief")
  * Positioned cleanly above the front rim of each island with zero clipping into terrain, props, or neighboring tiles.
+ * Cached by content key so ship movement (isFocused changes) NEVER regenerates canvases or re-uploads GPU textures.
  */
 const CurvedGoldenReliefBanner: React.FC<{
   tile: TileData;
@@ -275,26 +301,31 @@ const CurvedGoldenReliefBanner: React.FC<{
   isCorner,
   baseRadius,
 }) => {
-  const [fontsLoadedTick, setFontsLoadedTick] = useState(0);
+  const [fontsLoadedTick, setFontsLoadedTick] = useState(
+    globalFontsReady ? 1 : 0
+  );
 
   useEffect(() => {
-    let active = true;
-    if (typeof document !== 'undefined' && 'fonts' in document) {
-      Promise.all([
-        document.fonts.load('900 74px "CinzelBold"'),
-        document.fonts.load('400 74px "PirataOne"'),
-      ])
-        .then(() => {
-          if (active) setFontsLoadedTick((t) => t + 1);
-        })
-        .catch(() => {});
+    if (globalFontsReady) {
+      setFontsLoadedTick(1);
+      return;
     }
+    const listener = () => setFontsLoadedTick(1);
+    fontListeners.add(listener);
     return () => {
-      active = false;
+      fontListeners.delete(listener);
     };
   }, []);
 
+  // Notice: `isFocused` is intentionally NOT in this dependency array!
+  // Focus highlighting is done via zero-cost Three.js material emissive props below.
   const { colorTexture, bumpTexture } = useMemo(() => {
+    const cacheKey = `${tile.id}|${tile.name}|${tile.color}|${subtitleText}|${levelStars}|${ownerColor ?? ''}|${isCorner ? 1 : 0}|${fontsLoadedTick}`;
+    const cached = BANNER_TEXTURE_CACHE.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const W = 1024;
     const H = 384;
 
@@ -326,8 +357,8 @@ const CurvedGoldenReliefBanner: React.FC<{
 
     // Outer Dark Espresso Rim & Drop Shadow
     ctx.shadowColor = 'rgba(0, 0, 0, 0.88)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 6;
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 5;
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
     ctx.lineWidth = 188;
@@ -340,7 +371,7 @@ const CurvedGoldenReliefBanner: React.FC<{
 
     // Sculpted Golden-Brown ("Brun Doré") Metallic Frame
     const frameGrad = ctx.createLinearGradient(0, 75, 0, 355);
-    frameGrad.addColorStop(0.0, isFocused ? '#fef08a' : '#fde047');
+    frameGrad.addColorStop(0.0, '#fde047');
     frameGrad.addColorStop(0.32, '#d97706');
     frameGrad.addColorStop(0.68, '#78350f');
     frameGrad.addColorStop(1.0, '#f59e0b');
@@ -367,7 +398,7 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius - 68, startAngle + 0.015, endAngle - 0.015);
     ctx.lineWidth = 14;
-    ctx.strokeStyle = isFocused ? '#fde047' : tile.color;
+    ctx.strokeStyle = tile.color;
     ctx.stroke();
 
     // Subtle Golden Filigree Divider between Tile Name and Price/Rent
@@ -441,14 +472,20 @@ const CurvedGoldenReliefBanner: React.FC<{
 
     const cTex = new THREE.CanvasTexture(colorCanvas);
     cTex.colorSpace = THREE.SRGBColorSpace;
-    cTex.anisotropy = 8;
+    cTex.generateMipmaps = false;
+    cTex.minFilter = THREE.LinearFilter;
+    cTex.magFilter = THREE.LinearFilter;
     cTex.needsUpdate = true;
 
     const bTex = new THREE.CanvasTexture(bumpCanvas);
-    bTex.anisotropy = 4;
+    bTex.generateMipmaps = false;
+    bTex.minFilter = THREE.LinearFilter;
+    bTex.magFilter = THREE.LinearFilter;
     bTex.needsUpdate = true;
 
-    return { colorTexture: cTex, bumpTexture: bTex };
+    const entry = { colorTexture: cTex, bumpTexture: bTex };
+    BANNER_TEXTURE_CACHE.set(cacheKey, entry);
+    return entry;
   }, [
     tile.id,
     tile.name,
@@ -456,7 +493,6 @@ const CurvedGoldenReliefBanner: React.FC<{
     subtitleText,
     levelStars,
     ownerColor,
-    isFocused,
     isCorner,
     fontsLoadedTick,
   ]);
@@ -492,6 +528,8 @@ const CurvedGoldenReliefBanner: React.FC<{
           map={colorTexture}
           bumpMap={bumpTexture}
           bumpScale={0.065}
+          emissive={isFocused ? '#f59e0b' : '#000000'}
+          emissiveIntensity={isFocused ? 0.25 : 0}
           transparent
           alphaTest={0.1}
           roughness={0.28}
@@ -505,251 +543,221 @@ const CurvedGoldenReliefBanner: React.FC<{
   );
 };
 
-export const Tile: React.FC<TileProps> = ({
-  tile,
-  allTiles,
-  owner,
-  isFocused,
-  onSelectTile,
-}) => {
-  const { position, rotationY, side } = getTileTransform(tile.id);
-  const isCorner = side === 'corner';
-  const foamRef = useRef<THREE.Mesh>(null);
-  const propGroupRef = useRef<THREE.Group>(null);
+export const Tile: React.FC<TileProps> = React.memo(
+  ({ tile, currentRent, owner, isFocused, onSelectTile }) => {
+    const { position, rotationY, side } = getTileTransform(tile.id);
+    const isCorner = side === 'corner';
 
-  const theme = useMemo(() => getTileTerrainTheme(tile), [tile]);
-  const isRockyShore =
-    theme === 'falaise' || theme === 'volcan' || theme === 'malediction';
-  const isMixedCove =
-    theme === 'port' || theme === 'temple' || theme === 'eldorado';
+    const theme = useMemo(() => getTileTerrainTheme(tile), [tile]);
+    const isRockyShore =
+      theme === 'falaise' || theme === 'volcan' || theme === 'malediction';
+    const isMixedCove =
+      theme === 'port' || theme === 'temple' || theme === 'eldorado';
 
-  const [tileArtTexture, propTexture, sandTexture, rockTexture] = useTexture([
-    TERRAIN_TEXTURE_MAP[theme],
-    PROP_TEXTURE_MAP[theme],
-    './assets/sand_beach.jpg',
-    './assets/coastal_rock.jpg',
-  ]);
+    const [tileArtTexture, propTexture, sandTexture, rockTexture] = useTexture([
+      TERRAIN_TEXTURE_MAP[theme],
+      PROP_TEXTURE_MAP[theme],
+      './assets/sand_beach.jpg',
+      './assets/coastal_rock.jpg',
+    ]);
 
-  const currentRent =
-    tile.type === 'island' ? calculateIslandRent(tile, allTiles) : 0;
+    const islandSeedAngle = useMemo(
+      () => (tile.id * 1.17) % (Math.PI * 2),
+      [tile.id]
+    );
 
-  const islandSeedAngle = useMemo(
-    () => (tile.id * 1.17) % (Math.PI * 2),
-    [tile.id]
-  );
+    // Place the 3D scenery prop on the BACK-OUTER periphery of the island
+    // so the center of the tile is 100% open for the ships and the red treasure map path!
+    const propOffsetX = useMemo(() => {
+      if (isCorner) return tile.id === 0 || tile.id === 18 ? 0.36 : -0.36;
+      return tile.id % 2 === 0 ? -0.34 : 0.34;
+    }, [isCorner, tile.id]);
+    const propOffsetZ = isCorner ? -0.52 : -0.46;
 
-  // Place the 3D scenery prop on the BACK-OUTER periphery of the island
-  // so the center of the tile is 100% open for the ships and the red treasure map path!
-  const propOffsetX = useMemo(() => {
-    if (isCorner) return tile.id === 0 || tile.id === 18 ? 0.36 : -0.36;
-    return tile.id % 2 === 0 ? -0.34 : 0.34;
-  }, [isCorner, tile.id]);
-  const propOffsetZ = isCorner ? -0.52 : -0.46;
+    const baseRadius = isCorner ? 0.88 : 0.78;
+    const propSize = isCorner ? 0.78 : 0.68;
 
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (foamRef.current) {
-      const s = 1 + Math.sin(t * 2.4 + tile.id * 0.7) * 0.04;
-      foamRef.current.scale.set(s, s, 1);
-    }
-    if (propGroupRef.current) {
-      propGroupRef.current.position.y =
-        0.44 + Math.sin(t * 2.0 + tile.id * 0.9) * 0.014;
-    }
-  });
+    const levelStars =
+      tile.level >= 4
+        ? ' ★4'
+        : tile.level > 0
+        ? ` ${'★'.repeat(tile.level)}`
+        : '';
 
-  const baseRadius = isCorner ? 0.88 : 0.78;
-  const propSize = isCorner ? 0.78 : 0.68;
+    const subtitleText =
+      tile.type === 'island'
+        ? owner
+          ? `Loyer ${currentRent} Or${levelStars}`
+          : `${tile.price} Or`
+        : tile.type === 'start'
+        ? '+200 Or & +1 🪵'
+        : tile.type === 'jail'
+        ? 'La Cale'
+        : tile.type === 'free_parking'
+        ? 'Jackpot !'
+        : tile.type === 'go_to_jail'
+        ? 'Kraken !'
+        : tile.type === 'tax'
+        ? '-120 Or'
+        : tile.type === 'chest'
+        ? 'Trésor'
+        : 'Malédiction';
 
-  const levelStars =
-    tile.level >= 4
-      ? ' ★4'
-      : tile.level > 0
-      ? ` ${'★'.repeat(tile.level)}`
-      : '';
-
-  const subtitleText =
-    tile.type === 'island'
-      ? owner
-        ? `Loyer ${currentRent} Or${levelStars}`
-        : `${tile.price} Or`
-      : tile.type === 'start'
-      ? '+200 Or & +1 🪵'
-      : tile.type === 'jail'
-      ? 'La Cale'
-      : tile.type === 'free_parking'
-      ? 'Jackpot !'
-      : tile.type === 'go_to_jail'
-      ? 'Kraken !'
-      : tile.type === 'tax'
-      ? '-120 Or'
-      : tile.type === 'chest'
-      ? 'Trésor'
-      : 'Malédiction';
-
-  return (
-    <group
-      position={position}
-      rotation={[0, rotationY, 0]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelectTile?.(tile.id);
-      }}
-    >
-      {/* 1. Animated Shoreline Sea-Foam Ring */}
-      <mesh
-        ref={foamRef}
-        position={[0, -0.09, 0]}
-        rotation={[-Math.PI / 2, 0, islandSeedAngle]}
+    return (
+      <group
+        position={position}
+        rotation={[0, rotationY, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectTile?.(tile.id);
+        }}
       >
-        <ringGeometry args={[baseRadius * 0.88, baseRadius * 1.12, 24]} />
-        <meshStandardMaterial
-          color={isFocused ? '#fde047' : '#e0f2fe'}
-          emissive={isFocused ? '#f59e0b' : '#38bdf8'}
-          emissiveIntensity={isFocused ? 0.95 : 0.45}
-          transparent
-          opacity={0.9}
-        />
-      </mesh>
-
-      {/* 2. Sculpted 3D Coastal Shore Base (Varied Beach vs Rocky Cliff vs Cove) */}
-      <mesh
-        position={[0, 0.02, 0]}
-        rotation={[0, islandSeedAngle, 0]}
-        receiveShadow
-        castShadow
-      >
-        <cylinderGeometry
-          args={[
-            baseRadius * 0.86,
-            baseRadius * 1.04,
-            0.22,
-            isRockyShore ? 9 : 20,
-          ]}
-        />
-        <meshStandardMaterial
-          map={isRockyShore ? rockTexture : sandTexture}
-          bumpMap={isRockyShore ? rockTexture : sandTexture}
-          bumpScale={0.03}
-          color={isRockyShore ? '#94a3b8' : '#fde68a'}
-          roughness={0.82}
-        />
-      </mesh>
-
-      {/* Ownership Glowing Ring around the Island Perimeter */}
-      {owner && (
-        <mesh position={[0, 0.135, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[baseRadius * 0.84, baseRadius * 0.93, 24]} />
-          <meshStandardMaterial
-            color={owner.color}
-            emissive={owner.color}
-            emissiveIntensity={0.95}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      )}
-
-      {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop & Curved Golden-Brown Relief Title */}
-      <group rotation={[0, -rotationY, 0]}>
-        {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
-        <mesh position={[0, 0.125, -0.02]} receiveShadow castShadow>
-          <cylinderGeometry
-            args={[baseRadius * 0.8, baseRadius * 0.89, 0.07, 28]}
-          />
-          <meshStandardMaterial
-            map={tileArtTexture}
-            bumpMap={tileArtTexture}
-            bumpScale={0.035}
-            roughness={0.68}
-          />
-        </mesh>
-
-        {/* Off-Center Elevated Coastal Mound under the 3D Landmark */}
+        {/* 1. Shoreline Sea-Foam Ring */}
         <mesh
-          position={[propOffsetX, 0.175, propOffsetZ]}
+          position={[0, -0.09, 0]}
+          rotation={[-Math.PI / 2, 0, islandSeedAngle]}
+        >
+          <ringGeometry args={[baseRadius * 0.88, baseRadius * 1.12, 20]} />
+          <meshStandardMaterial
+            color={isFocused ? '#fde047' : '#e0f2fe'}
+            emissive={isFocused ? '#f59e0b' : '#38bdf8'}
+            emissiveIntensity={isFocused ? 0.95 : 0.45}
+            transparent
+            opacity={0.9}
+          />
+        </mesh>
+
+        {/* 2. Sculpted 3D Coastal Shore Base (Varied Beach vs Rocky Cliff vs Cove) */}
+        <mesh
+          position={[0, 0.02, 0]}
           rotation={[0, islandSeedAngle, 0]}
           receiveShadow
-          castShadow
         >
           <cylinderGeometry
             args={[
-              baseRadius * 0.36,
-              baseRadius * 0.48,
+              baseRadius * 0.86,
+              baseRadius * 1.04,
               0.22,
-              isRockyShore || isMixedCove ? 8 : 16,
+              isRockyShore ? 9 : 16,
             ]}
           />
           <meshStandardMaterial
-            map={tileArtTexture}
-            bumpMap={tileArtTexture}
-            bumpScale={0.035}
-            roughness={0.75}
+            map={isRockyShore ? rockTexture : sandTexture}
+            bumpMap={isRockyShore ? rockTexture : sandTexture}
+            bumpScale={0.03}
+            color={isRockyShore ? '#94a3b8' : '#fde68a'}
+            roughness={0.82}
           />
         </mesh>
 
-        {/* Ground Contact Shadow under the Off-Center 3D Prop */}
-        <mesh
-          position={[propOffsetX, 0.205, propOffsetZ]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <circleGeometry args={[propSize * 0.38, 18]} />
-          <meshBasicMaterial color="#020617" transparent opacity={0.32} />
-        </mesh>
+        {/* Ownership Glowing Ring around the Island Perimeter */}
+        {owner && (
+          <mesh position={[0, 0.135, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[baseRadius * 0.84, baseRadius * 0.93, 20]} />
+            <meshStandardMaterial
+              color={owner.color}
+              emissive={owner.color}
+              emissiveIntensity={0.95}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        )}
 
-        {/* OFF-CENTER STANDING 3D RELIEF PROP GENERATED BY HIGGSFIELD SOUL V2 */}
-        <group
-          ref={propGroupRef}
-          position={[propOffsetX, 0.44, propOffsetZ]}
-          rotation={[-0.26, 0, 0]}
-        >
-          <mesh position={[0, 0, -0.03]} castShadow>
-            <planeGeometry args={[propSize, propSize]} />
+        {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop & Curved Golden-Brown Relief Title */}
+        <group rotation={[0, -rotationY, 0]}>
+          {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
+          <mesh position={[0, 0.125, -0.02]} receiveShadow>
+            <cylinderGeometry
+              args={[baseRadius * 0.8, baseRadius * 0.89, 0.07, 20]}
+            />
             <meshStandardMaterial
-              map={propTexture}
-              color="#475569"
-              transparent
-              alphaTest={0.18}
-              roughness={0.7}
-              side={THREE.DoubleSide}
+              map={tileArtTexture}
+              bumpMap={tileArtTexture}
+              bumpScale={0.035}
+              roughness={0.68}
             />
           </mesh>
-          <mesh position={[0, 0, -0.015]}>
-            <planeGeometry args={[propSize, propSize]} />
+
+          {/* Off-Center Elevated Coastal Mound under the 3D Landmark */}
+          <mesh
+            position={[propOffsetX, 0.175, propOffsetZ]}
+            rotation={[0, islandSeedAngle, 0]}
+            receiveShadow
+          >
+            <cylinderGeometry
+              args={[
+                baseRadius * 0.36,
+                baseRadius * 0.48,
+                0.22,
+                isRockyShore || isMixedCove ? 8 : 12,
+              ]}
+            />
             <meshStandardMaterial
-              map={propTexture}
-              color="#94a3b8"
-              transparent
-              alphaTest={0.18}
-              roughness={0.6}
-              side={THREE.DoubleSide}
+              map={tileArtTexture}
+              bumpMap={tileArtTexture}
+              bumpScale={0.035}
+              roughness={0.75}
             />
           </mesh>
-          <mesh position={[0, 0, 0]} castShadow>
-            <planeGeometry args={[propSize, propSize]} />
-            <meshStandardMaterial
-              map={propTexture}
-              bumpMap={propTexture}
-              bumpScale={0.025}
-              transparent
-              alphaTest={0.12}
-              roughness={0.42}
-              metalness={0.06}
-              side={THREE.DoubleSide}
-            />
+
+          {/* Ground Contact Shadow under the Off-Center 3D Prop */}
+          <mesh
+            position={[propOffsetX, 0.205, propOffsetZ]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <circleGeometry args={[propSize * 0.38, 14]} />
+            <meshBasicMaterial color="#020617" transparent opacity={0.32} />
           </mesh>
+
+          {/* OFF-CENTER STANDING 3D RELIEF PROP GENERATED BY HIGGSFIELD SOUL V2 */}
+          <group
+            position={[propOffsetX, 0.44, propOffsetZ]}
+            rotation={[-0.26, 0, 0]}
+          >
+            <mesh position={[0, 0, -0.02]}>
+              <planeGeometry args={[propSize, propSize]} />
+              <meshStandardMaterial
+                map={propTexture}
+                color="#64748b"
+                transparent
+                alphaTest={0.18}
+                roughness={0.65}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh position={[0, 0, 0]}>
+              <planeGeometry args={[propSize, propSize]} />
+              <meshStandardMaterial
+                map={propTexture}
+                bumpMap={propTexture}
+                bumpScale={0.025}
+                transparent
+                alphaTest={0.12}
+                roughness={0.42}
+                metalness={0.06}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          </group>
+
+          {/* 4. CURVED GOLDEN-BROWN 3D RELIEF BANNER HUGGING THE ROUNDED TILE EDGE */}
+          <CurvedGoldenReliefBanner
+            tile={tile}
+            subtitleText={subtitleText}
+            levelStars={levelStars}
+            ownerColor={owner?.color ?? null}
+            isFocused={isFocused}
+            isCorner={isCorner}
+            baseRadius={baseRadius}
+          />
         </group>
-
-        {/* 4. CURVED GOLDEN-BROWN 3D RELIEF BANNER HUGGING THE ROUNDED TILE EDGE */}
-        <CurvedGoldenReliefBanner
-          tile={tile}
-          subtitleText={subtitleText}
-          levelStars={levelStars}
-          ownerColor={owner?.color ?? null}
-          isFocused={isFocused}
-          isCorner={isCorner}
-          baseRadius={baseRadius}
-        />
       </group>
-    </group>
-  );
-};
+    );
+  },
+  (prev, next) =>
+    prev.tile === next.tile &&
+    prev.currentRent === next.currentRent &&
+    prev.owner?.id === next.owner?.id &&
+    prev.owner?.color === next.owner?.color &&
+    prev.isFocused === next.isFocused
+);

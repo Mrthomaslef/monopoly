@@ -40,6 +40,17 @@ export interface Player {
   bankrupt: boolean;
 }
 
+export interface PlayerSlotConfig {
+  id: number;
+  name: string;
+  title: string;
+  color: string;
+  sailColor: string;
+  accentColor: string;
+  enabled: boolean;
+  isAI: boolean;
+}
+
 export interface FloatingTextItem {
   id: string;
   tileIndex: number;
@@ -90,6 +101,49 @@ export type TurnPhase =
 export type CameraMode = 'GLOBAL' | 'FOLLOW';
 
 export const BOARD_SPACING = 1.65;
+
+export const DEFAULT_CAPTAIN_ROSTER: PlayerSlotConfig[] = [
+  {
+    id: 0,
+    name: 'Cap. Jack',
+    title: 'Le Faucon Rouge',
+    color: '#ef4444',
+    sailColor: '#dc2626',
+    accentColor: '#fca5a5',
+    enabled: true,
+    isAI: false,
+  },
+  {
+    id: 1,
+    name: 'Anne Bonny',
+    title: 'La Reine Bleue',
+    color: '#3b82f6',
+    sailColor: '#2563eb',
+    accentColor: '#93c5fd',
+    enabled: true,
+    isAI: true,
+  },
+  {
+    id: 2,
+    name: 'Barbe-Verte',
+    title: 'Le Fléau d’Émeraude',
+    color: '#10b981',
+    sailColor: '#059669',
+    accentColor: '#6ee7b7',
+    enabled: true,
+    isAI: true,
+  },
+  {
+    id: 3,
+    name: 'Barbe-Noire',
+    title: 'Terreur Noire & Or',
+    color: '#f59e0b',
+    sailColor: '#1e293b',
+    accentColor: '#fde047',
+    enabled: true,
+    isAI: true,
+  },
+];
 
 /**
  * Returns the exact 3D world position [x, y, z] and rotationY for any of the 24 tiles (0..23)
@@ -486,49 +540,17 @@ export function calculateIslandRent(tile: TileData, allTiles: TileData[]): numbe
   return rent;
 }
 
-function createInitialPlayers(aiCount: number, passAndPlay: boolean): Player[] {
-  const roster = [
-    {
-      id: 0,
-      name: 'Cap. Jack',
-      title: 'Le Faucon Rouge',
-      color: '#ef4444',
-      sailColor: '#dc2626',
-      accentColor: '#fca5a5',
-      isAI: false,
-    },
-    {
-      id: 1,
-      name: 'Anne Bonny',
-      title: 'La Reine Bleue',
-      color: '#3b82f6',
-      sailColor: '#2563eb',
-      accentColor: '#93c5fd',
-      isAI: !passAndPlay,
-    },
-    {
-      id: 2,
-      name: 'Barbe-Verte',
-      title: 'Le Fléau d’Émeraude',
-      color: '#10b981',
-      sailColor: '#059669',
-      accentColor: '#6ee7b7',
-      isAI: !passAndPlay,
-    },
-    {
-      id: 3,
-      name: 'Barbe-Noire',
-      title: 'Terreur Noire & Or',
-      color: '#f59e0b',
-      sailColor: '#1e293b',
-      accentColor: '#fde047',
-      isAI: !passAndPlay,
-    },
-  ];
-
-  const totalPlayers = Math.min(4, Math.max(2, 1 + aiCount));
-  return roster.slice(0, totalPlayers).map((p) => ({
-    ...p,
+function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
+  const activeSlots = slots.filter((s) => s.enabled);
+  const finalSlots = activeSlots.length >= 2 ? activeSlots : slots.slice(0, 2);
+  return finalSlots.map((s, idx) => ({
+    id: idx,
+    name: s.name.trim() || `Cap. #${idx + 1}`,
+    title: s.title,
+    color: s.color,
+    sailColor: s.sailColor,
+    accentColor: s.accentColor,
+    isAI: s.isAI,
     gold: 1500,
     position: 0,
     inJail: false,
@@ -539,6 +561,8 @@ function createInitialPlayers(aiCount: number, passAndPlay: boolean): Player[] {
 
 interface GameState {
   players: Player[];
+  slotConfigs: PlayerSlotConfig[];
+  showSetupModal: boolean;
   tiles: TileData[];
   currentPlayerIndex: number;
   phase: TurnPhase;
@@ -558,6 +582,8 @@ interface GameState {
   aiCount: number;
 
   // Actions
+  setShowSetupModal: (show: boolean) => void;
+  startCustomGame: (slots: PlayerSlotConfig[]) => void;
   initGame: (aiCount?: number, passAndPlay?: boolean) => void;
   toggleCameraMode: () => void;
   setCameraMode: (mode: CameraMode) => void;
@@ -576,11 +602,13 @@ interface GameState {
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
-  players: createInitialPlayers(3, false),
+  players: buildPlayersFromSlots(DEFAULT_CAPTAIN_ROSTER),
+  slotConfigs: DEFAULT_CAPTAIN_ROSTER.map((s) => ({ ...s })),
+  showSetupModal: true,
   tiles: INITIAL_TILES.map((t) => ({ ...t })),
   currentPlayerIndex: 0,
   phase: 'IDLE',
-  dice: [3, 4],
+  dice: [2, 3],
   isRollingDice: false,
   cameraMode: 'GLOBAL',
   focusedTileIndex: 0,
@@ -588,7 +616,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   tortugaJackpot: 150,
   actionLogs: [
     '⚓ Bienvenue dans Pirate’s Plunder !',
-    '🏴‍☠️ Lancez les dés depuis Port Royal pour conquérir les 24 îles.',
+    '🎲 Dés Pirates adaptés (2 dés de 1 à 3 = 2 à 6 cases) pour les 24 îles.',
     '💥 Arrêtez-vous sur un navire ennemi pour déclencher un Abordage !',
   ],
   floatingTexts: [],
@@ -599,13 +627,22 @@ export const useGameStore = create<GameState>((set, get) => ({
   passAndPlay: false,
   aiCount: 3,
 
-  initGame: (aiCount = 3, passAndPlay = false) => {
+  setShowSetupModal: (show) => set({ showSetupModal: show }),
+
+  startCustomGame: (slots) => {
+    const builtPlayers = buildPlayersFromSlots(slots);
+    const aiTotal = builtPlayers.filter((p) => p.isAI).length;
+    const humanTotal = builtPlayers.filter((p) => !p.isAI).length;
+
+    soundEffects.playGoldSound();
     set({
-      players: createInitialPlayers(aiCount, passAndPlay),
+      slotConfigs: slots.map((s) => ({ ...s })),
+      players: builtPlayers,
+      showSetupModal: false,
       tiles: INITIAL_TILES.map((t) => ({ ...t, ownerId: null, level: 0 })),
       currentPlayerIndex: 0,
       phase: 'IDLE',
-      dice: [1, 1],
+      dice: [2, 2],
       isRollingDice: false,
       focusedTileIndex: 0,
       cameraShake: 0,
@@ -614,14 +651,30 @@ export const useGameStore = create<GameState>((set, get) => ({
       navalBattle: null,
       cannonShot: null,
       winner: null,
-      passAndPlay,
-      aiCount,
+      passAndPlay: aiTotal === 0,
+      aiCount: aiTotal,
       actionLogs: [
-        '⚓ Nouvelle expédition lancée dans les Caraïbes !',
-        '💰 Chaque capitaine débute avec 1500 Doublons d’or.',
+        `⚓ Flotte en mer : ${humanTotal} Joueur(s) et ${aiTotal} Capitaine(s) IA !`,
+        '🎲 Dés Pirates 1–3 calibrés pour les 24 cases du plateau.',
         '💣 Abordez les galions adverses pour piller 150 Doublons !',
       ],
     });
+
+    if (builtPlayers[0]?.isAI) {
+      setTimeout(() => {
+        runAITurn();
+      }, 1000);
+    }
+  },
+
+  initGame: (aiCount = 3, passAndPlay = false) => {
+    const total = Math.min(4, Math.max(2, 1 + aiCount));
+    const slots = DEFAULT_CAPTAIN_ROSTER.map((slot, idx) => ({
+      ...slot,
+      enabled: idx < total,
+      isAI: idx === 0 ? false : !passAndPlay,
+    }));
+    get().startCustomGame(slots);
   },
 
   toggleCameraMode: () => {
@@ -686,8 +739,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     soundEffects.playDiceRollSound();
 
-    const d1 = Math.floor(Math.random() * 6) + 1;
-    const d2 = Math.floor(Math.random() * 6) + 1;
+    // Pirate Dice calibrated for 24-tile compact board: each die rolls 1, 2, or 3 (total 2 to 6 tiles)
+    const d1 = Math.floor(Math.random() * 3) + 1;
+    const d2 = Math.floor(Math.random() * 3) + 1;
     const total = d1 + d2;
 
     set({
@@ -727,7 +781,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           return;
         }
       } else {
-        latest.addLog(`🎲 ${player.name} lance ${d1} + ${d2} = ${total} !`);
+        latest.addLog(`🎲 ${player.name} lance ${d1} + ${d2} = ${total} cases !`);
       }
 
       // Start step-by-step movement
@@ -1226,7 +1280,6 @@ function evaluateLandedTile(): void {
             const st = useGameStore.getState();
             const ai = st.players[st.currentPlayerIndex];
             const t = st.tiles[ai.position];
-            // AI buys island if it can afford it with at least 120 gold buffer
             if (t.price && ai.gold >= t.price + 120) {
               st.buyIsland();
             }
@@ -1235,7 +1288,6 @@ function evaluateLandedTile(): void {
             }, 600);
           }, 1200);
         } else {
-          // Human player: if there is also a rival ship here, let them buy or trigger naval battle
           checkAutomaticNavalBattlePrompt();
         }
       } else if (tile.ownerId === player.id) {
@@ -1296,7 +1348,6 @@ function afterTileActionCheckNavalBattle(): void {
     return;
   }
 
-  // Do not trigger naval battle inside Jail if player is locked up
   const rivals = state.players.filter(
     (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
   );

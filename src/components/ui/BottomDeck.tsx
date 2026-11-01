@@ -100,14 +100,13 @@ export const BottomDeck: React.FC = () => {
   ];
 
   return (
-    <section className="relative z-20 h-[25dvh] min-h-[178px] max-h-[240px] w-full wood-panel border-t-2 border-amber-600/80 px-3 py-2 flex flex-col justify-between select-none">
-      {/* Top Row: Parchment Tile Inspector Card + Turn Indicator */}
+    <section className="relative z-20 h-[25dvh] min-h-[182px] max-h-[244px] w-full wood-panel border-t-4 border-amber-950 px-3 py-2 flex flex-col justify-between select-none">
+      {/* Top Row: Parchment Tile Inspector Card nailed onto the wooden deck */}
       <div className="flex items-stretch gap-2">
-        {/* Parchment Tile Info Card */}
-        <div className="flex-1 parchment-card rounded-lg px-2.5 py-1.5 border border-amber-800/60 flex items-center justify-between gap-2 overflow-hidden">
+        <div className="flex-1 parchment-card rounded-lg px-2.5 py-1.5 border-2 border-amber-900 flex items-center justify-between gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0">
             <div
-              className="w-3.5 h-9 rounded-sm shrink-0 border border-amber-950/50 shadow-inner"
+              className="w-3.5 h-9 rounded-sm shrink-0 border border-amber-950/60 shadow-inner"
               style={{ backgroundColor: inspectedTile.color }}
             />
             <div className="min-w-0">
@@ -171,7 +170,7 @@ export const BottomDeck: React.FC = () => {
         </div>
       </div>
 
-      {/* Middle Row: Thumb-Friendly Command Action Buttons */}
+      {/* Middle Row: Wooden Plank Command Buttons with Brass Nails */}
       <div className="grid grid-cols-4 gap-1.5 my-1">
         {/* 1. Lancer les Dés (or Caution if in Jail) */}
         {activePlayer?.inJail && canRoll && activePlayer.gold >= 100 ? (
@@ -179,10 +178,10 @@ export const BottomDeck: React.FC = () => {
             whileTap={{ scale: 0.95 }}
             type="button"
             onClick={payBailAndRoll}
-            className="col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-extrabold text-xs bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 border border-amber-200 shadow-lg"
+            className="wood-plank wood-nails col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-black text-xs text-amber-300 ring-2 ring-amber-400 shadow-lg cursor-pointer"
           >
-            <KeyRound className="w-4 h-4 shrink-0" />
-            <span className="truncate">Caution 100 Or</span>
+            <KeyRound className="w-4 h-4 shrink-0 text-amber-300" />
+            <span className="truncate">Caution 100</span>
           </motion.button>
         ) : (
           <motion.button
@@ -190,14 +189,14 @@ export const BottomDeck: React.FC = () => {
             type="button"
             disabled={!canRoll}
             onClick={rollDice}
-            className={`col-span-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-extrabold text-xs border transition shadow-md ${
+            className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-black text-xs transition ${
               canRoll
-                ? 'bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 border-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.5)] cursor-pointer'
-                : 'bg-stone-900/70 text-stone-500 border-stone-800 cursor-not-allowed'
+                ? 'text-amber-200 ring-2 ring-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.45)] brightness-115 cursor-pointer'
+                : 'text-amber-100/35 opacity-55 cursor-not-allowed'
             }`}
           >
-            <Dices className="w-4 h-4 shrink-0" />
-            <span className="truncate">Lancer Dés</span>
+            <Dices className="w-4 h-4 shrink-0 text-amber-400" />
+            <span className="truncate">Dés (1–3)</span>
           </motion.button>
         )}
 
@@ -207,13 +206,13 @@ export const BottomDeck: React.FC = () => {
           type="button"
           disabled={!canBuyCurrent}
           onClick={buyIsland}
-          className={`col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-extrabold text-xs border transition shadow-md ${
+          className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-black text-xs transition ${
             canBuyCurrent
-              ? 'bg-gradient-to-b from-emerald-500 to-emerald-700 text-white border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.45)] cursor-pointer'
-              : 'bg-stone-900/70 text-stone-500 border-stone-800 cursor-not-allowed'
+              ? 'text-emerald-300 ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.45)] brightness-115 cursor-pointer'
+              : 'text-amber-100/35 opacity-55 cursor-not-allowed'
           }`}
         >
-          <Flag className="w-3.5 h-3.5 shrink-0" />
+          <Flag className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
           <span className="truncate">
             {canBuyCurrent ? `Acheter (${currentTile.price})` : 'Acheter l’Île'}
           </span>
@@ -225,10 +224,10 @@ export const BottomDeck: React.FC = () => {
             whileTap={{ scale: 0.95 }}
             type="button"
             onClick={triggerManualNavalBattle}
-            className="col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-extrabold text-xs bg-gradient-to-b from-rose-500 to-red-700 text-white border border-rose-300 shadow-[0_0_12px_rgba(244,63,94,0.6)] cursor-pointer"
+            className="wood-plank wood-nails col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-black text-xs text-rose-300 ring-2 ring-rose-400 shadow-[0_0_14px_rgba(244,63,94,0.6)] brightness-115 cursor-pointer"
           >
-            <Crosshair className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Tirer au Canon</span>
+            <Crosshair className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+            <span className="truncate">Tirer Canon</span>
           </motion.button>
         ) : (
           <motion.button
@@ -238,13 +237,13 @@ export const BottomDeck: React.FC = () => {
             onClick={() =>
               targetFortifyTile && fortifyIsland(targetFortifyTile.id)
             }
-            className={`col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-extrabold text-xs border transition shadow-md ${
+            className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-black text-xs transition ${
               canFortify
-                ? 'bg-gradient-to-b from-cyan-500 to-blue-700 text-white border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.45)] cursor-pointer'
-                : 'bg-stone-900/70 text-stone-500 border-stone-800 cursor-not-allowed'
+                ? 'text-cyan-200 ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.45)] brightness-115 cursor-pointer'
+                : 'text-amber-100/35 opacity-55 cursor-not-allowed'
             }`}
           >
-            <Castle className="w-3.5 h-3.5 shrink-0" />
+            <Castle className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
             <span className="truncate">
               {canFortify && targetFortifyTile
                 ? `Fortifier (${targetFortifyTile.upgradeCost})`
@@ -259,19 +258,19 @@ export const BottomDeck: React.FC = () => {
           type="button"
           disabled={!canEndTurn}
           onClick={endTurn}
-          className={`col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-extrabold text-xs border transition shadow-md ${
+          className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg font-black text-xs transition ${
             canEndTurn
-              ? 'bg-gradient-to-b from-orange-500 to-amber-700 text-white border-amber-300 shadow-[0_0_12px_rgba(249,115,22,0.45)] cursor-pointer'
-              : 'bg-stone-900/70 text-stone-500 border-stone-800 cursor-not-allowed'
+              ? 'text-orange-200 ring-2 ring-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.45)] brightness-115 cursor-pointer'
+              : 'text-amber-100/35 opacity-55 cursor-not-allowed'
           }`}
         >
-          <SkipForward className="w-3.5 h-3.5 shrink-0" />
+          <SkipForward className="w-3.5 h-3.5 shrink-0 text-orange-400" />
           <span className="truncate">Fin du Tour</span>
         </motion.button>
       </div>
 
-      {/* Bottom Row: Scrolling Ticker of the Last 3 Actions */}
-      <div className="bg-black/45 border border-amber-900/60 rounded-md px-2.5 py-1 flex items-start gap-2 h-11 overflow-y-auto pirate-scroll">
+      {/* Bottom Row: Carved Wooden Log Plank of the Last 3 Actions */}
+      <div className="wood-plank rounded-lg px-2.5 py-1 flex items-start gap-2 h-11 overflow-y-auto pirate-scroll">
         <ScrollText className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
         <div className="flex-1 space-y-0.5 text-[11px] leading-tight">
           {actionLogs.slice(0, 3).map((log, index) => (
@@ -280,7 +279,7 @@ export const BottomDeck: React.FC = () => {
               className={`truncate ${
                 index === 0
                   ? 'text-amber-200 font-bold'
-                  : 'text-amber-100/65 font-normal'
+                  : 'text-amber-100/70 font-normal'
               }`}
             >
               {log}

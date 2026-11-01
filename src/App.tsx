@@ -4,6 +4,7 @@ import { TopHUD } from './components/ui/TopHUD';
 import { BottomDeck } from './components/ui/BottomDeck';
 import { NavalBattleModal } from './components/ui/NavalBattleModal';
 import { CardModal } from './components/ui/CardModal';
+import { GameSetupModal } from './components/ui/GameSetupModal';
 import { useGameStore } from './store/useGameStore';
 
 export const App: React.FC = () => {
@@ -16,28 +17,28 @@ export const App: React.FC = () => {
 
   return (
     <main className="relative w-full h-[100dvh] overflow-hidden flex flex-col bg-slate-950 select-none">
-      {/* Zone Haute (15%): HUD compact des Capitaines, Audio & Caméra */}
+      {/* Zone Haute (15%): HUD en planches de bois des Capitaines, Audio & Caméra */}
       <TopHUD />
 
       {/* Zone Centrale (60%): Canvas 3D prenant toute la largeur */}
       <div className="relative flex-1 h-[60dvh] w-full overflow-hidden">
         <Scene />
 
-        {/* Subtle Floating Turn Pill on Top of 3D Canvas */}
+        {/* Wooden Plank Turn Banner on Top of 3D Canvas */}
         {activePlayer && (
-          <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950/75 border border-amber-500/50 backdrop-blur-xs shadow-lg">
+          <div className="pointer-events-none absolute top-2.5 left-1/2 -translate-x-1/2 z-10 wood-plank wood-nails flex items-center gap-2 px-3.5 py-1 rounded-xl shadow-xl">
             <span
-              className="w-2.5 h-2.5 rounded-full"
+              className="w-2.5 h-2.5 rounded-full border border-white/60"
               style={{ backgroundColor: activePlayer.color }}
             />
-            <span className="text-xs font-extrabold text-amber-100">
+            <span className="text-xs font-black text-amber-100">
               Tour de {activePlayer.name}
             </span>
-            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
-              🎲 {dice[0]} + {dice[1]}
+            <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded bg-black/40 text-amber-300 border border-amber-700/50">
+              🎲 {dice[0]} + {dice[1]} = {dice[0] + dice[1]}
             </span>
             {activePlayer.isAI && phase !== 'GAME_OVER' && (
-              <span className="text-[10px] font-semibold text-cyan-300 animate-pulse">
+              <span className="text-[10px] font-bold text-cyan-300 animate-pulse">
                 • IA en manœuvre...
               </span>
             )}
@@ -45,10 +46,11 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* Zone Basse (25%): Tiroir de commandement Bois & Parchemin */}
+      {/* Zone Basse (25%): Tiroir de commandement Planches de Bois & Parchemin */}
       <BottomDeck />
 
-      {/* Modales : Bataille Navale (Abordage) & Cartes Parchemin / Victoire */}
+      {/* Modales : Configuration Joueurs/IA, Bataille Navale & Cartes Parchemin */}
+      <GameSetupModal />
       <NavalBattleModal />
       <CardModal />
     </main>

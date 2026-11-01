@@ -5,7 +5,8 @@ import gsap from 'gsap';
 import { useGameStore } from '../../store/useGameStore';
 
 /**
- * Returns Euler rotation so the desired die value (1..6) faces UP (+Y)
+ * Returns Euler rotation so the desired Pirate Die value (1..3) faces UP (+Y)
+ * Faces 1 (top/bottom), 2 (front/back), 3 (left/right)
  */
 function getRotationForDieValue(val: number): [number, number, number] {
   switch (val) {
@@ -15,12 +16,6 @@ function getRotationForDieValue(val: number): [number, number, number] {
       return [-Math.PI / 2, 0, 0];
     case 3:
       return [0, 0, Math.PI / 2];
-    case 4:
-      return [0, 0, -Math.PI / 2];
-    case 5:
-      return [Math.PI / 2, 0, 0];
-    case 6:
-      return [Math.PI, 0, 0];
     default:
       return [0, 0, 0];
   }
@@ -42,7 +37,7 @@ const SingleDie: React.FC<{
         dieRef.current.position,
         { y: basePosition[1] },
         {
-          y: basePosition[1] + 1.55,
+          y: basePosition[1] + 1.45,
           duration: 0.34,
           yoyo: true,
           repeat: 1,
@@ -72,11 +67,12 @@ const SingleDie: React.FC<{
   useFrame(({ clock }) => {
     if (!isRolling && dieRef.current) {
       dieRef.current.position.y =
-        basePosition[1] + Math.sin(clock.getElapsedTime() * 2.5 + basePosition[0]) * 0.025;
+        basePosition[1] +
+        Math.sin(clock.getElapsedTime() * 2.5 + basePosition[0]) * 0.025;
     }
   });
 
-  const pipRadius = 0.042;
+  const pipRadius = 0.048;
   const faceDist = 0.255;
 
   return (
@@ -97,31 +93,22 @@ const SingleDie: React.FC<{
         <meshStandardMaterial color="#fde68a" roughness={0.5} />
       </mesh>
 
-      {/* FACE 1 (+Y) : 1 center pip (Crimson Pirate Pip) */}
+      {/* FACE 1 (+Y and -Y) : 1 center crimson pirate pip */}
       <mesh position={[0, faceDist, 0]}>
         <sphereGeometry args={[pipRadius * 1.25, 8, 8]} />
         <meshStandardMaterial color="#dc2626" />
       </mesh>
+      <mesh position={[0, -faceDist, 0]}>
+        <sphereGeometry args={[pipRadius * 1.25, 8, 8]} />
+        <meshStandardMaterial color="#dc2626" />
+      </mesh>
 
-      {/* FACE 6 (-Y) : 6 pips */}
-      {[
-        [-0.12, -faceDist, -0.13],
-        [-0.12, -faceDist, 0],
-        [-0.12, -faceDist, 0.13],
-        [0.12, -faceDist, -0.13],
-        [0.12, -faceDist, 0],
-        [0.12, -faceDist, 0.13],
-      ].map((pos, idx) => (
-        <mesh key={`f6-${idx}`} position={pos as [number, number, number]}>
-          <sphereGeometry args={[pipRadius, 8, 8]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
-      ))}
-
-      {/* FACE 2 (+Z) : 2 pips */}
+      {/* FACE 2 (+Z and -Z) : 2 pips */}
       {[
         [-0.12, 0.12, faceDist],
         [0.12, -0.12, faceDist],
+        [-0.12, 0.12, -faceDist],
+        [0.12, -0.12, -faceDist],
       ].map((pos, idx) => (
         <mesh key={`f2-${idx}`} position={pos as [number, number, number]}>
           <sphereGeometry args={[pipRadius, 8, 8]} />
@@ -129,40 +116,16 @@ const SingleDie: React.FC<{
         </mesh>
       ))}
 
-      {/* FACE 5 (-Z) : 5 pips */}
+      {/* FACE 3 (+X and -X) : 3 pips */}
       {[
-        [-0.12, 0.12, -faceDist],
-        [0.12, 0.12, -faceDist],
-        [0, 0, -faceDist],
-        [-0.12, -0.12, -faceDist],
-        [0.12, -0.12, -faceDist],
-      ].map((pos, idx) => (
-        <mesh key={`f5-${idx}`} position={pos as [number, number, number]}>
-          <sphereGeometry args={[pipRadius, 8, 8]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
-      ))}
-
-      {/* FACE 3 (+X) : 3 pips */}
-      {[
-        [faceDist, 0.12, 0.12],
+        [faceDist, 0.13, 0.13],
         [faceDist, 0, 0],
-        [faceDist, -0.12, -0.12],
+        [faceDist, -0.13, -0.13],
+        [-faceDist, 0.13, 0.13],
+        [-faceDist, 0, 0],
+        [-faceDist, -0.13, -0.13],
       ].map((pos, idx) => (
         <mesh key={`f3-${idx}`} position={pos as [number, number, number]}>
-          <sphereGeometry args={[pipRadius, 8, 8]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
-      ))}
-
-      {/* FACE 4 (-X) : 4 pips */}
-      {[
-        [-faceDist, 0.12, 0.12],
-        [-faceDist, 0.12, -0.12],
-        [-faceDist, -0.12, 0.12],
-        [-faceDist, -0.12, -0.12],
-      ].map((pos, idx) => (
-        <mesh key={`f4-${idx}`} position={pos as [number, number, number]}>
           <sphereGeometry args={[pipRadius, 8, 8]} />
           <meshStandardMaterial color="#1e293b" />
         </mesh>

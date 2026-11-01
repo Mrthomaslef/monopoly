@@ -59,12 +59,6 @@ export const Board: React.FC = () => {
 
   return (
     <group>
-      {/* Decorative Wooden Pier Support Under-Ring for the 24 Tiles */}
-      <mesh position={[0, -0.11, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[5.6, 8.2, 4]} />
-        <meshStandardMaterial color="#271206" roughness={0.9} />
-      </mesh>
-
       {/* Render all 24 Tiles */}
       {tiles.map((tile) => {
         const owner =

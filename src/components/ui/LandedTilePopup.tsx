@@ -22,6 +22,8 @@ import {
   CULVERIN_RANGE,
   canAccessUpgradesShop,
   getTileDistance,
+  getTileSetBonus,
+  countOwnedInSet,
 } from '../../store/useGameStore';
 import { getTileTerrainTheme, TerrainTheme } from '../3d/Tile';
 import { CaptainAvatar } from './CaptainAvatar';
@@ -45,7 +47,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   plage: {
     biomeLabel: 'Plage des Caraïbes',
     terrainImg: './assets/tile_plage.jpg?v=terrain3',
-    propImg: './assets/prop_plage.png',
+    propImg: './assets/prop_plage.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #fef3c7 0%, #fde68a 58%, #f59e0b 100%)',
     headerOverlay:
@@ -61,7 +63,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   lagon: {
     biomeLabel: 'Lagon Corallien',
     terrainImg: './assets/tile_lagon.jpg?v=terrain3',
-    propImg: './assets/prop_lagon.png',
+    propImg: './assets/prop_lagon.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #ecfeff 0%, #a5f3fc 58%, #22d3ee 100%)',
     headerOverlay:
@@ -77,7 +79,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   falaise: {
     biomeLabel: 'Bastion & Falaises',
     terrainImg: './assets/tile_falaise.jpg?v=terrain3',
-    propImg: './assets/prop_falaise.png',
+    propImg: './assets/prop_falaise.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 55%, #94a3b8 100%)',
     headerOverlay:
@@ -93,7 +95,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   temple: {
     biomeLabel: 'Sanctuaire de la Jungle',
     terrainImg: './assets/tile_temple.jpg?v=terrain3',
-    propImg: './assets/prop_temple.png',
+    propImg: './assets/prop_temple.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #ecfdf5 0%, #a7f3d0 58%, #34d399 100%)',
     headerOverlay:
@@ -109,7 +111,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   volcan: {
     biomeLabel: 'Terres Volcaniques',
     terrainImg: './assets/tile_volcan.jpg?v=terrain3',
-    propImg: './assets/prop_volcan.png',
+    propImg: './assets/prop_volcan.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #1e293b 0%, #0f172a 60%, #064e3b 100%)',
     headerOverlay:
@@ -125,7 +127,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   eldorado: {
     biomeLabel: 'Cité d’Or d’El Dorado',
     terrainImg: './assets/tile_eldorado.jpg?v=terrain3',
-    propImg: './assets/prop_eldorado.png',
+    propImg: './assets/prop_eldorado.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #fef9c3 0%, #fde047 55%, #eab308 100%)',
     headerOverlay:
@@ -141,7 +143,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   port: {
     biomeLabel: 'Port de l’Amirauté',
     terrainImg: './assets/tile_port.jpg?v=terrain3',
-    propImg: './assets/prop_port.png',
+    propImg: './assets/prop_port.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #fffbeb 0%, #fde68a 60%, #d97706 100%)',
     headerOverlay:
@@ -157,7 +159,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   taverne: {
     biomeLabel: 'Repaire de Tortuga',
     terrainImg: './assets/tile_taverne.jpg?v=terrain3',
-    propImg: './assets/prop_taverne.png',
+    propImg: './assets/prop_taverne.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #ffedd5 0%, #fdba74 58%, #ea580c 100%)',
     headerOverlay:
@@ -173,7 +175,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   tresor: {
     biomeLabel: 'Îlot au Trésor',
     terrainImg: './assets/tile_tresor.jpg?v=terrain3',
-    propImg: './assets/prop_tresor.png',
+    propImg: './assets/prop_tresor.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #fef9c3 0%, #fcd34d 58%, #d97706 100%)',
     headerOverlay:
@@ -189,7 +191,7 @@ export const BIOME_CARD_STYLES: Record<TerrainTheme, ThemeStyleConfig> = {
   malediction: {
     biomeLabel: 'Récif Maudit des Abysses',
     terrainImg: './assets/tile_malediction.jpg?v=terrain3',
-    propImg: './assets/prop_malediction.png',
+    propImg: './assets/prop_malediction.png?v=model3d',
     cardBg:
       'linear-gradient(180deg, #2e1065 0%, #1e1b4b 60%, #0f172a 100%)',
     headerOverlay:
@@ -215,6 +217,9 @@ export const LandedTilePopup: React.FC = () => {
   const navalBattle = useGameStore((s) => s.navalBattle);
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const showUpgradesModal = useGameStore((s) => s.showUpgradesModal);
+  const showTradeModal = useGameStore((s) => s.showTradeModal);
+  const showCurseModal = useGameStore((s) => s.showCurseModal);
+  const inspectedPlayerId = useGameStore((s) => s.inspectedPlayerId);
   const setShowUpgradesModal = useGameStore((s) => s.setShowUpgradesModal);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
   const hasFortifiedThisTurn = useGameStore((s) => s.hasFortifiedThisTurn);
@@ -234,6 +239,9 @@ export const LandedTilePopup: React.FC = () => {
     navalBattle?.active ||
     showFortifyModal ||
     showUpgradesModal ||
+    showTradeModal ||
+    showCurseModal ||
+    inspectedPlayerId !== null ||
     phase === 'GAME_OVER'
   ) {
     return null;
@@ -315,27 +323,32 @@ export const LandedTilePopup: React.FC = () => {
     isHumanActiveOnThisTile && !hasAttackedThisTurn && rivalsOnTile.length > 0;
   const currentRent =
     tile.type === 'island' ? calculateIslandRent(tile, tiles) : 0;
+  const setBonus = getTileSetBonus(tile.id);
+  const setProgress =
+    setBonus && tile.ownerId !== null
+      ? countOwnedInSet(setBonus, tile.ownerId, tiles)
+      : 0;
 
   return (
     <AnimatePresence>
       <motion.div
         key={`tile-popup-${tile.id}-${landedTilePopup.playerId}-${tile.ownerId ?? 'free'}-${tile.level}-${tile.trapped ? 'trap' : 'clean'}`}
-        initial={{ opacity: 0, scale: 0.72, y: 28 }}
+        initial={{ opacity: 0, scale: 0.78, y: 24 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.8, y: 20 }}
+        exit={{ opacity: 0, scale: 0.84, y: 18 }}
         transition={{ type: 'spring', stiffness: 360, damping: 24 }}
-        className="fixed inset-x-0 top-[15.5dvh] bottom-[25.5dvh] z-30 flex items-end justify-center px-4 pb-2 pointer-events-none"
+        className="absolute inset-0 z-30 flex items-end justify-center p-2 pointer-events-none"
       >
         <div
-          className={`pointer-events-auto relative w-full max-w-[330px] rounded-2xl border-4 ${styleCfg.borderClass} overflow-hidden shadow-2xl`}
+          className={`pointer-events-auto relative w-full max-w-[340px] max-h-[min(60%,380px)] sm:max-h-[min(64%,420px)] flex flex-col rounded-2xl border-3 ${styleCfg.borderClass} overflow-y-auto pirate-scroll shadow-2xl`}
           style={{
             background: styleCfg.cardBg,
-            boxShadow: `0 18px 42px rgba(0,0,0,0.82), 0 0 28px ${styleCfg.glowColor}`,
+            boxShadow: `0 14px 36px rgba(0,0,0,0.85), 0 0 24px ${styleCfg.glowColor}`,
           }}
         >
           {/* Top Color Ribbon matching the Tile's Group Color */}
           <div
-            className="h-2 w-full"
+            className="h-1.5 w-full shrink-0"
             style={{ backgroundColor: tile.color }}
           />
 
@@ -343,14 +356,14 @@ export const LandedTilePopup: React.FC = () => {
           <button
             type="button"
             onClick={dismissLandedTilePopup}
-            className="absolute top-3.5 right-2.5 z-20 w-7 h-7 rounded-full bg-black/55 hover:bg-black/75 text-amber-100 border border-white/30 flex items-center justify-center shadow cursor-pointer"
+            className="absolute top-2.5 right-2.5 z-20 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 text-amber-100 border border-white/30 flex items-center justify-center shadow cursor-pointer"
             aria-label="Fermer la carte"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
 
-          {/* Header Banner with the Tile's Higgsfield Ground Terrain Texture & 3D Landmark Prop */}
-          <div className="relative h-24 w-full overflow-hidden border-b-2 border-black/30">
+          {/* Compact Header Banner with the Tile's Higgsfield Ground Terrain Texture & 3D Landmark Prop */}
+          <div className="relative h-16 sm:h-20 w-full shrink-0 overflow-hidden border-b-2 border-black/30">
             <img
               src={styleCfg.terrainImg}
               alt={tile.name}
@@ -363,12 +376,12 @@ export const LandedTilePopup: React.FC = () => {
 
             {/* Captain Arrival Badge (Top Left) */}
             {landingPlayer && !landedTilePopup.isInspect && (
-              <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/70 border border-white/25 backdrop-blur-xs">
+              <div className="absolute top-2 left-2.5 z-10 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/70 border border-white/25 backdrop-blur-xs">
                 <span
                   className="w-2.5 h-2.5 rounded-full border border-white/80 shrink-0"
                   style={{ backgroundColor: landingPlayer.color }}
                 />
-                <span className="text-[11px] font-extrabold text-amber-100">
+                <span className="text-[10px] font-extrabold text-amber-100">
                   {landingPlayer.name}
                 </span>
               </div>
@@ -378,28 +391,28 @@ export const LandedTilePopup: React.FC = () => {
             <motion.img
               src={styleCfg.propImg}
               alt={tile.name}
-              initial={{ scale: 0.7, rotate: -6, y: 10 }}
+              initial={{ scale: 0.7, rotate: -6, y: 8 }}
               animate={{ scale: 1, rotate: 0, y: 0 }}
               transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-              className="absolute right-2.5 bottom-0.5 w-22 h-22 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
+              className="absolute right-2.5 bottom-0.5 w-16 h-16 sm:w-19 sm:h-19 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
             />
           </div>
 
           {/* Minimalist, High-Clarity Card Body */}
-          <div className="p-3.5 text-center">
+          <div className="shrink-0 px-2.5 sm:px-3 pt-2.5 text-center">
             {/* Tile Name + Group Dot */}
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-1.5">
               <span
-                className="w-3 h-3 rounded-full border border-black/40 shadow-sm shrink-0"
+                className="w-2.5 h-2.5 rounded-full border border-black/40 shadow-sm shrink-0"
                 style={{ backgroundColor: tile.color }}
               />
               <h2
-                className={`font-pirata text-2xl leading-none tracking-wide ${styleCfg.titleColor}`}
+                className={`font-pirata text-xl sm:text-2xl leading-none tracking-wide ${styleCfg.titleColor}`}
               >
                 {tile.name}
               </h2>
               {tile.trapped && tile.level > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-orange-600 text-white text-[10px] font-black uppercase shadow">
+                <span className="px-1.5 py-0.5 rounded-full bg-orange-600 text-white text-[9px] font-black uppercase shadow">
                   💣 Piégée
                 </span>
               )}
@@ -422,11 +435,11 @@ export const LandedTilePopup: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.85, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ type: 'spring', stiffness: 360, damping: 20 }}
-                    className="mt-2.5 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2.5 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
+                    className="mt-2 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
                   >
-                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-1.5">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-1">
                       {tile.trapped && tile.level > 0
-                        ? '💣 Forteresse Piégée (-50% Or) & Loyer'
+                        ? '💣 Piège (-50% Or) + Loyer'
                         : '⚓ Droit de Mouillage'}
                     </div>
                     <div className="flex items-center justify-between gap-1.5">
@@ -434,14 +447,14 @@ export const LandedTilePopup: React.FC = () => {
                       <motion.div
                         animate={{ x: [0, -5, 5, -4, 4, 0] }}
                         transition={{ duration: 0.55 }}
-                        className="flex-1 bg-rose-950/85 border border-rose-400/70 rounded-lg p-1.5 flex flex-col items-center"
+                        className="flex-1 min-w-0 bg-rose-950/85 border border-rose-400/70 rounded-lg p-1.5 flex flex-col items-center"
                       >
                         <CaptainAvatar
                           captainId={payer.id}
                           color={payer.color}
                           size="sm"
                         />
-                        <span className="text-[11px] font-black text-white truncate max-w-full mt-0.5">
+                        <span className="text-[11px] font-black leading-tight text-center text-white mt-0.5">
                           {payer.name}
                         </span>
                         <motion.span
@@ -485,14 +498,14 @@ export const LandedTilePopup: React.FC = () => {
                       <motion.div
                         animate={{ scale: [1, 1.09, 1] }}
                         transition={{ duration: 0.65, repeat: 2 }}
-                        className="flex-1 bg-emerald-950/85 border border-emerald-400/80 rounded-lg p-1.5 flex flex-col items-center shadow-[0_0_15px_rgba(16,185,129,0.45)]"
+                        className="flex-1 min-w-0 bg-emerald-950/85 border border-emerald-400/80 rounded-lg p-1.5 flex flex-col items-center shadow-[0_0_15px_rgba(16,185,129,0.45)]"
                       >
                         <CaptainAvatar
                           captainId={owner.id}
                           color={owner.color}
                           size="sm"
                         />
-                        <span className="text-[11px] font-black text-white truncate max-w-full mt-0.5">
+                        <span className="text-[11px] font-black leading-tight text-center text-white mt-0.5">
                           {owner.name}
                         </span>
                         <motion.span
@@ -510,13 +523,13 @@ export const LandedTilePopup: React.FC = () => {
               })()
             ) : tile.type === 'island' ? (
               /* 2. Clean, Single-Pill Island Summary */
-              <div className="mt-2.5 space-y-2">
+              <div className="mt-1.5 space-y-1.5">
                 <div
-                  className={`rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${styleCfg.statBoxBg}`}
+                  className={`rounded-xl px-2.5 py-1.5 border flex flex-wrap items-center justify-between gap-x-2 gap-y-1 ${styleCfg.statBoxBg}`}
                 >
                   {tileOwner ? (
                     <span
-                      className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-full text-white shadow border border-white/40 truncate"
+                      className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-0.5 rounded-full text-white shadow border border-white/40"
                       style={{ backgroundColor: tileOwner.color }}
                     >
                       {FORTRESS_LEVEL_IMAGES[tile.level] && (
@@ -526,7 +539,7 @@ export const LandedTilePopup: React.FC = () => {
                           className="w-4 h-4 object-contain shrink-0"
                         />
                       )}
-                      <span className="truncate">{tileOwner.name}</span>
+                      <span>{tileOwner.name}</span>
                     </span>
                   ) : (
                     <span className="inline-block text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-800 text-white shadow">
@@ -534,7 +547,7 @@ export const LandedTilePopup: React.FC = () => {
                     </span>
                   )}
 
-                  <div className={`text-xs font-black flex items-center gap-2 ${styleCfg.textColor}`}>
+                  <div className={`text-xs font-black flex flex-wrap items-center justify-end gap-x-1.5 ${styleCfg.textColor}`}>
                     {!tileOwner && !canBuy && (
                       <span>Prix : {tile.price} Or •</span>
                     )}
@@ -542,16 +555,32 @@ export const LandedTilePopup: React.FC = () => {
                   </div>
                 </div>
 
+                {setBonus && (
+                  <div
+                    className={`rounded-xl px-2.5 py-1 border text-[10px] sm:text-[11px] font-bold leading-tight ${styleCfg.statBoxBg} ${styleCfg.textColor}`}
+                  >
+                    <span className="font-black">
+                      {setBonus.icon} {setBonus.name}
+                      {setProgress >= setBonus.required
+                        ? ' • Actif ✓'
+                        : ` • ${setProgress}/${setBonus.required}`}
+                    </span>
+                    <span className="mx-1 opacity-60">—</span>
+                    <span>{setBonus.description}</span>
+                  </div>
+                )}
+
                 {/* Show confirmation banner when an island was just bought, fortified, or hit by Culverin */}
                 {landedTilePopup.eventSummary &&
                   (landedTilePopup.eventSummary.startsWith('🏴‍☠️') ||
                     landedTilePopup.eventSummary.startsWith('💥') ||
+                    landedTilePopup.eventSummary.startsWith('👑') ||
                     (landedTilePopup.eventSummary.startsWith('🏰 Votre') === false &&
                       landedTilePopup.eventSummary.startsWith('🏰'))) && (
                     <motion.div
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className={`px-3 py-1.5 rounded-xl border-2 text-xs font-black shadow-md ${
+                      className={`px-2.5 py-1 rounded-xl border-2 text-xs font-black shadow-md ${
                         landedTilePopup.eventSummary.startsWith('💥')
                           ? 'border-red-400 bg-red-950/90 text-red-200'
                           : 'border-emerald-400 bg-emerald-950/90 text-emerald-200'
@@ -566,7 +595,7 @@ export const LandedTilePopup: React.FC = () => {
               <motion.div
                 initial={{ scale: 0.92, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className={`mt-2.5 px-3 py-2 rounded-xl border-2 text-xs font-black shadow-md ${
+                className={`mt-1.5 px-2.5 py-1.5 rounded-xl border-2 text-xs font-black shadow-md ${
                   landedTilePopup.eventSummary?.includes('+')
                     ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
                     : landedTilePopup.eventSummary?.includes('-')
@@ -578,8 +607,10 @@ export const LandedTilePopup: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Direct Action Buttons inside the Card */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+          </div>
+
+          {/* Direct Action Buttons: the whole card scrolls on very short screens, so they stay reachable */}
+          <div className="shrink-0 px-2.5 sm:px-3 pt-2 pb-2.5 flex flex-wrap items-stretch gap-1.5">
               {canBuy && (
                 <motion.button
                   whileTap={{ scale: 0.95 }}
@@ -587,10 +618,10 @@ export const LandedTilePopup: React.FC = () => {
                   onClick={() => {
                     buyIsland();
                   }}
-                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Flag className="w-4 h-4 shrink-0" />
-                  <span>Acheter ({tile.price} Or)</span>
+                  <span>Acheter {tile.price} Or</span>
                 </motion.button>
               )}
 
@@ -601,11 +632,11 @@ export const LandedTilePopup: React.FC = () => {
                   onClick={() => {
                     fortifyIsland(tile.id);
                   }}
-                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Castle className="w-4 h-4 shrink-0" />
                   <span>
-                    Fortifier ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)
+                    Fortifier {tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
                   </span>
                 </motion.button>
               )}
@@ -617,10 +648,10 @@ export const LandedTilePopup: React.FC = () => {
                   onClick={() => {
                     fireCulverin(tile.id);
                   }}
-                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-red-500 to-red-700 text-white border-2 border-red-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-red-500 to-red-700 text-white border-2 border-red-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Flame className="w-4 h-4 shrink-0" />
-                  <span>Coulevrine (-1 Étage)</span>
+                  <span>Coulevrine -1 Étage</span>
                 </motion.button>
               )}
 
@@ -631,10 +662,10 @@ export const LandedTilePopup: React.FC = () => {
                   onClick={() => {
                     setShowUpgradesModal(true);
                   }}
-                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-purple-400 to-indigo-600 text-white border-2 border-purple-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-purple-400 to-indigo-600 text-white border-2 border-purple-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 shrink-0" />
-                  <span>Améliorations (1000 Or + 3 🪵)</span>
+                  <span>Arsenal</span>
                 </motion.button>
               )}
 
@@ -646,10 +677,10 @@ export const LandedTilePopup: React.FC = () => {
                     dismissLandedTilePopup();
                     triggerManualNavalBattle();
                   }}
-                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-rose-500 to-red-700 text-white border-2 border-rose-300 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-rose-500 to-red-700 text-white border-2 border-rose-300 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Crosshair className="w-4 h-4 shrink-0" />
-                  <span>Aborder !</span>
+                  <span>{'Aborder\u00A0!'}</span>
                 </motion.button>
               )}
 
@@ -665,7 +696,7 @@ export const LandedTilePopup: React.FC = () => {
                   canShootThisWithCulverin
                     ? 'px-4'
                     : 'w-full'
-                } py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-slate-950/85 hover:bg-slate-950 text-amber-200 border border-amber-400/50 shadow flex items-center justify-center gap-1.5 cursor-pointer`}
+                } py-2 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-slate-950/85 hover:bg-slate-950 text-amber-200 border border-amber-400/50 shadow flex items-center justify-center gap-1.5 cursor-pointer`}
               >
                 {canBuy ||
                 canFortify ||
@@ -680,7 +711,6 @@ export const LandedTilePopup: React.FC = () => {
                   </>
                 )}
               </motion.button>
-            </div>
           </div>
         </div>
       </motion.div>

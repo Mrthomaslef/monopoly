@@ -447,13 +447,17 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.strokeStyle = tile.color;
     ctx.stroke();
 
-    // Owner Color Accent Stripe along the bottom outer curve when owned
+    // Owner Color Accent Stripe along the bottom outer curve when owned (with luminous glow)
     if (ownerColor) {
+      ctx.save();
+      ctx.shadowColor = ownerColor;
+      ctx.shadowBlur = 18;
       ctx.beginPath();
       ctx.arc(cx, cy, bandRadius + 54, startAngle + 0.02, endAngle - 0.02);
-      ctx.lineWidth = 12;
+      ctx.lineWidth = 16;
       ctx.strokeStyle = ownerColor;
       ctx.stroke();
+      ctx.restore();
     }
 
     // Left & Right 3D Embossed Rivets (colored in Captain's Color if owned!)
@@ -564,8 +568,10 @@ const CurvedGoldenReliefBanner: React.FC<{
           map={colorTexture}
           bumpMap={bumpTexture}
           bumpScale={0.065}
-          emissive={isFocused ? '#f59e0b' : '#000000'}
-          emissiveIntensity={isFocused ? 0.25 : 0}
+          emissive={
+            isFocused ? '#f59e0b' : ownerColor ? ownerColor : '#000000'
+          }
+          emissiveIntensity={isFocused ? 0.28 : ownerColor ? 0.18 : 0}
           transparent
           alphaTest={0.1}
           roughness={0.28}
@@ -603,13 +609,28 @@ const WoodenSpikeWallRing3D: React.FC<{
 
   return (
     <group position={[0, 0.15, 0]}>
-      {/* Bandeau de territoire à la couleur du joueur au pied de la palissade */}
-      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[wallRadius - 0.045, wallRadius + 0.045, 28]} />
+      {/* Halo de glow diffus sous la palissade à la couleur du joueur */}
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[wallRadius - 0.11, wallRadius + 0.11, 28]} />
+        <meshBasicMaterial
+          color={ownerColor}
+          transparent
+          opacity={0.42}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Bandeau de territoire lumineux à la couleur du joueur au pied de la palissade */}
+      <mesh position={[0, 0.016, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[wallRadius - 0.055, wallRadius + 0.055, 28]} />
         <meshStandardMaterial
           color={ownerColor}
           emissive={ownerColor}
-          emissiveIntensity={0.85}
+          emissiveIntensity={1.65}
+          toneMapped={false}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -630,7 +651,13 @@ const WoodenSpikeWallRing3D: React.FC<{
             </mesh>
             <mesh position={[0, 0.16, 0]}>
               <boxGeometry args={[0.17, 0.026, 0.026]} />
-              <meshStandardMaterial color="#78350f" roughness={0.8} />
+              <meshStandardMaterial
+                color={ownerColor}
+                emissive={ownerColor}
+                emissiveIntensity={1.25}
+                toneMapped={false}
+                roughness={0.4}
+              />
             </mesh>
 
             {/* Rondin vertical en bois */}
@@ -641,6 +668,19 @@ const WoodenSpikeWallRing3D: React.FC<{
                 roughness={0.78}
               />
             </mesh>
+
+            {/* Anneau peint aux couleurs du capitaine sur les grands rondins */}
+            {isTallPost && (
+              <mesh position={[0, postH - 0.03, 0]}>
+                <cylinderGeometry args={[0.041, 0.041, 0.04, 6]} />
+                <meshStandardMaterial
+                  color={ownerColor}
+                  emissive={ownerColor}
+                  emissiveIntensity={1.5}
+                  toneMapped={false}
+                />
+              </mesh>
+            )}
 
             {/* Pic supérieur taillé en pointe acérée */}
             <mesh position={[0, postH + 0.055, 0]}>
@@ -713,13 +753,28 @@ const CarvedStoneRampartRing3D: React.FC<{
 
   return (
     <group position={[0, 0.15, 0]}>
-      {/* Assise de fondation circulaire en pierre taillée + liseré couleur du joueur */}
+      {/* Halo de glow diffus autour des remparts */}
+      <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[wallRadius - 0.13, wallRadius + 0.13, 28]} />
+        <meshBasicMaterial
+          color={ownerColor}
+          transparent
+          opacity={0.45}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Assise de fondation circulaire en pierre taillée + liseré lumineux couleur du joueur */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[wallRadius - 0.065, wallRadius + 0.065, 28]} />
+        <ringGeometry args={[wallRadius - 0.075, wallRadius + 0.075, 28]} />
         <meshStandardMaterial
           color={ownerColor}
           emissive={ownerColor}
-          emissiveIntensity={0.9}
+          emissiveIntensity={1.7}
+          toneMapped={false}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -737,6 +792,16 @@ const CarvedStoneRampartRing3D: React.FC<{
                 color={idx % 2 === 0 ? '#e7e5e4' : '#d6d3d1'}
                 roughness={0.45}
                 metalness={0.08}
+              />
+            </mesh>
+            {/* Liseré lumineux couleur du joueur incrusté sur le flanc du rempart */}
+            <mesh position={[0, 0.05, 0]}>
+              <boxGeometry args={[0.165, 0.032, 0.105]} />
+              <meshStandardMaterial
+                color={ownerColor}
+                emissive={ownerColor}
+                emissiveIntensity={1.45}
+                toneMapped={false}
               />
             </mesh>
             {/* Corniche supérieure moulurée en pierre */}
@@ -758,12 +823,13 @@ const CarvedStoneRampartRing3D: React.FC<{
               <boxGeometry args={[0.095, 0.075, 0.105]} />
               <meshStandardMaterial color="#f5f5f4" roughness={0.4} />
             </mesh>
-            <mesh position={[0, 0.042, 0]}>
-              <boxGeometry args={[0.105, 0.016, 0.115]} />
+            <mesh position={[0, 0.044, 0]}>
+              <boxGeometry args={[0.11, 0.026, 0.12]} />
               <meshStandardMaterial
                 color={ownerColor}
                 emissive={ownerColor}
-                emissiveIntensity={0.65}
+                emissiveIntensity={1.65}
+                toneMapped={false}
               />
             </mesh>
           </group>
@@ -780,21 +846,36 @@ const CarvedStoneRampartRing3D: React.FC<{
               <cylinderGeometry args={[0.085, 0.1, 0.32, 8]} />
               <meshStandardMaterial color="#e7e5e4" roughness={0.42} />
             </mesh>
-            {/* Anneau doré et couleur du capitaine au sommet de chaque tourelle */}
-            <mesh position={[0, 0.33, 0]}>
-              <cylinderGeometry args={[0.098, 0.092, 0.045, 8]} />
+            {/* Anneau lumineux couleur du capitaine au sommet de chaque tourelle */}
+            <mesh position={[0, 0.31, 0]}>
+              <cylinderGeometry args={[0.104, 0.096, 0.065, 8]} />
               <meshStandardMaterial
                 color={ownerColor}
                 emissive={ownerColor}
-                emissiveIntensity={0.75}
+                emissiveIntensity={1.7}
+                toneMapped={false}
               />
             </mesh>
-            <mesh position={[0, 0.365, 0]}>
-              <cylinderGeometry args={[0.088, 0.098, 0.03, 8]} />
+            {/* Toit conique de tourelle aux couleurs du capitaine + halo glow */}
+            <mesh position={[0, 0.39, 0]}>
+              <coneGeometry args={[0.11, 0.11, 8]} />
               <meshStandardMaterial
-                color="#fbbf24"
-                metalness={0.65}
+                color={ownerColor}
+                emissive={ownerColor}
+                emissiveIntensity={1.6}
+                toneMapped={false}
                 roughness={0.3}
+              />
+            </mesh>
+            <mesh position={[0, 0.39, 0]}>
+              <coneGeometry args={[0.135, 0.135, 8]} />
+              <meshBasicMaterial
+                color={ownerColor}
+                transparent
+                opacity={0.35}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+                toneMapped={false}
               />
             </mesh>
           </group>
@@ -819,17 +900,31 @@ const True3DPirateCastleKeep: React.FC<{
 
   return (
     <group position={[0, 0.15, -0.05]}>
-      {/* 1. Soubassement octogonal en pierre taillée & halo du Capitaine */}
+      {/* 1. Soubassement octogonal en pierre taillée & double halo glow du Capitaine */}
       <mesh position={[0, 0.04, 0]}>
         <cylinderGeometry args={[0.38, 0.44, 0.08, 8]} />
         <meshStandardMaterial color="#a8a29e" roughness={0.55} />
       </mesh>
-      <mesh position={[0, 0.084, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.32, 0.42, 16]} />
+      {/* Halo de glow externe additif autour de la base du château */}
+      <mesh position={[0, 0.082, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.26, 0.56, 24]} />
+        <meshBasicMaterial
+          color={ownerColor}
+          transparent
+          opacity={0.5}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[0, 0.086, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.3, 0.46, 20]} />
         <meshStandardMaterial
           color={ownerColor}
           emissive={ownerColor}
-          emissiveIntensity={0.95}
+          emissiveIntensity={1.85}
+          toneMapped={false}
           side={THREE.DoubleSide}
         />
       </mesh>
@@ -839,22 +934,66 @@ const True3DPirateCastleKeep: React.FC<{
         <boxGeometry args={[0.42, 0.36, 0.38]} />
         <meshStandardMaterial
           color="#e7e5e4"
+          emissive={ownerColor}
+          emissiveIntensity={0.22}
           roughness={0.42}
           metalness={0.08}
         />
       </mesh>
 
-      {/* Ceinture architecturale en pierre sombre + Or autour du Donjon */}
+      {/* Blasons / Bannières Murales Lumineuses aux couleurs du joueur sur les faces du Donjon */}
+      <mesh position={[0, 0.24, -0.194]}>
+        <boxGeometry args={[0.22, 0.24, 0.018]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={1.65}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh position={[0.214, 0.24, 0]}>
+        <boxGeometry args={[0.018, 0.24, 0.2]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={1.65}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh position={[-0.214, 0.24, 0]}>
+        <boxGeometry args={[0.018, 0.24, 0.2]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={1.65}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Ceinture architecturale en pierre sombre + Bandeau Glow Couleur du Joueur autour du Donjon */}
       <mesh position={[0, 0.44, 0]}>
         <boxGeometry args={[0.45, 0.04, 0.41]} />
         <meshStandardMaterial color="#78716c" roughness={0.5} />
       </mesh>
-      <mesh position={[0, 0.468, 0]}>
-        <boxGeometry args={[0.46, 0.022, 0.42]} />
+      <mesh position={[0, 0.472, 0]}>
+        <boxGeometry args={[0.468, 0.038, 0.428]} />
         <meshStandardMaterial
           color={ownerColor}
           emissive={ownerColor}
-          emissiveIntensity={0.8}
+          emissiveIntensity={1.8}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* Halo glow autour de la couronne du donjon */}
+      <mesh position={[0, 0.472, 0]}>
+        <boxGeometry args={[0.51, 0.065, 0.47]} />
+        <meshBasicMaterial
+          color={ownerColor}
+          transparent
+          opacity={0.34}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
         />
       </mesh>
 
@@ -873,40 +1012,44 @@ const True3DPirateCastleKeep: React.FC<{
       </mesh>
 
       {/* Fenêtres / Meurtrières illuminées sur les 4 faces (X et Z) */}
-      <mesh position={[0, 0.34, 0.195]}>
+      <mesh position={[0, 0.35, 0.198]}>
         <boxGeometry args={[0.18, 0.045, 0.018]} />
         <meshStandardMaterial
           color="#fde047"
           emissive="#f59e0b"
-          emissiveIntensity={1.2}
+          emissiveIntensity={1.4}
+          toneMapped={false}
         />
       </mesh>
-      <mesh position={[0, 0.32, -0.195]}>
+      <mesh position={[0, 0.35, -0.198]}>
         <boxGeometry args={[0.18, 0.045, 0.018]} />
         <meshStandardMaterial
           color="#fde047"
           emissive="#f59e0b"
-          emissiveIntensity={1.2}
+          emissiveIntensity={1.4}
+          toneMapped={false}
         />
       </mesh>
-      <mesh position={[0.215, 0.32, 0]}>
+      <mesh position={[0.218, 0.35, 0]}>
         <boxGeometry args={[0.018, 0.045, 0.16]} />
         <meshStandardMaterial
           color="#fde047"
           emissive="#f59e0b"
-          emissiveIntensity={1.2}
+          emissiveIntensity={1.4}
+          toneMapped={false}
         />
       </mesh>
-      <mesh position={[-0.215, 0.32, 0]}>
+      <mesh position={[-0.218, 0.35, 0]}>
         <boxGeometry args={[0.018, 0.045, 0.16]} />
         <meshStandardMaterial
           color="#fde047"
           emissive="#f59e0b"
-          emissiveIntensity={1.2}
+          emissiveIntensity={1.4}
+          toneMapped={false}
         />
       </mesh>
 
-      {/* 3. Quatre Tours d'Angle Cylindriques 3D avec Toits Coniques aux couleurs du Joueur */}
+      {/* 3. Quatre Tours d'Angle Cylindriques 3D avec Toits Coniques Lumineux aux couleurs du Joueur */}
       {cornerOffsets.map(([cx, cz], idx) => (
         <group key={idx} position={[cx, 0, cz]}>
           {/* Fût de la tour en pierre taillée */}
@@ -914,45 +1057,92 @@ const True3DPirateCastleKeep: React.FC<{
             <cylinderGeometry args={[0.095, 0.11, 0.48, 10]} />
             <meshStandardMaterial color="#f5f5f4" roughness={0.38} />
           </mesh>
+          {/* Anneau central lumineux aux couleurs du joueur sur chaque tour */}
+          <mesh position={[0, 0.32, 0]}>
+            <cylinderGeometry args={[0.104, 0.106, 0.055, 10]} />
+            <meshStandardMaterial
+              color={ownerColor}
+              emissive={ownerColor}
+              emissiveIntensity={1.65}
+              toneMapped={false}
+            />
+          </mesh>
           {/* Couronne crénelée de la tour */}
           <mesh position={[0, 0.53, 0]}>
             <cylinderGeometry args={[0.112, 0.1, 0.05, 8]} />
             <meshStandardMaterial color="#a8a29e" roughness={0.48} />
           </mesh>
-          {/* Toit conique 3D de la tour aux couleurs du joueur */}
-          <mesh position={[0, 0.63, 0]}>
-            <coneGeometry args={[0.125, 0.17, 8]} />
+          {/* Toit conique 3D de la tour aux couleurs du joueur avec fort effet de glow */}
+          <mesh position={[0, 0.64, 0]}>
+            <coneGeometry args={[0.138, 0.195, 10]} />
             <meshStandardMaterial
               color={ownerColor}
               emissive={ownerColor}
-              emissiveIntensity={0.65}
-              roughness={0.35}
+              emissiveIntensity={1.75}
+              toneMapped={false}
+              roughness={0.28}
+            />
+          </mesh>
+          {/* Aura de glow additive autour du toit conique de la tour */}
+          <mesh position={[0, 0.64, 0]}>
+            <coneGeometry args={[0.168, 0.23, 10]} />
+            <meshBasicMaterial
+              color={ownerColor}
+              transparent
+              opacity={0.42}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              toneMapped={false}
             />
           </mesh>
           {/* Pointe dorée au sommet de chaque tour */}
-          <mesh position={[0, 0.725, 0]}>
-            <sphereGeometry args={[0.024, 6, 6]} />
+          <mesh position={[0, 0.75, 0]}>
+            <sphereGeometry args={[0.026, 8, 8]} />
             <meshStandardMaterial
               color="#fde047"
               emissive="#f59e0b"
-              emissiveIntensity={0.6}
+              emissiveIntensity={1.2}
+              toneMapped={false}
               metalness={0.85}
             />
           </mesh>
         </group>
       ))}
 
-      {/* 4. Tour Maîtresse Centrale (Beffroi Pirate 3D) au sommet du château */}
+      {/* 4. Tour Maîtresse Centrale (Beffroi Pirate 3D) au sommet du château aux couleurs du joueur */}
       <mesh position={[0, 0.56, 0]}>
         <cylinderGeometry args={[0.14, 0.16, 0.2, 8]} />
         <meshStandardMaterial color="#f5f5f4" roughness={0.36} />
       </mesh>
-      <mesh position={[0, 0.7, 0]}>
-        <coneGeometry args={[0.17, 0.14, 8]} />
+      <mesh position={[0, 0.62, 0]}>
+        <cylinderGeometry args={[0.155, 0.155, 0.045, 8]} />
         <meshStandardMaterial
-          color="#1e293b"
-          roughness={0.4}
-          metalness={0.3}
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={1.75}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh position={[0, 0.72, 0]}>
+        <coneGeometry args={[0.185, 0.165, 10]} />
+        <meshStandardMaterial
+          color={ownerColor}
+          emissive={ownerColor}
+          emissiveIntensity={1.85}
+          toneMapped={false}
+          roughness={0.25}
+        />
+      </mesh>
+      {/* Halo de glow additif sur le toit principal du château */}
+      <mesh position={[0, 0.72, 0]}>
+        <coneGeometry args={[0.225, 0.2, 10]} />
+        <meshBasicMaterial
+          color={ownerColor}
+          transparent
+          opacity={0.46}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
         />
       </mesh>
 
@@ -1053,10 +1243,28 @@ export const Tile: React.FC<TileProps> = React.memo(
         rotation={[0, rotationY, 0]}
         onClick={(e) => {
           e.stopPropagation();
+          if (e.delta > 6) return;
           onSelectTile?.(tile.id);
         }}
       >
         {/* 1. Shoreline Ring (Vibrant Captain Territory Halo when owned, or Cyan Fortify Target!) */}
+        {owner && (
+          <mesh
+            position={[0, -0.088, 0]}
+            rotation={[-Math.PI / 2, 0, islandSeedAngle]}
+          >
+            <ringGeometry args={[baseRadius * 0.92, baseRadius * 1.38, 28]} />
+            <meshBasicMaterial
+              color={owner.color}
+              transparent
+              opacity={0.46}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              toneMapped={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        )}
         <mesh
           position={[0, -0.08, 0]}
           rotation={[-Math.PI / 2, 0, islandSeedAngle]}
@@ -1064,8 +1272,8 @@ export const Tile: React.FC<TileProps> = React.memo(
           <ringGeometry
             args={[
               baseRadius * 0.86,
-              baseRadius * (owner || isFortifyCandidate ? 1.18 : 1.12),
-              20,
+              baseRadius * (owner || isFortifyCandidate ? 1.24 : 1.12),
+              24,
             ]}
           />
           <meshStandardMaterial
@@ -1088,10 +1296,11 @@ export const Tile: React.FC<TileProps> = React.memo(
                 : '#38bdf8'
             }
             emissiveIntensity={
-              isFortifyCandidate ? 1.35 : owner ? 1.05 : isFocused ? 0.95 : 0.45
+              isFortifyCandidate ? 1.6 : owner ? 1.65 : isFocused ? 0.95 : 0.45
             }
+            toneMapped={!owner && !isFortifyCandidate}
             transparent
-            opacity={owner || isFortifyCandidate ? 0.96 : 0.88}
+            opacity={owner || isFortifyCandidate ? 0.98 : 0.88}
           />
         </mesh>
 
@@ -1118,17 +1327,51 @@ export const Tile: React.FC<TileProps> = React.memo(
           />
         </mesh>
 
-        {/* Prominent Raised Captain Ownership Territory Border Ring around the Island Terrace */}
+        {/* Prominent Raised Captain Ownership Territory Border Ring & 3D Glowing Contour around the Island Terrace */}
         {owner && (
-          <mesh position={[0, 0.145, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[baseRadius * 0.76, baseRadius * 0.96, 24]} />
-            <meshStandardMaterial
-              color={owner.color}
-              emissive={owner.color}
-              emissiveIntensity={1.15}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
+          <group>
+            {/* Outer Diffused Additive Glow Halo around the Island Rim */}
+            <mesh position={[0, 0.161, -0.02]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry
+                args={[baseRadius * 0.68, baseRadius * 1.08, 32]}
+              />
+              <meshBasicMaterial
+                color={owner.color}
+                transparent
+                opacity={0.5}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+                toneMapped={false}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+
+            {/* High-Visibility Luminous Territory Contour Ring on Top of the Terrace Rim */}
+            <mesh position={[0, 0.163, -0.02]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry
+                args={[baseRadius * 0.75, baseRadius * 0.95, 32]}
+              />
+              <meshStandardMaterial
+                color={owner.color}
+                emissive={owner.color}
+                emissiveIntensity={1.85}
+                toneMapped={false}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+
+            {/* Sculpted 3D Glowing Bevel Cord Wrapping the Island Edge */}
+            <mesh position={[0, 0.166, -0.02]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[baseRadius * 0.83, 0.03, 10, 32]} />
+              <meshStandardMaterial
+                color={owner.color}
+                emissive={owner.color}
+                emissiveIntensity={1.95}
+                toneMapped={false}
+                roughness={0.2}
+              />
+            </mesh>
+          </group>
         )}
 
         {/* Glowing Cyan/Gold Fortification Target Ring when player is choosing an island to fortify */}
@@ -1203,35 +1446,51 @@ export const Tile: React.FC<TileProps> = React.memo(
             <group
               position={[
                 flagOffsetX,
-                tile.level >= 3 ? 0.72 : 0.16,
+                tile.level >= 3 ? 0.74 : 0.16,
                 flagOffsetZ,
               ]}
             >
               {tile.level < 3 && (
                 <>
                   {/* Base Pedestal for Flag when Castle isn't built yet */}
-                  <mesh position={[0, 0.04, 0]}>
-                    <cylinderGeometry args={[0.17, 0.21, 0.09, 10]} />
-                    <meshStandardMaterial
-                      color={
-                        tile.level === 1
-                          ? '#78350f'
-                          : tile.level === 2
-                          ? '#d6d3d1'
-                          : owner.color
-                      }
-                      emissive={tile.level === 0 ? owner.color : '#000000'}
-                      emissiveIntensity={tile.level === 0 ? 0.65 : 0}
-                      roughness={0.5}
-                    />
-                  </mesh>
-
-                  <mesh position={[0, 0.088, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <ringGeometry args={[0.13, 0.21, 16]} />
+                  <mesh position={[0, 0.045, 0]}>
+                    <cylinderGeometry args={[0.18, 0.22, 0.095, 12]} />
                     <meshStandardMaterial
                       color={owner.color}
                       emissive={owner.color}
-                      emissiveIntensity={1.0}
+                      emissiveIntensity={1.45}
+                      toneMapped={false}
+                      roughness={0.35}
+                    />
+                  </mesh>
+
+                  {/* Soft Additive Glow Aura around the Flag Pedestal */}
+                  <mesh
+                    position={[0, 0.02, 0]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                  >
+                    <ringGeometry args={[0.12, 0.34, 20]} />
+                    <meshBasicMaterial
+                      color={owner.color}
+                      transparent
+                      opacity={0.5}
+                      blending={THREE.AdditiveBlending}
+                      depthWrite={false}
+                      toneMapped={false}
+                      side={THREE.DoubleSide}
+                    />
+                  </mesh>
+
+                  <mesh
+                    position={[0, 0.094, 0]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                  >
+                    <ringGeometry args={[0.13, 0.24, 20]} />
+                    <meshStandardMaterial
+                      color={owner.color}
+                      emissive={owner.color}
+                      emissiveIntensity={1.85}
+                      toneMapped={false}
                       side={THREE.DoubleSide}
                     />
                   </mesh>
@@ -1240,46 +1499,63 @@ export const Tile: React.FC<TileProps> = React.memo(
 
               {/* Tall Wooden / Royal Flagstaff Mast */}
               <group position={[0, 0, 0]}>
-                <mesh position={[0, 0.34, 0]}>
-                  <cylinderGeometry args={[0.022, 0.032, 0.62, 8]} />
+                <mesh position={[0, 0.36, 0]}>
+                  <cylinderGeometry args={[0.024, 0.035, 0.66, 8]} />
                   <meshStandardMaterial
                     color={tile.level >= 3 ? '#fbbf24' : '#451a03'}
-                    metalness={tile.level >= 3 ? 0.65 : 0.1}
-                    roughness={0.45}
+                    emissive={owner.color}
+                    emissiveIntensity={0.35}
+                    metalness={tile.level >= 3 ? 0.65 : 0.15}
+                    roughness={0.4}
                   />
                 </mesh>
 
                 {/* Golden Finial Sphere at the top of the Mast */}
-                <mesh position={[0, 0.67, 0]}>
-                  <sphereGeometry args={[0.05, 8, 8]} />
+                <mesh position={[0, 0.71, 0]}>
+                  <sphereGeometry args={[0.056, 10, 10]} />
                   <meshStandardMaterial
                     color="#fde047"
-                    emissive="#f59e0b"
-                    emissiveIntensity={0.7}
+                    emissive={owner.color}
+                    emissiveIntensity={1.35}
+                    toneMapped={false}
                     metalness={0.85}
                     roughness={0.2}
                   />
                 </mesh>
 
-                {/* Large Vibrant 3D Captain Flag / Pennant in the Player's Color */}
-                <group position={[0.165, 0.52, 0]}>
+                {/* Large Vibrant 3D Captain Flag / Pennant in the Player's Color with Luminous Glow Halo */}
+                <group position={[0.19, 0.54, 0]}>
+                  {/* Outer Additive Glow Aura around the Flag */}
+                  <mesh>
+                    <boxGeometry args={[0.46, 0.32, 0.09]} />
+                    <meshBasicMaterial
+                      color={owner.color}
+                      transparent
+                      opacity={0.46}
+                      blending={THREE.AdditiveBlending}
+                      depthWrite={false}
+                      toneMapped={false}
+                    />
+                  </mesh>
                   {/* Golden Flag Trim Border */}
-                  <mesh position={[0, 0, -0.008]}>
-                    <boxGeometry args={[0.33, 0.22, 0.014]} />
+                  <mesh position={[0, 0, -0.009]}>
+                    <boxGeometry args={[0.38, 0.25, 0.016]} />
                     <meshStandardMaterial
                       color="#fde047"
                       emissive="#f59e0b"
-                      emissiveIntensity={0.5}
+                      emissiveIntensity={0.85}
+                      toneMapped={false}
                     />
                   </mesh>
-                  {/* Player Colored Flag Cloth */}
+                  {/* Player Colored Glowing Flag Cloth */}
                   <mesh>
-                    <boxGeometry args={[0.295, 0.185, 0.026]} />
+                    <boxGeometry args={[0.34, 0.21, 0.032]} />
                     <meshStandardMaterial
                       color={owner.color}
                       emissive={owner.color}
-                      emissiveIntensity={0.9}
-                      roughness={0.28}
+                      emissiveIntensity={1.85}
+                      toneMapped={false}
+                      roughness={0.2}
                     />
                   </mesh>
                 </group>

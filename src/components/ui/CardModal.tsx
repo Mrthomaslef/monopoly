@@ -22,17 +22,17 @@ export const CardModal: React.FC = () => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.85, y: 20 }}
           transition={{ type: 'spring', stiffness: 350, damping: 24 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
         >
           <div
-            className={`w-full max-w-xs rounded-2xl border-4 overflow-hidden text-center shadow-2xl relative ${
+            className={`w-full max-w-xs max-h-full flex flex-col rounded-2xl border-4 overflow-hidden text-center shadow-2xl relative ${
               activeCard.deck === 'chest'
                 ? 'parchment-card border-yellow-400'
                 : 'border-purple-400 bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 text-purple-50'
             }`}
           >
             {/* Top Tile Terrain Banner & 3D Higgsfield Prop Cutout */}
-            <div className="relative h-28 w-full overflow-hidden border-b-2 border-black/30">
+            <div className="relative h-20 [@media(min-height:700px)]:h-28 w-full shrink-0 overflow-hidden border-b-2 border-black/30">
               <img
                 src={
                   activeCard.deck === 'chest'
@@ -55,7 +55,7 @@ export const CardModal: React.FC = () => {
                 ) : (
                   <Skull className="w-4 h-4 text-purple-300" />
                 )}
-                <span className="font-cinzel text-[11px] font-black uppercase tracking-widest text-amber-200">
+                <span className="font-cinzel text-[11px] font-black uppercase leading-tight text-left pr-24 text-amber-200">
                   {activeCard.deck === 'chest'
                     ? 'Coffre au Trésor'
                     : 'Malédiction des Mers'}
@@ -64,15 +64,15 @@ export const CardModal: React.FC = () => {
               <img
                 src={
                   activeCard.deck === 'chest'
-                    ? './assets/prop_tresor.png'
-                    : './assets/prop_malediction.png'
+                    ? './assets/prop_tresor.png?v=model3d'
+                    : './assets/prop_malediction.png?v=model3d'
                 }
                 alt={activeCard.title}
-                className="absolute right-2 bottom-0.5 w-24 h-24 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
+                className="absolute right-2 bottom-0.5 w-24 h-full object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.85)] z-10 pointer-events-none"
               />
             </div>
 
-            <div className="p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto pirate-scroll p-4">
               <h3
                 className={`font-pirata text-2xl tracking-wide ${
                   activeCard.deck === 'chest'
@@ -135,9 +135,9 @@ export const CardModal: React.FC = () => {
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.85 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm wood-panel rounded-2xl border-2 border-amber-400 p-6 text-center shadow-2xl text-amber-50">
+          <div className="w-full max-w-sm max-h-full overflow-y-auto wood-panel rounded-2xl border-2 border-amber-400 p-6 text-center shadow-2xl text-amber-50">
             <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-600 flex items-center justify-center text-slate-950 shadow-[0_0_25px_rgba(251,191,36,0.7)]">
               <Trophy className="w-9 h-9" />
             </div>

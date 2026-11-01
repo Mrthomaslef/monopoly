@@ -48,33 +48,33 @@ export const UpgradesModal: React.FC = () => {
   const culverinTargets = getCulverinTargets(activePlayer, tiles);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pointer-events-auto bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-[390px] max-h-[86vh] flex flex-col rounded-3xl pirate-Wood-panel border-2 border-amber-500/70 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.95)] overflow-hidden">
+    <div className="safe-modal fixed inset-0 z-50 flex items-center justify-center pointer-events-auto bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+      <div className="relative w-full max-w-[390px] max-h-full flex flex-col rounded-3xl pirate-Wood-panel border-2 border-amber-500/70 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.95)] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-amber-500/25">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-lg shadow-inner">
+        <div className="shrink-0 flex items-center justify-between gap-2 pb-2 border-b border-amber-500/25">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-lg shadow-inner">
               🏴‍☠️
             </div>
-            <div>
-              <h2 className="text-sm font-black uppercase tracking-wider text-amber-300 leading-tight">
-                Arsenal & Améliorations
+            <div className="min-w-0">
+              <h2 className="text-sm font-black uppercase text-amber-300 leading-tight">
+                Arsenal
               </h2>
-              <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+              <p className="text-[10px] font-bold leading-tight text-slate-400 flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
                 {currentTile?.name}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1 bg-slate-900/90 border border-amber-500/40 px-2 py-1 rounded-xl">
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 bg-slate-900/90 border border-amber-500/40 px-1.5 py-1 rounded-xl">
               <Coins className="w-3.5 h-3.5 text-amber-400" />
               <span className="text-xs font-black text-amber-300 tabular-nums">
                 {activePlayer.gold}
               </span>
             </div>
-            <div className="flex items-center gap-1 bg-amber-950/85 border border-orange-400/50 px-2 py-1 rounded-xl">
+            <div className="flex items-center gap-1 bg-amber-950/85 border border-orange-400/50 px-1.5 py-1 rounded-xl">
               <span className="text-xs font-black text-orange-200 tabular-nums">
                 🪵 {activePlayer.materials}
               </span>
@@ -91,31 +91,31 @@ export const UpgradesModal: React.FC = () => {
 
         {/* Location availability notice */}
         {!canShopHere && (
-          <div className="mt-2.5 rounded-xl bg-amber-950/60 border border-amber-500/40 px-3 py-2 text-[11px] font-bold text-amber-200 leading-snug">
-            ⚓ Achats disponibles uniquement à <span className="text-amber-300 font-black">Port Royal</span>, à la{' '}
-            <span className="text-amber-300 font-black">Taverne de Tortuga</span> ou sur{' '}
-            <span className="text-amber-300 font-black">l’une de vos îles</span>.
+          <div className="mt-2 shrink-0 rounded-xl bg-amber-950/60 border border-amber-500/40 px-2.5 py-1.5 text-[11px] font-bold text-amber-200 leading-snug">
+            ⚓ Achats à <span className="text-amber-300 font-black">Port Royal</span>,{' '}
+            <span className="text-amber-300 font-black">Tortuga</span> ou sur{' '}
+            <span className="text-amber-300 font-black">vos îles</span>.
           </div>
         )}
 
         {/* Scrollable Content */}
-        <div className="mt-2.5 space-y-2.5 overflow-y-auto pr-0.5 flex-1">
+        <div className="mt-2 space-y-2 min-h-0 overflow-y-auto pirate-scroll pr-0.5 flex-1">
           {/* Active Culverin Firing Section if owned */}
           {activePlayer.hasCulverin && (
             <div className="rounded-2xl bg-gradient-to-r from-red-950/80 via-slate-900/90 to-orange-950/70 border-2 border-red-500/50 p-3 shadow-lg">
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-1.5">
                 <span className="text-xs font-black uppercase tracking-wider text-red-300 flex items-center gap-1.5">
                   <Crosshair className="w-4 h-4 text-red-400" />
-                  Tir de Coulevrine (≤ {CULVERIN_RANGE} cases)
+                  Tirer (≤ {CULVERIN_RANGE} cases)
                 </span>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400/40 text-red-200">
-                  {hasFiredCulverinThisTurn ? 'Tir effectué ce tour' : 'Prêt à tirer'}
+                  {hasFiredCulverinThisTurn ? 'Déjà tiré' : 'Prêt'}
                 </span>
               </div>
 
               {culverinTargets.length === 0 ? (
                 <p className="text-[11px] text-slate-300 font-semibold">
-                  Aucun bâtiment adverse à moins de {CULVERIN_RANGE} cases de votre navire.
+                  Aucune cible à {CULVERIN_RANGE} cases ou moins.
                 </p>
               ) : (
                 <div className="space-y-1.5 mt-2">
@@ -128,16 +128,16 @@ export const UpgradesModal: React.FC = () => {
                         className="flex items-center justify-between gap-2 bg-slate-950/80 border border-red-500/35 rounded-xl px-2.5 py-2"
                       >
                         <div className="min-w-0">
-                          <div className="text-xs font-black text-white truncate">
+                          <div className="text-xs font-black leading-tight text-white">
                             {target.name}{' '}
                             <span className="text-[10px] font-bold text-amber-300">
                               ({dist} {dist > 1 ? 'cases' : 'case'})
                             </span>
                           </div>
-                          <div className="text-[10px] font-bold text-slate-400 truncate">
+                          <div className="text-[10px] font-bold leading-tight text-slate-400 mt-0.5">
                             {owner?.name} • {FORTRESS_LEVEL_NAMES[target.level]} →{' '}
                             <span className="text-red-300 font-black">
-                              {FORTRESS_LEVEL_NAMES[Math.max(0, target.level - 1)]} (-1 étage)
+                              {FORTRESS_LEVEL_NAMES[Math.max(0, target.level - 1)]}
                             </span>
                           </div>
                         </div>
@@ -160,17 +160,17 @@ export const UpgradesModal: React.FC = () => {
 
           {/* 1. Abordage Parfait */}
           <div className="rounded-2xl bg-slate-900/90 border border-amber-500/35 p-3 flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
                   <Swords className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="text-xs font-black text-white uppercase tracking-wide">
+                <div className="min-w-0">
+                  <div className="text-xs font-black text-white uppercase leading-tight">
                     Abordage Parfait
                   </div>
                   <div className="text-[11px] font-semibold text-slate-300 leading-tight">
-                    Récupère <span className="text-amber-300 font-black">50% de l’or</span> de l’adversaire lors d’un abordage gagné.
+                    Abordage gagné : vole <span className="text-amber-300 font-black">50% de son or</span>.
                   </div>
                 </div>
               </div>
@@ -181,7 +181,7 @@ export const UpgradesModal: React.FC = () => {
 
             {activePlayer.hasPerfectBoarding ? (
               <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-black uppercase">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Équipé sur votre navire
+                <CheckCircle2 className="w-3.5 h-3.5" /> Équipé
               </div>
             ) : (
               <button
@@ -189,7 +189,7 @@ export const UpgradesModal: React.FC = () => {
                 disabled={!canShopHere || !canAfford}
                 className="w-full py-2 rounded-xl bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-amber-300/60 shadow active:scale-95 transition-all"
               >
-                Acheter ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
+                Acheter
               </button>
             )}
           </div>
@@ -197,18 +197,18 @@ export const UpgradesModal: React.FC = () => {
           {/* 2. Forteresse Piégée (uniquement proposée lorsque le joueur se situe sur l'une de ses îles, jamais à la Taverne ni à la Case Départ) */}
           {isOnOwnIsland && currentTile && (
             <div className="rounded-2xl bg-slate-900/90 border border-amber-500/35 p-3 flex flex-col gap-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                <div className="flex items-center gap-2 min-w-0">
                   <div className="w-8 h-8 rounded-xl bg-orange-500/15 border border-orange-400/40 flex items-center justify-center text-orange-300 shrink-0">
                     <Bomb className="w-4 h-4" />
                   </div>
-                  <div>
-                    <div className="text-xs font-black text-white uppercase tracking-wide">
-                      Forteresse Piégée ({currentTile.name})
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-white uppercase leading-tight">
+                      Piéger {currentTile.name}
                     </div>
                     <div className="text-[11px] font-semibold text-slate-300 leading-tight">
-                      Piège cette île : fait perdre{' '}
-                      <span className="text-orange-300 font-black">50% de son or</span> à l’ennemi qui tombe dessus.
+                      L’ennemi qui s’y arrête perd{' '}
+                      <span className="text-orange-300 font-black">50% de son or</span>.
                     </div>
                   </div>
                 </div>
@@ -219,11 +219,11 @@ export const UpgradesModal: React.FC = () => {
 
               {currentTile.trapped ? (
                 <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-black uppercase">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Cette forteresse est déjà piégée
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Déjà piégée
                 </div>
               ) : currentTile.level < 1 ? (
                 <div className="py-1.5 px-2.5 rounded-xl bg-slate-950/70 border border-slate-700/60 text-slate-400 text-[11px] font-bold text-center">
-                  Construisez d’abord au moins 1 étage de fortification sur {currentTile.name}.
+                  Construis d’abord 1 étage ici.
                 </div>
               ) : (
                 <button
@@ -231,7 +231,7 @@ export const UpgradesModal: React.FC = () => {
                   disabled={!canAfford}
                   className="w-full py-2 rounded-xl bg-gradient-to-b from-orange-500 to-orange-700 hover:from-orange-400 hover:to-orange-600 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-orange-300/60 shadow active:scale-95 transition-all"
                 >
-                  Piéger {currentTile.name} ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
+                  Piéger
                 </button>
               )}
             </div>
@@ -239,18 +239,18 @@ export const UpgradesModal: React.FC = () => {
 
           {/* 3. Tir de Coulevrine */}
           <div className="rounded-2xl bg-slate-900/90 border border-amber-500/35 p-3 flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-sky-500/15 border border-sky-400/40 flex items-center justify-center text-sky-300 shrink-0">
                   <Crosshair className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="text-xs font-black text-white uppercase tracking-wide">
-                    Tir de Coulevrine
+                <div className="min-w-0">
+                  <div className="text-xs font-black text-white uppercase leading-tight">
+                    Coulevrine
                   </div>
                   <div className="text-[11px] font-semibold text-slate-300 leading-tight">
-                    À <span className="text-sky-300 font-black">≤ {CULVERIN_RANGE} cases</span> d’un bâtiment adverse, tirez dessus pour lui faire perdre{' '}
-                    <span className="text-rose-300 font-black">1 étage de construction</span>.
+                    À <span className="text-sky-300 font-black">≤ {CULVERIN_RANGE} cases</span>, retire{' '}
+                    <span className="text-rose-300 font-black">1 étage</span> à un bâtiment ennemi.
                   </div>
                 </div>
               </div>
@@ -261,7 +261,7 @@ export const UpgradesModal: React.FC = () => {
 
             {activePlayer.hasCulverin ? (
               <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-black uppercase">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Coulevrine équipée
+                <CheckCircle2 className="w-3.5 h-3.5" /> Équipée
               </div>
             ) : (
               <button
@@ -269,7 +269,7 @@ export const UpgradesModal: React.FC = () => {
                 disabled={!canShopHere || !canAfford}
                 className="w-full py-2 rounded-xl bg-gradient-to-b from-sky-400 to-sky-600 hover:from-sky-300 hover:to-sky-500 disabled:opacity-40 text-slate-950 font-black text-xs uppercase tracking-wider border border-sky-300/60 shadow active:scale-95 transition-all"
               >
-                Acheter ({UPGRADE_COST} Or + {UPGRADE_MATERIAL_COST} 🪵)
+                Acheter
               </button>
             )}
           </div>

@@ -43,6 +43,7 @@ export interface Player {
   bankrupt: boolean;
   hasPerfectBoarding?: boolean;
   hasCulverin?: boolean;
+  hasCurseCharge?: boolean;
 }
 
 export interface PlayerSlotConfig {
@@ -106,6 +107,7 @@ export type TurnPhase =
   | 'GAME_OVER';    // Victory screen
 
 export type CameraMode = 'GLOBAL' | 'FOLLOW';
+export type BotSpeed = 'NORMAL' | 'FAST';
 
 export const BOARD_SPACING = 1.65;
 export const FORTIFY_MATERIAL_COST = 1;
@@ -217,10 +219,10 @@ export function getTileTransform(index: number): {
  */
 export function getShipSlotOffset(playerId: number): [number, number, number] {
   const offsets: [number, number, number][] = [
-    [-0.18, 0, -0.02],
-    [0.18, 0, -0.02],
-    [-0.18, 0, 0.18],
-    [0.18, 0, 0.18],
+    [-0.27, 0, -0.16],
+    [0.27, 0, -0.16],
+    [-0.27, 0, 0.12],
+    [0.27, 0, 0.12],
   ];
   return offsets[playerId % 4];
 }
@@ -556,6 +558,201 @@ const SEA_CURSE_CARDS: Omit<DrawnCard, 'deck'>[] = [
   },
 ];
 
+export type SetBonusId = 'perles' | 'plages' | 'maya' | 'eldorado';
+
+export interface SetBonus {
+  id: SetBonusId;
+  name: string;
+  icon: string;
+  tileIds: number[];
+  required: number;
+  description: string;
+}
+
+export const PEARL_SALE_GOLD = 300;
+export const BEACH_MATERIALS_PER_TURN = 3;
+export const ELDORADO_LANDING_GOLD = 600;
+
+export const SET_BONUSES: SetBonus[] = [
+  {
+    id: 'perles',
+    name: 'Vente de Perles',
+    icon: '🦪',
+    tileIds: [5, 9],
+    required: 2,
+    description: `+${PEARL_SALE_GOLD} Or à chaque passage à Port Royal`,
+  },
+  {
+    id: 'plages',
+    name: 'Récolte des Plages',
+    icon: '🌴',
+    tileIds: [1, 3, 7, 14],
+    required: 2,
+    description: `+${BEACH_MATERIALS_PER_TURN} 🪵 à chaque tour`,
+  },
+  {
+    id: 'maya',
+    name: 'Rituel Maya',
+    icon: '🗿',
+    tileIds: [13, 17],
+    required: 2,
+    description: 'Une malédiction à lancer à chaque passage à Port Royal',
+  },
+  {
+    id: 'eldorado',
+    name: 'Trésor d’El Dorado',
+    icon: '👑',
+    tileIds: [22, 23],
+    required: 2,
+    description: `+${ELDORADO_LANDING_GOLD} Or en s’arrêtant sur l’une de ces 2 îles`,
+  },
+];
+
+export function getTileSetBonus(tileId: number): SetBonus | undefined {
+  return SET_BONUSES.find((b) => b.tileIds.includes(tileId));
+}
+
+export function countOwnedInSet(
+  bonus: SetBonus,
+  playerId: number,
+  tiles: TileData[]
+): number {
+  return bonus.tileIds.filter((id) => tiles[id]?.ownerId === playerId).length;
+}
+
+export function hasSetBonus(
+  id: SetBonusId,
+  playerId: number,
+  tiles: TileData[]
+): boolean {
+  const bonus = SET_BONUSES.find((b) => b.id === id)!;
+  return countOwnedInSet(bonus, playerId, tiles) >= bonus.required;
+}
+
+export function getPortRoyalRewards(playerId: number, tiles: TileData[]) {
+  const pearls = hasSetBonus('perles', playerId, tiles);
+  return {
+    gold: 200 + (pearls ? PEARL_SALE_GOLD : 0),
+    materials: 1,
+    pearls,
+    grantsCurse: hasSetBonus('maya', playerId, tiles),
+  };
+}
+
+export interface CurseEffect {
+  title: string;
+  description: string;
+  goldDelta?: number;
+  goToJail?: boolean;
+}
+
+// Only harmful effects: the deck's move cards could send the victim to a jackpot.
+const CAST_CURSE_EFFECTS: CurseEffect[] = [
+  { title: 'Hollandais Volant', description: 'perd 140 Or', goldDelta: -140 },
+  { title: 'Mutinerie à Bord', description: 'perd 100 Or', goldDelta: -100 },
+  { title: 'Attaque du Kraken', description: 'est envoyé en Cale', goToJail: true },
+];
+
+export interface TradeOffer {
+  partnerId: number;
+  giveTileIds: number[];
+  receiveTileIds: number[];
+  giveGold: number;
+  receiveGold: number;
+  giveMaterials: number;
+  receiveMaterials: number;
+}
+
+export function isTradeValid(
+  offer: TradeOffer,
+  proposer: Player | undefined,
+  partner: Player | undefined,
+  tiles: TileData[]
+): boolean {
+  if (!proposer || !partner || proposer.id === partner.id) return false;
+  if (proposer.bankrupt || partner.bankrupt) return false;
+  const amounts = [
+    offer.giveGold,
+    offer.receiveGold,
+    offer.giveMaterials,
+    offer.receiveMaterials,
+  ];
+  if (amounts.some((a) => !Number.isInteger(a) || a < 0)) return false;
+  if (offer.giveGold > proposer.gold || offer.receiveGold > partner.gold) return false;
+  if (
+    offer.giveMaterials > proposer.materials ||
+    offer.receiveMaterials > partner.materials
+  ) {
+    return false;
+  }
+  if (offer.giveTileIds.some((id) => tiles[id]?.ownerId !== proposer.id)) return false;
+  if (offer.receiveTileIds.some((id) => tiles[id]?.ownerId !== partner.id)) return false;
+  const gives =
+    offer.giveTileIds.length + offer.giveGold + offer.giveMaterials > 0;
+  const receives =
+    offer.receiveTileIds.length + offer.receiveGold + offer.receiveMaterials > 0;
+  return gives || receives;
+}
+
+function applyTradeToTiles(
+  offer: TradeOffer,
+  proposerId: number,
+  tiles: TileData[]
+): TileData[] {
+  return tiles.map((t) => {
+    if (offer.giveTileIds.includes(t.id)) return { ...t, ownerId: offer.partnerId };
+    if (offer.receiveTileIds.includes(t.id)) return { ...t, ownerId: proposerId };
+    return t;
+  });
+}
+
+const AI_MATERIAL_VALUE = 150;
+const AI_SET_GAIN_VALUE = 400;
+const AI_SET_LOSS_VALUE = 500;
+const AI_REQUIRED_MARGIN = 1.1;
+
+/** The AI accepts when what it receives is worth 10% more than what it gives, sets included. */
+export function evaluateAITrade(
+  offer: TradeOffer,
+  proposerId: number,
+  tiles: TileData[]
+): { accepted: boolean; missingGold: number } {
+  const islandValue = (id: number) => {
+    const t = tiles[id];
+    return (t?.price ?? 0) + (t?.level ?? 0) * (t?.upgradeCost ?? 0);
+  };
+  const sumIslands = (ids: number[]) =>
+    ids.reduce((total, id) => total + islandValue(id), 0);
+
+  let received =
+    offer.giveGold +
+    offer.giveMaterials * AI_MATERIAL_VALUE +
+    sumIslands(offer.giveTileIds);
+  let given =
+    offer.receiveGold +
+    offer.receiveMaterials * AI_MATERIAL_VALUE +
+    sumIslands(offer.receiveTileIds);
+
+  const after = applyTradeToTiles(offer, proposerId, tiles);
+  for (const bonus of SET_BONUSES) {
+    const aiBefore = hasSetBonus(bonus.id, offer.partnerId, tiles);
+    const aiAfter = hasSetBonus(bonus.id, offer.partnerId, after);
+    if (!aiBefore && aiAfter) received += AI_SET_GAIN_VALUE;
+    if (aiBefore && !aiAfter) given += AI_SET_LOSS_VALUE;
+    if (
+      !hasSetBonus(bonus.id, proposerId, tiles) &&
+      hasSetBonus(bonus.id, proposerId, after)
+    ) {
+      given += AI_SET_GAIN_VALUE;
+    }
+  }
+
+  const required = given * AI_REQUIRED_MARGIN;
+  return received >= required
+    ? { accepted: true, missingGold: 0 }
+    : { accepted: false, missingGold: Math.ceil(required - received) };
+}
+
 export function calculateIslandRent(tile: TileData, allTiles: TileData[]): number {
   if (!tile.baseRent) return 0;
   const multipliers = [1, 2.0, 3.6, 6.0, 6.0];
@@ -625,6 +822,7 @@ function buildPlayersFromSlots(slots: PlayerSlotConfig[]): Player[] {
     bankrupt: false,
     hasPerfectBoarding: false,
     hasCulverin: false,
+    hasCurseCharge: false,
   }));
 }
 
@@ -647,6 +845,9 @@ interface GameState {
   showSetupModal: boolean;
   showFortifyModal: boolean;
   showUpgradesModal: boolean;
+  showTradeModal: boolean;
+  showCurseModal: boolean;
+  curseResult: { targetName: string; title: string; description: string } | null;
   diceStowed: boolean;
   tiles: TileData[];
   currentPlayerIndex: number;
@@ -657,7 +858,10 @@ interface GameState {
   hasFortifiedThisTurn: boolean;
   hasFiredCulverinThisTurn: boolean;
   cameraMode: CameraMode;
+  botSpeed: BotSpeed;
   focusedTileIndex: number;
+  spotlightPlayerId: number | null;
+  inspectedPlayerId: number | null;
   cameraShake: number;
   tortugaJackpot: number;
   actionLogs: string[];
@@ -674,13 +878,21 @@ interface GameState {
   setShowSetupModal: (show: boolean) => void;
   setShowFortifyModal: (show: boolean) => void;
   setShowUpgradesModal: (show: boolean) => void;
+  setShowTradeModal: (show: boolean) => void;
+  setShowCurseModal: (show: boolean) => void;
+  setInspectedPlayerId: (playerId: number | null) => void;
+  executeTrade: (offer: TradeOffer) => boolean;
+  castCurse: (targetId: number) => void;
   setDiceStowed: (stowed: boolean) => void;
   dismissLandedTilePopup: () => void;
   inspectTileCard: (tileId: number) => void;
+  focusOnPlayer: (playerId: number | null) => void;
   startCustomGame: (slots: PlayerSlotConfig[]) => void;
   initGame: (aiCount?: number, passAndPlay?: boolean) => void;
   toggleCameraMode: () => void;
   setCameraMode: (mode: CameraMode) => void;
+  toggleBotSpeed: () => void;
+  setBotSpeed: (speed: BotSpeed) => void;
   addFloatingText: (tileIndex: number, text: string, color?: string) => void;
   removeFloatingText: (id: string) => void;
   addLog: (msg: string) => void;
@@ -699,6 +911,12 @@ interface GameState {
   endTurn: () => void;
 }
 
+function getBotDelay(fastMs: number): number {
+  return useGameStore.getState().botSpeed === 'FAST'
+    ? fastMs
+    : Math.round(fastMs * 1.75);
+}
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -707,6 +925,9 @@ export const useGameStore = create<GameState>()(
   showSetupModal: true,
   showFortifyModal: false,
   showUpgradesModal: false,
+  showTradeModal: false,
+  showCurseModal: false,
+  curseResult: null,
   diceStowed: false,
   tiles: INITIAL_TILES.map((t) => ({ ...t })),
   currentPlayerIndex: 0,
@@ -717,7 +938,10 @@ export const useGameStore = create<GameState>()(
   hasFortifiedThisTurn: false,
   hasFiredCulverinThisTurn: false,
   cameraMode: 'GLOBAL',
+  botSpeed: 'NORMAL',
   focusedTileIndex: 0,
+  spotlightPlayerId: null,
+  inspectedPlayerId: null,
   cameraShake: 0,
   tortugaJackpot: 150,
   actionLogs: [
@@ -750,9 +974,119 @@ export const useGameStore = create<GameState>()(
       landedTilePopup: show ? null : state.landedTilePopup,
     })),
 
+  setShowTradeModal: (show) =>
+    set((state) => ({
+      showTradeModal: show,
+      landedTilePopup: show ? null : state.landedTilePopup,
+    })),
+
+  setShowCurseModal: (show) =>
+    set((state) => ({
+      showCurseModal: show,
+      curseResult: null,
+      landedTilePopup: show ? null : state.landedTilePopup,
+    })),
+
+  setInspectedPlayerId: (playerId) =>
+    set((state) => {
+      const target =
+        playerId !== null
+          ? state.players.find((p) => p.id === playerId)
+          : null;
+      return {
+        inspectedPlayerId: playerId,
+        focusedTileIndex: target ? target.position : state.focusedTileIndex,
+      };
+    }),
+
+  executeTrade: (offer) => {
+    const state = get();
+    if (
+      state.phase !== 'IDLE' &&
+      state.phase !== 'TILE_ACTION' &&
+      state.phase !== 'END_TURN'
+    ) {
+      return false;
+    }
+    const proposer = state.players[state.currentPlayerIndex];
+    const partner = state.players.find((p) => p.id === offer.partnerId);
+    if (!proposer || !partner) return false;
+    if (!isTradeValid(offer, proposer, partner, state.tiles)) return false;
+
+    const goldToProposer = offer.receiveGold - offer.giveGold;
+    const materialsToProposer = offer.receiveMaterials - offer.giveMaterials;
+
+    soundEffects.playGoldSound();
+    state.addLog(`🤝 Échange conclu entre ${proposer.name} et ${partner.name} !`);
+    set({
+      tiles: applyTradeToTiles(offer, proposer.id, state.tiles),
+      players: state.players.map((p) => {
+        if (p.id === proposer.id) {
+          return {
+            ...p,
+            gold: p.gold + goldToProposer,
+            materials: p.materials + materialsToProposer,
+          };
+        }
+        if (p.id === partner.id) {
+          return {
+            ...p,
+            gold: p.gold - goldToProposer,
+            materials: p.materials - materialsToProposer,
+          };
+        }
+        return p;
+      }),
+    });
+    return true;
+  },
+
+  castCurse: (targetId) => {
+    const state = get();
+    if (state.phase === 'GAME_OVER' || state.phase === 'NAVAL_BATTLE') return;
+
+    const caster = state.players[state.currentPlayerIndex];
+    const target = state.players.find((p) => p.id === targetId);
+    if (!caster?.hasCurseCharge || !target || target.bankrupt) return;
+    if (target.id === caster.id) return;
+
+    const effect =
+      CAST_CURSE_EFFECTS[Math.floor(Math.random() * CAST_CURSE_EFFECTS.length)];
+    const loss = Math.abs(effect.goldDelta ?? 0);
+
+    soundEffects.playKrakenSound();
+    state.addFloatingText(
+      effect.goToJail ? 6 : target.position,
+      effect.goToJail ? `🗿 ${target.name} en Cale !` : `-${loss} Or (${target.name})`,
+      '#c084fc'
+    );
+    state.addLog(
+      `🗿 ${caster.name} maudit ${target.name} : ${effect.title}, ${target.name} ${effect.description} !`
+    );
+    set({
+      tortugaJackpot: state.tortugaJackpot + loss,
+      players: state.players.map((p) => {
+        if (p.id === caster.id) return { ...p, hasCurseCharge: false };
+        if (p.id !== target.id) return p;
+        return effect.goToJail
+          ? { ...p, position: 6, inJail: true, jailTurns: 0 }
+          : { ...p, gold: p.gold - loss };
+      }),
+      curseResult: caster.isAI
+        ? null
+        : {
+            targetName: target.name,
+            title: effect.title,
+            description: effect.description,
+          },
+    });
+    checkPlayerBankruptcy(state.players.indexOf(target));
+  },
+
   setDiceStowed: (stowed) =>
     set((state) => ({
       diceStowed: stowed,
+      spotlightPlayerId: stowed ? state.spotlightPlayerId : null,
       landedTilePopup: stowed ? null : state.landedTilePopup,
     })),
 
@@ -768,11 +1102,28 @@ export const useGameStore = create<GameState>()(
     }
     set({
       focusedTileIndex: tileId,
+      spotlightPlayerId: null,
+      inspectedPlayerId: null,
       landedTilePopup: {
         tileId,
         playerId: activePlayer ? activePlayer.id : 0,
         isInspect: true,
       },
+    });
+  },
+
+  focusOnPlayer: (playerId) => {
+    const state = get();
+    if (playerId === null) {
+      set({ spotlightPlayerId: null });
+      return;
+    }
+    const targetPlayer = state.players.find((p) => p.id === playerId && !p.bankrupt);
+    if (!targetPlayer) return;
+    set({
+      spotlightPlayerId: playerId,
+      focusedTileIndex: targetPlayer.position,
+      landedTilePopup: null,
     });
   },
 
@@ -788,6 +1139,9 @@ export const useGameStore = create<GameState>()(
       showSetupModal: false,
       showFortifyModal: false,
       showUpgradesModal: false,
+      showTradeModal: false,
+      showCurseModal: false,
+      curseResult: null,
       diceStowed: false,
       tiles: INITIAL_TILES.map((t) => ({
         ...t,
@@ -803,6 +1157,8 @@ export const useGameStore = create<GameState>()(
       hasFortifiedThisTurn: false,
       hasFiredCulverinThisTurn: false,
       focusedTileIndex: 0,
+      spotlightPlayerId: null,
+      inspectedPlayerId: null,
       cameraShake: 0,
       tortugaJackpot: 150,
       activeCard: null,
@@ -822,7 +1178,7 @@ export const useGameStore = create<GameState>()(
     if (builtPlayers[0]?.isAI) {
       setTimeout(() => {
         runAITurn();
-      }, 1000);
+      }, getBotDelay(1000));
     }
   },
 
@@ -839,10 +1195,19 @@ export const useGameStore = create<GameState>()(
   toggleCameraMode: () => {
     set((state) => ({
       cameraMode: state.cameraMode === 'GLOBAL' ? 'FOLLOW' : 'GLOBAL',
+      spotlightPlayerId: null,
     }));
   },
 
-  setCameraMode: (mode) => set({ cameraMode: mode }),
+  setCameraMode: (mode) => set({ cameraMode: mode, spotlightPlayerId: null }),
+
+  toggleBotSpeed: () => {
+    set((state) => ({
+      botSpeed: state.botSpeed === 'FAST' ? 'NORMAL' : 'FAST',
+    }));
+  },
+
+  setBotSpeed: (speed) => set({ botSpeed: speed }),
 
   addFloatingText: (tileIndex, text, color = '#fbbf24') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -886,7 +1251,7 @@ export const useGameStore = create<GameState>()(
     });
     setTimeout(() => {
       get().rollDice();
-    }, 250);
+    }, player.isAI ? getBotDelay(250) : 250);
   },
 
   rollDice: () => {
@@ -907,11 +1272,14 @@ export const useGameStore = create<GameState>()(
       phase: 'ROLLING',
       isRollingDice: true,
       diceStowed: false,
+      spotlightPlayerId: null,
       hasAttackedThisTurn: false,
       dice: [d1, d2],
       focusedTileIndex: currentPlayer.position,
       landedTilePopup: null,
     });
+
+    const rollDelay = currentPlayer.isAI ? getBotDelay(750) : 750;
 
     setTimeout(() => {
       const latest = get();
@@ -943,7 +1311,7 @@ export const useGameStore = create<GameState>()(
             },
           }));
           if (player.isAI) {
-            setTimeout(() => get().endTurn(), 1400);
+            setTimeout(() => get().endTurn(), getBotDelay(1400));
           }
           return;
         }
@@ -956,6 +1324,9 @@ export const useGameStore = create<GameState>()(
       let stepsRemaining = total;
       let stepCount = 0;
 
+      const stepMs = player.isAI && latest.botSpeed === 'NORMAL' ? 280 : 185;
+      const postMoveMs = player.isAI ? getBotDelay(260) : 260;
+
       const stepInterval = setInterval(() => {
         const st = get();
         const activePlayer = st.players[st.currentPlayerIndex];
@@ -966,6 +1337,7 @@ export const useGameStore = create<GameState>()(
 
         const nextPos = (activePlayer.position + 1) % 24;
         const passedStart = nextPos === 0;
+        const rewards = passedStart ? getPortRoyalRewards(activePlayer.id, st.tiles) : null;
         soundEffects.playHopSound(stepCount);
         stepCount++;
         stepsRemaining--;
@@ -977,29 +1349,27 @@ export const useGameStore = create<GameState>()(
               ? {
                   ...p,
                   position: nextPos,
-                  gold: passedStart ? p.gold + 200 : p.gold,
-                  materials: passedStart ? p.materials + 1 : p.materials,
+                  gold: p.gold + (rewards?.gold ?? 0),
+                  materials: p.materials + (rewards?.materials ?? 0),
+                  hasCurseCharge: p.hasCurseCharge || rewards?.grantsCurse,
                 }
               : p
           ),
         }));
 
-        if (passedStart) {
+        if (rewards) {
           soundEffects.playGoldSound();
-          st.addFloatingText(0, '+200 Or & +1 🪵 (Port Royal)', '#4ade80');
-          st.addLog(
-            `⚓ ${activePlayer.name} franchit Port Royal : +200 Doublons & +1 Matériau de construction 🪵 !`
-          );
+          announcePortRoyalRewards(activePlayer.name, rewards);
         }
 
         if (stepsRemaining <= 0) {
           clearInterval(stepInterval);
           setTimeout(() => {
             evaluateLandedTile();
-          }, 260);
+          }, postMoveMs);
         }
-      }, 185);
-    }, 750);
+      }, stepMs);
+    }, rollDelay);
   },
 
   buyIsland: () => {
@@ -1394,7 +1764,7 @@ export const useGameStore = create<GameState>()(
         phase: 'END_TURN',
       }));
       if (player.isAI) {
-        setTimeout(() => get().endTurn(), 1200);
+        setTimeout(() => get().endTurn(), getBotDelay(1200));
       }
       return;
     }
@@ -1402,6 +1772,7 @@ export const useGameStore = create<GameState>()(
     if (card.moveToTile !== undefined) {
       const dest = card.moveToTile;
       const passedStart = dest === 0;
+      const rewards = passedStart ? getPortRoyalRewards(player.id, state.tiles) : null;
       soundEffects.playHopSound(4);
       if (passedStart) soundEffects.playGoldSound();
 
@@ -1412,18 +1783,19 @@ export const useGameStore = create<GameState>()(
             ? {
                 ...p,
                 position: dest,
-                gold: passedStart ? p.gold + 200 : p.gold,
-                materials: passedStart ? p.materials + 1 : p.materials,
+                gold: p.gold + (rewards?.gold ?? 0),
+                materials: p.materials + (rewards?.materials ?? 0),
+                hasCurseCharge: p.hasCurseCharge || rewards?.grantsCurse,
               }
             : p
         ),
       }));
-      if (passedStart) {
-        state.addFloatingText(0, '+200 Or & +1 🪵', '#4ade80');
+      if (rewards) {
+        announcePortRoyalRewards(player.name, rewards);
       }
       setTimeout(() => {
         evaluateLandedTile();
-      }, 350);
+      }, player.isAI ? getBotDelay(350) : 350);
       return;
     }
 
@@ -1572,7 +1944,7 @@ export const useGameStore = create<GameState>()(
         if (activePlayer?.isAI) {
           setTimeout(() => {
             get().completeNavalBattle();
-          }, 1200);
+          }, getBotDelay(1200));
         }
       }, 750);
     }, 450);
@@ -1600,7 +1972,7 @@ export const useGameStore = create<GameState>()(
     if (latestPlayer && latestPlayer.isAI) {
       setTimeout(() => {
         get().endTurn();
-      }, 900);
+      }, getBotDelay(900));
     }
   },
 
@@ -1627,7 +1999,23 @@ export const useGameStore = create<GameState>()(
     }
 
     const nextPlayer = state.players[nextIndex];
+    const beachHarvest = hasSetBonus('plages', nextPlayer.id, state.tiles)
+      ? BEACH_MATERIALS_PER_TURN
+      : 0;
+    if (beachHarvest > 0) {
+      state.addFloatingText(
+        nextPlayer.position,
+        `+${beachHarvest} 🪵 (Plages)`,
+        '#4ade80'
+      );
+      state.addLog(
+        `🌴 Récolte des Plages : ${nextPlayer.name} reçoit +${beachHarvest} Matériaux 🪵 !`
+      );
+    }
     set({
+      players: state.players.map((p) =>
+        p.id === nextPlayer.id ? { ...p, materials: p.materials + beachHarvest } : p
+      ),
       currentPlayerIndex: nextIndex,
       phase: 'IDLE',
       hasAttackedThisTurn: false,
@@ -1635,7 +2023,11 @@ export const useGameStore = create<GameState>()(
       hasFiredCulverinThisTurn: false,
       showFortifyModal: false,
       showUpgradesModal: false,
+      showTradeModal: false,
+      showCurseModal: false,
+      curseResult: null,
       diceStowed: false,
+      spotlightPlayerId: null,
       focusedTileIndex: nextPlayer.position,
       activeCard: null,
       landedTilePopup: null,
@@ -1645,7 +2037,7 @@ export const useGameStore = create<GameState>()(
     if (nextPlayer.isAI) {
       setTimeout(() => {
         runAITurn();
-      }, 1200);
+      }, getBotDelay(1200));
     }
   },
     }),
@@ -1664,6 +2056,7 @@ export const useGameStore = create<GameState>()(
         hasFortifiedThisTurn: state.hasFortifiedThisTurn,
         hasFiredCulverinThisTurn: state.hasFiredCulverinThisTurn,
         cameraMode: state.cameraMode,
+        botSpeed: state.botSpeed,
         focusedTileIndex: state.focusedTileIndex,
         tortugaJackpot: state.tortugaJackpot,
         actionLogs: state.actionLogs,
@@ -1756,13 +2149,14 @@ function resumeSavedStateAfterReload(): void {
 
   // If the saved turn belongs to an AI captain, resume its automated turn sequence
   if (activePlayer && activePlayer.isAI && !activePlayer.bankrupt) {
+    const resumeDelay = getBotDelay(900);
     if (nextPhase === 'IDLE') {
-      setTimeout(() => runAITurn(), 900);
+      setTimeout(() => runAITurn(), resumeDelay);
     } else if (nextPhase === 'TILE_ACTION') {
       if (state.activeCard) {
-        setTimeout(() => useGameStore.getState().resolveCardModal(), 900);
+        setTimeout(() => useGameStore.getState().resolveCardModal(), resumeDelay);
       } else {
-        setTimeout(() => afterTileActionCheckNavalBattle(), 900);
+        setTimeout(() => afterTileActionCheckNavalBattle(), resumeDelay);
       }
     } else if (nextPhase === 'NAVAL_BATTLE') {
       setTimeout(() => {
@@ -1772,10 +2166,24 @@ function resumeSavedStateAfterReload(): void {
         } else {
           cur.completeNavalBattle();
         }
-      }, 900);
+      }, resumeDelay);
     } else if (nextPhase === 'END_TURN') {
-      setTimeout(() => useGameStore.getState().endTurn(), 900);
+      setTimeout(() => useGameStore.getState().endTurn(), resumeDelay);
     }
+  }
+}
+
+function announcePortRoyalRewards(
+  playerName: string,
+  rewards: ReturnType<typeof getPortRoyalRewards>
+): void {
+  const state = useGameStore.getState();
+  state.addFloatingText(0, `+${rewards.gold} Or & +${rewards.materials} 🪵 (Port Royal)`, '#4ade80');
+  state.addLog(
+    `⚓ ${playerName} franchit Port Royal : +${rewards.gold} Doublons & +${rewards.materials} Matériau 🪵${rewards.pearls ? ` (dont ${PEARL_SALE_GOLD} de perles 🦪)` : ''} !`
+  );
+  if (rewards.grantsCurse) {
+    state.addLog(`🗿 Rituel Maya : ${playerName} peut lancer une malédiction !`);
   }
 }
 
@@ -1796,7 +2204,7 @@ function evaluateLandedTile(): void {
         landedTilePopup: {
           tileId: tile.id,
           playerId: player.id,
-          eventSummary: '⚓ Mouillage à Port Royal (+200 Or & +1 Matériau 🪵)',
+          eventSummary: `⚓ Mouillage à Port Royal (+${getPortRoyalRewards(player.id, state.tiles).gold} Or & +1 Matériau 🪵)`,
         },
       });
       afterTileActionCheckNavalBattle();
@@ -1861,7 +2269,7 @@ function evaluateLandedTile(): void {
       }));
       setTimeout(() => useGameStore.setState({ cameraShake: 0 }), 450);
       if (player.isAI) {
-        setTimeout(() => useGameStore.getState().endTurn(), 1400);
+        setTimeout(() => useGameStore.getState().endTurn(), getBotDelay(1400));
       }
       break;
     }
@@ -1906,7 +2314,7 @@ function evaluateLandedTile(): void {
       if (player.isAI) {
         setTimeout(() => {
           useGameStore.getState().resolveCardModal();
-        }, 1400);
+        }, getBotDelay(1400));
       }
       break;
     }
@@ -1932,24 +2340,40 @@ function evaluateLandedTile(): void {
             }
             setTimeout(() => {
               afterTileActionCheckNavalBattle();
-            }, 700);
-          }, 1200);
+            }, getBotDelay(700));
+          }, getBotDelay(1200));
         } else {
           checkAutomaticNavalBattlePrompt();
         }
       } else if (tile.ownerId === player.id) {
         // Player owns this island: can fortify it if they have Gold + 1 Material!
-        useGameStore.setState({
+        const eldoradoGold =
+          getTileSetBonus(tile.id)?.id === 'eldorado' &&
+          hasSetBonus('eldorado', player.id, state.tiles)
+            ? ELDORADO_LANDING_GOLD
+            : 0;
+        if (eldoradoGold > 0) {
+          soundEffects.playGoldSound();
+          state.addFloatingText(tile.id, `+${eldoradoGold} Or (El Dorado)`, '#4ade80');
+          state.addLog(
+            `👑 Trésor d’El Dorado : ${player.name} gagne ${eldoradoGold} Doublons sur ${tile.name} !`
+          );
+        }
+        useGameStore.setState((s) => ({
           phase: 'TILE_ACTION',
+          players: s.players.map((p) =>
+            p.id === player.id ? { ...p, gold: p.gold + eldoradoGold } : p
+          ),
           landedTilePopup: {
             tileId: tile.id,
             playerId: player.id,
-            eventSummary:
-              tile.level < MAX_FORTIFY_LEVEL
+            eventSummary: eldoradoGold > 0
+              ? `👑 Trésor d’El Dorado : +${eldoradoGold} Or !`
+              : tile.level < MAX_FORTIFY_LEVEL
                 ? `🏰 Votre île — ${FORTRESS_LEVEL_NAMES[tile.level + 1]} disponible`
                 : '🏰 Château Pirate (Niveau Max)',
           },
-        });
+        }));
         if (player.isAI) {
           setTimeout(() => {
             const st = useGameStore.getState();
@@ -1966,8 +2390,8 @@ function evaluateLandedTile(): void {
             }
             setTimeout(() => {
               afterTileActionCheckNavalBattle();
-            }, 700);
-          }, 1200);
+            }, getBotDelay(700));
+          }, getBotDelay(1200));
         } else {
           checkAutomaticNavalBattlePrompt();
         }
@@ -2119,7 +2543,18 @@ function afterTileActionCheckNavalBattle(): void {
     }
   }
 
+  // AI spends a Mayan curse on its richest rival
+  const curseState = useGameStore.getState();
+  const curserAI = curseState.players[curseState.currentPlayerIndex];
+  if (curserAI?.isAI && curserAI.hasCurseCharge) {
+    const victim = curseState.players
+      .filter((p) => p.id !== curserAI.id && !p.bankrupt)
+      .sort((a, b) => b.gold - a.gold)[0];
+    if (victim) curseState.castCurse(victim.id);
+  }
+
   const latestState = useGameStore.getState();
+  if (latestState.phase === 'GAME_OVER') return;
   const latestPlayer = latestState.players[latestState.currentPlayerIndex];
 
   const rivals = latestState.players.filter(
@@ -2156,7 +2591,7 @@ function afterTileActionCheckNavalBattle(): void {
     if (player.isAI) {
       setTimeout(() => {
         useGameStore.getState().rollNavalBattleDice();
-      }, 1200);
+      }, getBotDelay(1200));
     }
     return;
   }
@@ -2165,7 +2600,7 @@ function afterTileActionCheckNavalBattle(): void {
   if (player.isAI) {
     setTimeout(() => {
       useGameStore.getState().endTurn();
-    }, 1200);
+    }, getBotDelay(1200));
   }
 }
 

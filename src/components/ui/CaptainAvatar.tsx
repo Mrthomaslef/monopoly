@@ -23,15 +23,16 @@ export const CaptainAvatar: React.FC<CaptainAvatarProps> = ({
       ? 'w-12 h-12 rounded-xl border-2'
       : size === 'md'
       ? 'w-9 h-9 rounded-lg border-2'
-      : 'w-6 h-6 rounded-md border';
+      : 'w-7 h-7 rounded-lg border-2';
 
   const bgPosition = QUADRANT_POSITIONS[captainId % 4] ?? '4% 4%';
 
   return (
     <div
-      className={`${dimClass} shrink-0 overflow-hidden shadow-md relative bg-amber-950`}
+      className={`${dimClass} shrink-0 overflow-hidden relative bg-amber-950`}
       style={{
         borderColor: color,
+        boxShadow: `0 2px 6px rgba(0,0,0,0.6), 0 0 8px ${color}66`,
         backgroundImage: 'url(./assets/captains_sheet.jpg)',
         backgroundSize: '215% 215%',
         backgroundPosition: bgPosition,

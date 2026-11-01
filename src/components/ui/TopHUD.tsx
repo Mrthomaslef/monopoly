@@ -106,21 +106,21 @@ export const TopHUD: React.FC = () => {
       : 'grid-cols-2 sm:grid-cols-4';
 
   return (
-    <header className="relative z-20 w-full wood-panel border-b-4 border-amber-950 px-2 py-1.5 flex flex-col gap-1.5 select-none shrink-0">
+    <header className="relative z-20 w-full wood-panel border-b-4 border-amber-950 px-2 pt-[max(0.375rem,env(safe-area-inset-top))] pb-1.5 flex flex-col gap-1.5 select-none shrink-0">
       {/* Top Bar: Official Logo Badge + Compact Action Icons */}
       <div className="flex items-center justify-between gap-2">
-        <div className="wood-plank wood-nails px-2 py-0.5 rounded-lg flex items-center gap-1.5">
+        <div className="wood-plank wood-nails px-2 py-0.5 rounded-lg flex items-center gap-1.5 min-w-0">
           <img
             src="./assets/pirate_logo.png"
             alt="Jolly Roger's Logo"
             className="w-6 h-6 sm:w-7 sm:h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] shrink-0"
           />
-          <span className="font-cinzel text-amber-200 text-xs sm:text-sm font-black tracking-wider drop-shadow">
+          <span className="font-cinzel text-amber-200 text-[11px] sm:text-sm font-black leading-tight sm:tracking-wider drop-shadow">
             JOLLY ROGER&apos;S
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Crew / Players, Solo & Local Multiplayer Setup Button */}
           <button
             type="button"
@@ -131,8 +131,8 @@ export const TopHUD: React.FC = () => {
             <Users className="w-3.5 h-3.5 text-emerald-400" />
             <span>
               {players.filter((p) => !p.isAI).length >= 2
-                ? `Multi (${players.filter((p) => !p.isAI).length}J)`
-                : 'Modes / Multi'}
+                ? `Multi ${players.filter((p) => !p.isAI).length}J`
+                : 'Modes'}
             </span>
           </button>
 
@@ -195,9 +195,11 @@ export const TopHUD: React.FC = () => {
           return (
             <motion.div
               key={player.id}
-              onClick={() =>
-                useGameStore.setState({ focusedTileIndex: player.position })
-              }
+              onClick={() => {
+                useGameStore.getState().focusOnPlayer(player.id);
+                useGameStore.getState().setInspectedPlayerId(player.id);
+              }}
+              title={`Voir les acquisitions et bonus de ${player.name}`}
               animate={
                 isLoss
                   ? { x: [0, -5, 5, -4, 4, 0], scale: 1.02 }
@@ -206,18 +208,55 @@ export const TopHUD: React.FC = () => {
                   : { scale: isCurrent ? 1.01 : 1, x: 0 }
               }
               transition={{ duration: 0.45 }}
-              className={`relative wood-plank cursor-pointer rounded-xl px-2 py-1 transition-all flex items-center gap-2 ${
+              style={
+                player.bankrupt
+                  ? undefined
+                  : {
+                      borderColor: isGain
+                        ? '#34d399'
+                        : isLoss
+                        ? '#f43f5e'
+                        : player.color,
+                      boxShadow: isGain
+                        ? '0 0 18px rgba(16,185,129,0.85)'
+                        : isLoss
+                        ? '0 0 18px rgba(244,63,94,0.85)'
+                        : isCurrent
+                        ? `0 0 16px ${player.color}99, inset 0 0 14px ${player.color}38`
+                        : `0 3px 8px rgba(0,0,0,0.6), inset 0 0 10px ${player.color}22`,
+                    }
+              }
+              className={`relative wood-plank cursor-pointer rounded-xl pl-2.5 pr-1.5 py-1 transition-all flex items-center gap-1.5 overflow-hidden ${
                 player.bankrupt
                   ? 'opacity-40 grayscale'
                   : isGain
-                  ? 'ring-2 ring-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.85)] brightness-120'
+                  ? 'ring-2 ring-emerald-400 brightness-120'
                   : isLoss
-                  ? 'ring-2 ring-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.85)]'
+                  ? 'ring-2 ring-rose-500'
                   : isCurrent
-                  ? 'ring-2 ring-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.55)] brightness-115'
-                  : 'opacity-90 hover:opacity-100'
+                  ? 'ring-2 ring-white/80 brightness-115'
+                  : 'opacity-95 hover:opacity-100 hover:brightness-110'
               }`}
             >
+              {/* Player Color Left Banner Strip & Subtle Tint */}
+              {!player.bankrupt && (
+                <>
+                  <span
+                    className="pointer-events-none absolute inset-y-0 left-0 w-1.5"
+                    style={{
+                      backgroundColor: player.color,
+                      boxShadow: `0 0 8px ${player.color}`,
+                    }}
+                  />
+                  <span
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background: `linear-gradient(90deg, ${player.color}33 0%, ${player.color}10 55%, transparent 100%)`,
+                    }}
+                  />
+                </>
+              )}
+
               {/* Animated Gold / Material Delta Popup Pill */}
               <AnimatePresence>
                 {delta && (
@@ -239,7 +278,16 @@ export const TopHUD: React.FC = () => {
               </AnimatePresence>
 
               {/* Captain Color Badge (J1..J4 or IA) + Portrait */}
-              <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useGameStore.getState().focusOnPlayer(player.id);
+                  useGameStore.getState().setInspectedPlayerId(player.id);
+                }}
+                aria-label={`Acquisitions et bonus de ${player.name}`}
+                className="relative z-10 shrink-0 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+              >
                 <CaptainAvatar
                   captainId={player.id}
                   color={player.color}
@@ -247,17 +295,20 @@ export const TopHUD: React.FC = () => {
                 />
                 <span
                   className="absolute -bottom-1 -right-1 px-1 py-0.2 rounded text-[8px] font-black text-white border border-slate-950 shadow leading-none"
-                  style={{ backgroundColor: player.isAI ? '#0f172a' : player.color }}
+                  style={{ backgroundColor: player.color }}
                 >
                   {player.isAI ? 'IA' : `J${index + 1}`}
                 </span>
-              </div>
+              </button>
 
-              <div className="min-w-0 flex-1">
+              <div className="relative z-10 min-w-0 flex-1">
                 {/* Captain Full Name + Upgrade Badges + Jail / Bankrupt Icon */}
                 <div className="flex items-center justify-between gap-1">
-                  <div className="text-[11px] sm:text-xs font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] leading-tight flex items-center gap-1 min-w-0">
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                  <div className="text-[11px] sm:text-xs font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] leading-tight flex flex-wrap items-center gap-x-1 min-w-0">
+                    <span
+                      className="min-w-0 break-words"
+                      style={{ color: player.accentColor || '#ffffff' }}
+                    >
                       {player.name}
                     </span>
                     {player.hasPerfectBoarding && (
@@ -278,13 +329,19 @@ export const TopHUD: React.FC = () => {
                       ⛓️
                     </span>
                   ) : isCurrent ? (
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                    <span
+                      className="w-2.5 h-2.5 rounded-full animate-pulse shrink-0 border border-white/80"
+                      style={{
+                        backgroundColor: player.color,
+                        boxShadow: `0 0 8px ${player.color}`,
+                      }}
+                    />
                   ) : null}
                 </div>
 
                 {/* High-Contrast Stats Pill (Gold Coins, Materials, Islands) */}
                 <div
-                  className={`mt-0.5 border rounded-md px-1.5 py-0.5 flex items-center justify-between text-[11px] leading-none gap-1.5 transition-colors ${
+                  className={`mt-0.5 border rounded-md px-1 py-0.5 flex flex-wrap items-center justify-between text-[11px] leading-none gap-x-1 gap-y-0.5 transition-colors ${
                     isGain
                       ? 'bg-emerald-950/90 border-emerald-400/80'
                       : isLoss

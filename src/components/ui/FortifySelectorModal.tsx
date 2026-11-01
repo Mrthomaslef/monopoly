@@ -61,23 +61,23 @@ export const FortifySelectorModal: React.FC = () => {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.94 }}
         transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-        className="fixed inset-x-0 top-[15.5dvh] bottom-[25.5dvh] z-30 flex items-end sm:items-center justify-center px-3 pb-2 pointer-events-none"
+        className="absolute inset-0 z-30 flex items-end sm:items-center justify-center p-2 pointer-events-none"
       >
         <div className="pointer-events-auto w-full max-w-[355px] max-h-full flex flex-col rounded-2xl wood-panel border-4 border-cyan-400/90 shadow-[0_18px_45px_rgba(0,0,0,0.88),0_0_28px_rgba(34,211,238,0.45)] overflow-hidden">
           {/* Header Banner */}
-          <div className="px-3.5 py-2.5 bg-gradient-to-r from-slate-950/90 via-cyan-950/85 to-slate-950/90 border-b-2 border-amber-700/60 flex items-center justify-between gap-2">
+          <div className="shrink-0 px-3 py-2 bg-gradient-to-r from-slate-950/90 via-cyan-950/85 to-slate-950/90 border-b-2 border-amber-700/60 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="p-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/60 text-cyan-300 shrink-0">
                 <Castle className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <h2 className="font-pirata text-lg leading-none tracking-wide text-amber-100 truncate">
+                <h2 className="font-pirata text-lg leading-none tracking-wide text-amber-100">
                   Fortifier une Île
                 </h2>
-                <div className="text-[10px] font-bold text-cyan-200/90 flex items-center gap-2 mt-0.5">
+                <div className="text-[10px] font-bold text-cyan-200/90 flex flex-wrap items-center gap-x-2 mt-0.5">
                   <span>💰 {activePlayer.gold} Or</span>
                   <span>•</span>
-                  <span>🪵 Matériaux : {activePlayer.materials}</span>
+                  <span>🪵 {activePlayer.materials}</span>
                 </div>
               </div>
             </div>
@@ -93,7 +93,7 @@ export const FortifySelectorModal: React.FC = () => {
           </div>
 
           {/* Scrollable List of Upgradable Owned Islands */}
-          <div className="p-2.5 space-y-2 overflow-y-auto pirate-scroll max-h-[38dvh]">
+          <div className="p-2.5 space-y-2 min-h-0 flex-1 overflow-y-auto pirate-scroll">
             {upgradableIslands.map((tile) => {
               const isSelected = focusedOwnedIsland?.id === tile.id;
               const eligible = canFortifyTile(tile);
@@ -137,12 +137,12 @@ export const FortifySelectorModal: React.FC = () => {
                           className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/30"
                           style={{ backgroundColor: tile.color }}
                         />
-                        <span className="text-xs font-black text-amber-950 truncate">
+                        <span className="text-xs font-black leading-tight text-amber-950">
                           {tile.name}
                         </span>
                       </div>
 
-                      <div className="text-[10px] font-extrabold text-amber-900 truncate mt-0.5">
+                      <div className="text-[10px] font-extrabold text-amber-900 mt-0.5">
                         {FORTRESS_LEVEL_NAMES[nextLevel]}
                       </div>
 

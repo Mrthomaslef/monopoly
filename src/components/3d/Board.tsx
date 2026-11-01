@@ -167,46 +167,116 @@ const PirateMapRedTrail: React.FC = React.memo(() => {
   );
 });
 
-const FloatingGoldText3D: React.FC<{ item: FloatingTextItem }> = ({ item }) => {
+function format3DFloatingText(raw: string): string {
+  return raw
+    .replace(/🪵/g, 'Mat.')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const FloatingGoldText3D: React.FC<{
+  item: FloatingTextItem;
+  hasPopup: boolean;
+  stackIndex: number;
+}> = ({ item, hasPopup, stackIndex }) => {
   const groupRef = useRef<THREE.Group>(null);
   const startTime = useRef<number | null>(null);
+  const projVec = useMemo(() => new THREE.Vector3(), []);
   const { position } = getTileTransform(item.tileIndex);
+  const cleanText = useMemo(() => format3DFloatingText(item.text), [item.text]);
 
-  useFrame(({ clock, camera }) => {
+  useFrame(({ clock, camera, size }) => {
     if (startTime.current === null) {
       startTime.current = clock.getElapsedTime();
     }
     const elapsed = clock.getElapsedTime() - startTime.current;
     if (groupRef.current) {
+      const progress = Math.min(1, elapsed / 2.2);
+      const easeOut = 1 - Math.pow(1 - progress, 2.4);
+
+      // When the island card (LandedTilePopup) is open, keep the 3D popup text
+      // lower and slightly forward so it stays framed right above the island
+      // instead of flying off the top of the player's screen.
+      const baseY = (hasPopup ? 0.42 : 0.85) + stackIndex * (hasPopup ? 0.16 : 0.28);
+      const riseSpan = hasPopup ? 0.26 : 0.65;
+      const zOffset = hasPopup ? 0.38 : 0.15;
+
       groupRef.current.position.set(
         position[0],
-        1.05 + elapsed * 0.85,
-        position[2]
+        baseY + easeOut * riseSpan,
+        position[2] + zOffset
       );
-      // Punchy pop-in scale curve
+
+      // Clamp projected position in NDC space so the popup text stays 100% inside
+      // the player's visible screen window (below top HUD & above the island sheet)
+      projVec.copy(groupRef.current.position).project(camera);
+      const topReservedPx = hasPopup
+        ? Math.min(88, size.height * 0.22)
+        : Math.min(60, size.height * 0.15);
+      const maxNdcY = Math.max(
+        0.24,
+        1.0 - (topReservedPx / Math.max(240, size.height)) * 2
+      );
+      const minNdcY = hasPopup ? Math.min(maxNdcY - 0.12, 0.16) : -0.75;
+      const maxNdcX = 0.78;
+
+      const clampedX = Math.max(-maxNdcX, Math.min(maxNdcX, projVec.x));
+      const clampedY = Math.max(minNdcY, Math.min(maxNdcY, projVec.y));
+      if (clampedX !== projVec.x || clampedY !== projVec.y) {
+        projVec.x = clampedX;
+        projVec.y = clampedY;
+        groupRef.current.position.copy(projVec).unproject(camera);
+      }
+
+      // Adapt world-space font scale to the player's screen dimensions (size.width, size.height)
+      // and current camera distance so the text never overflows mobile or small screens
+      const dist = Math.max(1, camera.position.distanceTo(groupRef.current.position));
+      const fovRad = (((camera as THREE.PerspectiveCamera).fov ?? 44) * Math.PI) / 180;
+      const visibleHeight = 2 * dist * Math.tan(fovRad / 2);
+      const worldUnitsPerPixel = visibleHeight / Math.max(1, size.height);
+
+      const estimatedWidthFactor = Math.max(4, cleanText.length) * 0.62;
+      const maxScreenPxWidth = Math.max(
+        120,
+        Math.min(size.width * 0.86, size.width - 28)
+      );
+      const maxFontPxByWidth = maxScreenPxWidth / (estimatedWidthFactor * 1.12);
+      const idealFontPx = Math.min(
+        hasPopup ? 19 : 18,
+        Math.max(12, Math.min(size.width * 0.044, size.height * 0.034))
+      );
+      const responsiveFontPx = Math.max(10, Math.min(idealFontPx, maxFontPxByWidth));
+      const baseWorldScale = responsiveFontPx * worldUnitsPerPixel;
+
+      // Smooth pop-in and fade-out scale curve
       const popScale =
         elapsed < 0.18
-          ? 0.4 + (elapsed / 0.18) * 0.95
+          ? 0.45 + (elapsed / 0.18) * 0.67
           : elapsed < 0.35
-          ? 1.35 - ((elapsed - 0.18) / 0.17) * 0.25
-          : 1.1;
-      groupRef.current.scale.setScalar(popScale);
+          ? 1.12 - ((elapsed - 0.18) / 0.17) * 0.12
+          : elapsed > 1.85
+          ? Math.max(0, 1.0 - (elapsed - 1.85) / 0.35)
+          : 1.0;
+
+      groupRef.current.scale.setScalar(baseWorldScale * popScale);
       groupRef.current.quaternion.copy(camera.quaternion);
     }
   });
 
   return (
-    <group ref={groupRef} position={[position[0], 1.05, position[2]]}>
+    <group ref={groupRef} position={[position[0], 0.5, position[2]]}>
       <Text
         font="./assets/fonts/Cinzel-Bold.ttf"
-        fontSize={0.42}
+        fontSize={1}
         color={item.color}
         anchorX="center"
         anchorY="middle"
-        outlineWidth={0.052}
+        textAlign="center"
+        outlineWidth={0.12}
         outlineColor="#020617"
       >
-        {item.text}
+        {cleanText}
       </Text>
     </group>
   );
@@ -218,9 +288,12 @@ export const Board: React.FC = () => {
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
+  const spotlightPlayerId = useGameStore((s) => s.spotlightPlayerId);
   const floatingTexts = useGameStore((s) => s.floatingTexts);
+  const landedTilePopup = useGameStore((s) => s.landedTilePopup);
 
   const activePlayer = players[currentPlayerIndex];
+  const hasPopup = Boolean(landedTilePopup);
 
   const handleSelectTile = useCallback((tileId: number) => {
     useGameStore.getState().inspectTileCard(tileId);
@@ -272,6 +345,7 @@ export const Board: React.FC = () => {
           key={player.id}
           player={player}
           isActive={activePlayer?.id === player.id}
+          isSpotlighted={spotlightPlayerId === player.id}
         />
       ))}
 
@@ -282,8 +356,13 @@ export const Board: React.FC = () => {
       <CannonballEffect />
 
       {/* 3D Floating Gold Texts (+150 Or / -150 Or) */}
-      {floatingTexts.map((item) => (
-        <FloatingGoldText3D key={item.id} item={item} />
+      {floatingTexts.map((item, idx) => (
+        <FloatingGoldText3D
+          key={item.id}
+          item={item}
+          hasPopup={hasPopup}
+          stackIndex={idx}
+        />
       ))}
     </group>
   );

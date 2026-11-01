@@ -39,31 +39,31 @@ export const NavalBattleModal: React.FC = () => {
         initial={{ opacity: 0, y: 20, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="fixed inset-x-3 top-[16.5dvh] z-40 mx-auto max-w-sm pointer-events-auto"
+        className="safe-modal fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
       >
-        <div className="wood-panel border-2 border-amber-400 rounded-2xl p-3.5 shadow-[0_14px_45px_rgba(0,0,0,0.9)] text-amber-50">
+        <div className="pointer-events-auto w-full max-w-sm max-h-full overflow-y-auto pirate-scroll wood-panel border-2 border-amber-400 rounded-2xl p-3 shadow-[0_14px_45px_rgba(0,0,0,0.9)] text-amber-50">
           {/* Header Banner */}
-          <div className="flex items-center justify-between border-b border-amber-700/60 pb-2 mb-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-amber-700/60 pb-2 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
               <div className="p-1.5 rounded-lg bg-rose-600/90 text-white shadow">
                 <Swords className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-wider text-amber-300">
-                  Bataille Navale — Abordage !
+                  Abordage !
                 </h3>
                 <p className="text-[11px] text-amber-200/80">
-                  Conflit au large de <strong className="text-amber-100">{tile?.name}</strong>
+                  Au large de <strong className="text-amber-100">{tile?.name}</strong>
                 </p>
               </div>
             </div>
             <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300">
-              Enjeu: 150 Or + 1 🪵
+              150 Or + 1 🪵
             </span>
           </div>
 
           {/* Combatants Duel Row with Winner Celebration & Loser Impact Shake */}
-          <div className="grid grid-cols-7 items-center gap-2 my-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 mt-4 mb-3">
             {/* Attacker Card */}
             <motion.div
               key={`atk-${navalBattle.phase}-${attackerWon ? 'win' : 'norm'}`}
@@ -82,7 +82,7 @@ export const NavalBattleModal: React.FC = () => {
                   : { scale: 1, x: 0, y: 0, opacity: 1 }
               }
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className={`relative col-span-3 parchment-card rounded-xl p-2 text-center border-2 flex flex-col items-center transition-shadow ${
+              className={`relative min-w-0 parchment-card rounded-xl p-2 text-center border-2 flex flex-col items-center transition-shadow ${
                 attackerWon
                   ? 'border-amber-300 ring-4 ring-amber-400/80 shadow-[0_0_28px_rgba(251,191,36,0.95)] z-10'
                   : attackerLost
@@ -96,7 +96,7 @@ export const NavalBattleModal: React.FC = () => {
                   initial={{ scale: 0, y: 8, rotate: -12 }}
                   animate={{ scale: 1, y: 0, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 420, damping: 16 }}
-                  className="absolute -top-3 inset-x-2 mx-auto w-fit px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider border-2 border-white shadow-lg flex items-center gap-1"
+                  className="absolute -top-3 inset-x-2 mx-auto w-fit px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-slate-950 font-black text-[10px] uppercase border-2 border-white shadow-lg flex items-center gap-1 whitespace-nowrap"
                 >
                   <Trophy className="w-3 h-3 text-amber-950 fill-amber-950 shrink-0" />
                   <span>Vainqueur !</span>
@@ -109,7 +109,7 @@ export const NavalBattleModal: React.FC = () => {
                   initial={{ opacity: 0, scale: 0.4, y: 10 }}
                   animate={{ opacity: 1, scale: [1.2, 1], y: 0 }}
                   transition={{ type: 'spring', stiffness: 380, damping: 16 }}
-                  className={`mt-1 mb-1 px-2 py-0.5 rounded-full text-[11px] font-black border shadow-md ${
+                  className={`mt-1 mb-1 px-2 py-0.5 rounded-full text-[11px] font-black leading-tight border shadow-md ${
                     attackerWon
                       ? 'bg-emerald-500 text-slate-950 border-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.85)]'
                       : 'bg-rose-600 text-white border-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.8)]'
@@ -136,7 +136,7 @@ export const NavalBattleModal: React.FC = () => {
                 />
               </div>
 
-              <div className="text-xs font-black truncate text-amber-950 mt-1 max-w-full">
+              <div className="text-xs font-black leading-tight text-amber-950 mt-1">
                 {attacker.name}
               </div>
               <div className="text-[10px] font-bold text-rose-800 uppercase">
@@ -156,7 +156,7 @@ export const NavalBattleModal: React.FC = () => {
             </motion.div>
 
             {/* VS / Loot Transfer Divider */}
-            <div className="col-span-1 flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center justify-center">
               {isResolved ? (
                 <motion.div
                   initial={{ scale: 0.5, opacity: 0 }}
@@ -197,7 +197,7 @@ export const NavalBattleModal: React.FC = () => {
                   : { scale: 1, x: 0, y: 0, opacity: 1 }
               }
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className={`relative col-span-3 parchment-card rounded-xl p-2 text-center border-2 flex flex-col items-center transition-shadow ${
+              className={`relative min-w-0 parchment-card rounded-xl p-2 text-center border-2 flex flex-col items-center transition-shadow ${
                 defenderWon
                   ? 'border-amber-300 ring-4 ring-amber-400/80 shadow-[0_0_28px_rgba(251,191,36,0.95)] z-10'
                   : defenderLost
@@ -211,7 +211,7 @@ export const NavalBattleModal: React.FC = () => {
                   initial={{ scale: 0, y: 8, rotate: 12 }}
                   animate={{ scale: 1, y: 0, rotate: 0 }}
                   transition={{ type: 'spring', stiffness: 420, damping: 16 }}
-                  className="absolute -top-3 inset-x-2 mx-auto w-fit px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider border-2 border-white shadow-lg flex items-center gap-1"
+                  className="absolute -top-3 inset-x-2 mx-auto w-fit px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 text-slate-950 font-black text-[10px] uppercase border-2 border-white shadow-lg flex items-center gap-1 whitespace-nowrap"
                 >
                   <Trophy className="w-3 h-3 text-amber-950 fill-amber-950 shrink-0" />
                   <span>Vainqueur !</span>
@@ -224,7 +224,7 @@ export const NavalBattleModal: React.FC = () => {
                   initial={{ opacity: 0, scale: 0.4, y: 10 }}
                   animate={{ opacity: 1, scale: [1.2, 1], y: 0 }}
                   transition={{ type: 'spring', stiffness: 380, damping: 16 }}
-                  className={`mt-1 mb-1 px-2 py-0.5 rounded-full text-[11px] font-black border shadow-md ${
+                  className={`mt-1 mb-1 px-2 py-0.5 rounded-full text-[11px] font-black leading-tight border shadow-md ${
                     defenderWon
                       ? 'bg-emerald-500 text-slate-950 border-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.85)]'
                       : 'bg-rose-600 text-white border-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.8)]'
@@ -251,7 +251,7 @@ export const NavalBattleModal: React.FC = () => {
                 />
               </div>
 
-              <div className="text-xs font-black truncate text-amber-950 mt-1 max-w-full">
+              <div className="text-xs font-black leading-tight text-amber-950 mt-1">
                 {defender.name}
               </div>
               <div className="text-[10px] font-bold text-sky-900 uppercase">

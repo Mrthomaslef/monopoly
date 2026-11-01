@@ -17,6 +17,8 @@ const SmartCameraRig: React.FC = () => {
     (s) => s.players[s.currentPlayerIndex]?.position ?? 0
   );
   const focusedTileIndex = useGameStore((s) => s.focusedTileIndex);
+  const landedTilePopup = useGameStore((s) => s.landedTilePopup);
+  const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const navalBattle = useGameStore((s) => s.navalBattle);
   const cameraShake = useGameStore((s) => s.cameraShake);
 
@@ -39,6 +41,15 @@ const SmartCameraRig: React.FC = () => {
 
     const tilePos = getTileTransform(tileIndexToTrack).position;
 
+    // Keep camera focused on the landed/inspected tile after movement so the player is never disoriented
+    const shouldStayOnTile =
+      cameraMode === 'FOLLOW' ||
+      phase === 'MOVING' ||
+      phase === 'TILE_ACTION' ||
+      phase === 'END_TURN' ||
+      Boolean(landedTilePopup) ||
+      showFortifyModal;
+
     if (phase === 'NAVAL_BATTLE' && navalBattle?.active) {
       // Close-up dramatic Naval Battle camera on the contested tile
       desiredTarget.current.set(tilePos[0], 0.35, tilePos[2]);
@@ -49,9 +60,12 @@ const SmartCameraRig: React.FC = () => {
       );
       camera.position.lerp(desiredPosition.current, Math.min(1, delta * 4.2));
       controlsRef.current.target.lerp(desiredTarget.current, Math.min(1, delta * 5.0));
-    } else if (cameraMode === 'FOLLOW' || phase === 'MOVING') {
-      // Follow camera tracking the active ship hopping tile by tile
-      desiredTarget.current.set(tilePos[0], 0.25, tilePos[2]);
+    } else if (shouldStayOnTile) {
+      // Follow camera tracking the active ship and staying calmly on the landed tile
+      // When the tile card popup is open, frame the 3D tile slightly higher in the viewport so both the 3D island and the card are clearly visible
+      const targetY = landedTilePopup ? -0.35 : 0.25;
+      const targetZOffset = landedTilePopup ? 0.65 : 0;
+      desiredTarget.current.set(tilePos[0], targetY, tilePos[2] + targetZOffset);
       const radialX = tilePos[0] * 1.48;
       const radialZ = tilePos[2] * 1.48 + 3.2;
       desiredPosition.current.set(radialX, 5.6, radialZ);
@@ -59,7 +73,7 @@ const SmartCameraRig: React.FC = () => {
       camera.position.lerp(desiredPosition.current, Math.min(1, delta * 3.8));
       controlsRef.current.target.lerp(desiredTarget.current, Math.min(1, delta * 5.0));
     } else {
-      // Global overview tilted for mobile portrait readability
+      // Global overview tilted for mobile portrait readability (used during IDLE / ROLLING)
       desiredTarget.current.set(0, -0.2, 0.35);
       desiredPosition.current.set(
         0,
@@ -67,8 +81,8 @@ const SmartCameraRig: React.FC = () => {
         9.8 * portraitMultiplier
       );
 
-      // Gentle interpolation back to global view when not manually dragging
-      controlsRef.current.target.lerp(desiredTarget.current, Math.min(1, delta * 3.2));
+      // Gentle interpolation back to global view when rolling dice or starting turn
+      controlsRef.current.target.lerp(desiredTarget.current, Math.min(1, delta * 2.8));
       if (phase === 'IDLE' || phase === 'ROLLING') {
         camera.position.lerp(desiredPosition.current, Math.min(1, delta * 2.2));
       }

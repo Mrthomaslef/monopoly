@@ -297,7 +297,7 @@ export const LandedTilePopup: React.FC = () => {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.8, y: 20 }}
         transition={{ type: 'spring', stiffness: 360, damping: 24 }}
-        className="fixed inset-x-0 top-[15.5dvh] bottom-[25.5dvh] z-30 flex items-center justify-center px-4 pointer-events-none"
+        className="fixed inset-x-0 top-[15.5dvh] bottom-[25.5dvh] z-30 flex items-end justify-center px-4 pb-2 pointer-events-none"
       >
         <div
           className={`pointer-events-auto relative w-full max-w-[330px] rounded-2xl border-4 ${styleCfg.borderClass} overflow-hidden shadow-2xl`}

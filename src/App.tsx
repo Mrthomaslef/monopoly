@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Dices, Users, Eye } from 'lucide-react';
+import { Coins, Dices, Users, Eye, Compass } from 'lucide-react';
 import { Scene } from './components/3d/Scene';
 import { TopHUD } from './components/ui/TopHUD';
 import { BottomDeck } from './components/ui/BottomDeck';
@@ -21,9 +21,15 @@ export const App: React.FC = () => {
   const floatingTexts = useGameStore((s) => s.floatingTexts);
   const showSetupModal = useGameStore((s) => s.showSetupModal);
   const landedTilePopup = useGameStore((s) => s.landedTilePopup);
+  const diceStowed = useGameStore((s) => s.diceStowed);
+  const setDiceStowed = useGameStore((s) => s.setDiceStowed);
+  const setCameraMode = useGameStore((s) => s.setCameraMode);
   const rollDice = useGameStore((s) => s.rollDice);
 
   const activePlayer = players[currentPlayerIndex];
+  const isHumanTurn = Boolean(
+    activePlayer && !activePlayer.isAI && !activePlayer.bankrupt
+  );
   const humanPlayersCount = players.filter((p) => !p.isAI && !p.bankrupt).length;
   const isLocalMultiplayer = humanPlayersCount >= 2;
 
@@ -37,10 +43,23 @@ export const App: React.FC = () => {
   const showPassAndPlayHandoff =
     isLocalMultiplayer &&
     phase === 'IDLE' &&
-    Boolean(activePlayer && !activePlayer.isAI && !activePlayer.bankrupt) &&
+    isHumanTurn &&
     !showSetupModal &&
     !landedTilePopup &&
+    !diceStowed &&
     dismissedHandoffTurn !== currentPlayerIndex;
+
+  const showDiceStowToggle =
+    isHumanTurn && phase === 'IDLE' && !showSetupModal && !landedTilePopup;
+
+  const handleToggleDiceStowed = () => {
+    const nextStowed = !diceStowed;
+    setDiceStowed(nextStowed);
+    if (nextStowed) {
+      setCameraMode('GLOBAL');
+      setDismissedHandoffTurn(currentPlayerIndex);
+    }
+  };
 
   return (
     <main className="relative w-full h-[100dvh] overflow-hidden flex flex-col bg-slate-950 select-none">
@@ -101,6 +120,47 @@ export const App: React.FC = () => {
           </AnimatePresence>
         </div>
 
+        {/* Bottom-Right Icon Button: Stow Dice & Toggle Free Board Camera */}
+        <AnimatePresence>
+          {showDiceStowToggle && (
+            <motion.button
+              key="stow-dice-toggle"
+              initial={{ opacity: 0, scale: 0.8, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 10 }}
+              whileTap={{ scale: 0.92 }}
+              type="button"
+              onClick={handleToggleDiceStowed}
+              title={
+                diceStowed
+                  ? 'Reprendre les dés pour lancer'
+                  : 'Ranger les dés et passer en caméra libre sur le plateau'
+              }
+              className={`pointer-events-auto absolute bottom-3 right-3 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl border-2 shadow-[0_10px_25px_rgba(0,0,0,0.85)] cursor-pointer transition-colors ${
+                diceStowed
+                  ? 'bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 border-amber-100'
+                  : 'wood-panel text-amber-200 border-amber-400/70 hover:border-amber-300'
+              }`}
+            >
+              {diceStowed ? (
+                <>
+                  <Dices className="w-4 h-4 shrink-0 animate-bounce" />
+                  <span className="text-[11px] font-black uppercase tracking-wider">
+                    Sortir les Dés
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Compass className="w-4 h-4 text-amber-300 shrink-0" />
+                  <span className="text-[11px] font-black uppercase tracking-wider">
+                    Caméra Libre
+                  </span>
+                </>
+              )}
+            </motion.button>
+          )}
+        </AnimatePresence>
+
         {/* Local Multiplayer (Pass & Play) Turn Handoff Card */}
         <AnimatePresence>
           {showPassAndPlayHandoff && activePlayer && (
@@ -110,7 +170,7 @@ export const App: React.FC = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 14 }}
               transition={{ type: 'spring', stiffness: 360, damping: 24 }}
-              className="pointer-events-none absolute inset-x-4 bottom-3 z-25 flex justify-center"
+              className="pointer-events-none absolute inset-x-4 bottom-14 z-25 flex justify-center"
             >
               <div
                 className="pointer-events-auto w-full max-w-[330px] wood-panel rounded-2xl border-3 p-3 shadow-[0_16px_40px_rgba(0,0,0,0.9)] text-white"
@@ -160,9 +220,13 @@ export const App: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => setDismissedHandoffTurn(currentPlayerIndex)}
+                    onClick={() => {
+                      setDismissedHandoffTurn(currentPlayerIndex);
+                      setDiceStowed(true);
+                      setCameraMode('GLOBAL');
+                    }}
                     className="wood-plank py-2.5 px-2.5 rounded-xl text-xs font-bold text-amber-200 border border-amber-500/40 flex items-center justify-center gap-1 cursor-pointer shrink-0"
-                    title="Inspecter le plateau avant de lancer"
+                    title="Ranger les dés et inspecter le plateau librement"
                   >
                     <Eye className="w-4 h-4 text-amber-300" />
                     <span>Plateau</span>

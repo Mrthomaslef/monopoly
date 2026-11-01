@@ -647,6 +647,7 @@ interface GameState {
   showSetupModal: boolean;
   showFortifyModal: boolean;
   showUpgradesModal: boolean;
+  diceStowed: boolean;
   tiles: TileData[];
   currentPlayerIndex: number;
   phase: TurnPhase;
@@ -673,6 +674,7 @@ interface GameState {
   setShowSetupModal: (show: boolean) => void;
   setShowFortifyModal: (show: boolean) => void;
   setShowUpgradesModal: (show: boolean) => void;
+  setDiceStowed: (stowed: boolean) => void;
   dismissLandedTilePopup: () => void;
   inspectTileCard: (tileId: number) => void;
   startCustomGame: (slots: PlayerSlotConfig[]) => void;
@@ -705,6 +707,7 @@ export const useGameStore = create<GameState>()(
   showSetupModal: true,
   showFortifyModal: false,
   showUpgradesModal: false,
+  diceStowed: false,
   tiles: INITIAL_TILES.map((t) => ({ ...t })),
   currentPlayerIndex: 0,
   phase: 'IDLE',
@@ -747,6 +750,12 @@ export const useGameStore = create<GameState>()(
       landedTilePopup: show ? null : state.landedTilePopup,
     })),
 
+  setDiceStowed: (stowed) =>
+    set((state) => ({
+      diceStowed: stowed,
+      landedTilePopup: stowed ? null : state.landedTilePopup,
+    })),
+
   dismissLandedTilePopup: () => set({ landedTilePopup: null }),
 
   inspectTileCard: (tileId) => {
@@ -779,6 +788,7 @@ export const useGameStore = create<GameState>()(
       showSetupModal: false,
       showFortifyModal: false,
       showUpgradesModal: false,
+      diceStowed: false,
       tiles: INITIAL_TILES.map((t) => ({
         ...t,
         ownerId: null,
@@ -896,6 +906,7 @@ export const useGameStore = create<GameState>()(
     set({
       phase: 'ROLLING',
       isRollingDice: true,
+      diceStowed: false,
       hasAttackedThisTurn: false,
       dice: [d1, d2],
       focusedTileIndex: currentPlayer.position,
@@ -1624,6 +1635,7 @@ export const useGameStore = create<GameState>()(
       hasFiredCulverinThisTurn: false,
       showFortifyModal: false,
       showUpgradesModal: false,
+      diceStowed: false,
       focusedTileIndex: nextPlayer.position,
       activeCard: null,
       landedTilePopup: null,

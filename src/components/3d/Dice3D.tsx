@@ -231,6 +231,7 @@ export const Dice3D: React.FC = () => {
   const players = useGameStore((s) => s.players);
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const showSetupModal = useGameStore((s) => s.showSetupModal);
+  const diceStowed = useGameStore((s) => s.diceStowed);
   const rollDice = useGameStore((s) => s.rollDice);
 
   const containerRef = useRef<THREE.Group>(null);
@@ -240,10 +241,10 @@ export const Dice3D: React.FC = () => {
   const isHumanTurn =
     Boolean(activePlayer) && !activePlayer.isAI && !activePlayer.bankrupt;
 
-  // Bring dice close to the screen when it's the player's turn to roll (or while rolling)
+  // Bring dice close to the screen when it's the player's turn to roll (unless stowed for free camera) or while rolling
   const shouldZoomToScreen =
     !showSetupModal &&
-    ((isHumanTurn && phase === 'IDLE') || phase === 'ROLLING');
+    ((isHumanTurn && phase === 'IDLE' && !diceStowed) || phase === 'ROLLING');
 
   const forwardVec = useRef(new THREE.Vector3());
   const upVec = useRef(new THREE.Vector3());

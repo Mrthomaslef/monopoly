@@ -21,6 +21,14 @@ const SmartCameraRig: React.FC = () => {
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const navalBattle = useGameStore((s) => s.navalBattle);
   const cameraShake = useGameStore((s) => s.cameraShake);
+  const diceStowed = useGameStore((s) => s.diceStowed);
+
+  const isFreeCamera =
+    phase === 'IDLE' &&
+    diceStowed &&
+    cameraMode === 'GLOBAL' &&
+    !landedTilePopup &&
+    !showFortifyModal;
 
   const desiredTarget = useRef(new THREE.Vector3(0, 0, 0));
   const desiredPosition = useRef(new THREE.Vector3(0, 13.5, 11.5));
@@ -72,8 +80,8 @@ const SmartCameraRig: React.FC = () => {
 
       camera.position.lerp(desiredPosition.current, Math.min(1, delta * 3.8));
       controlsRef.current.target.lerp(desiredTarget.current, Math.min(1, delta * 5.0));
-    } else {
-      // Global overview tilted for mobile portrait readability (used during IDLE / ROLLING)
+    } else if (!isFreeCamera) {
+      // Global overview tilted for mobile portrait readability (used during IDLE / ROLLING when dice are out)
       desiredTarget.current.set(0, -0.2, 0.35);
       desiredPosition.current.set(
         0,
@@ -103,14 +111,14 @@ const SmartCameraRig: React.FC = () => {
       ref={controlsRef}
       enableDamping
       dampingFactor={0.08}
-      enablePan={false}
-      minDistance={3.8}
-      maxDistance={24}
-      minPolarAngle={0.35}
+      enablePan={isFreeCamera}
+      minDistance={3.2}
+      maxDistance={26}
+      minPolarAngle={0.28}
       maxPolarAngle={Math.PI / 2 - 0.12} // Never dip below the Caribbean ocean surface
       touches={{
         ONE: THREE.TOUCH.ROTATE,
-        TWO: THREE.TOUCH.DOLLY_ROTATE,
+        TWO: isFreeCamera ? THREE.TOUCH.DOLLY_PAN : THREE.TOUCH.DOLLY_ROTATE,
       }}
     />
   );

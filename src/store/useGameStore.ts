@@ -185,14 +185,15 @@ export function getTileTransform(index: number): {
 }
 
 /**
- * Returns a slight offset on a tile so multiple ships on the same tile remain distinct
+ * Returns a slight offset on the central red pirate map trail so multiple ships on the same tile remain distinct
+ * while keeping the center of the tile completely clear of the outer scenery props
  */
 export function getShipSlotOffset(playerId: number): [number, number, number] {
   const offsets: [number, number, number][] = [
-    [-0.26, 0, -0.22],
-    [0.26, 0, -0.22],
-    [-0.26, 0, 0.24],
-    [0.26, 0, 0.24],
+    [-0.18, 0, -0.02],
+    [0.18, 0, -0.02],
+    [-0.18, 0, 0.18],
+    [0.18, 0, 0.18],
   ];
   return offsets[playerId % 4];
 }

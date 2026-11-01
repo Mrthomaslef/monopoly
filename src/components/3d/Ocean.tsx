@@ -203,16 +203,15 @@ export const Ocean: React.FC = () => {
   const caveLightRef = useRef<THREE.PointLight>(null);
   const tortugaJackpot = useGameStore((s) => s.tortugaJackpot);
 
-  const [compassTexture, sandTexture, rockTexture, skullCaveTexture] =
+  const [compassTexture, sandTexture, rockTexture, skullAlbedoTexture] =
     useTexture([
       './assets/compass_emblem.jpg',
       './assets/sand_beach.jpg',
       './assets/coastal_rock.jpg',
-      './assets/center_skull_cave.png',
+      './assets/skull_3d_albedo.jpg',
     ]);
 
-  // Load the true 3D volumetric mesh (15,318 vertices / 30,676 triangles in X, Y, Z)
-  // built from the Higgsfield Soul V2 Skull Cave asset
+  // Load the true 3D anatomical Skull model (26,202 vertices / 50,319 triangles in X, Y, Z)
   const { nodes } = useGLTF('./assets/center_skull_cave.glb') as unknown as {
     nodes: {
       HiggsfieldSkullCave3D: THREE.Mesh;
@@ -236,7 +235,7 @@ export const Ocean: React.FC = () => {
       torchGlowRef.current.scale.set(pulse, pulse, 1);
     }
     if (caveLightRef.current) {
-      caveLightRef.current.intensity = 2.2 + Math.sin(t * 5.5) * 0.45;
+      caveLightRef.current.intensity = 2.4 + Math.sin(t * 5.5) * 0.45;
     }
   });
 
@@ -253,7 +252,7 @@ export const Ocean: React.FC = () => {
         />
       </mesh>
 
-      {/* Central Decorative Treasure Island with True 3D Volumetric (X, Y, Z) Higgsfield Skull Cave */}
+      {/* Central Decorative Treasure Island with True 3D Sculpted Skull Model */}
       <group position={[0, -0.08, 0]}>
         {/* Outer Submerged Golden Sandbar */}
         <mesh position={[0, 0.06, 0]} receiveShadow>
@@ -293,70 +292,69 @@ export const Ocean: React.FC = () => {
           />
         </mesh>
 
-        {/* 3D Sculpted Volcanic & Limestone Cliff Formation around the 3D Skull Cave (X, Y, Z Volume) */}
+        {/* 3D Sculpted Coastal Rock Formation flanking the 3D Skull */}
         <mesh
-          position={[0, 0.92, -0.42]}
-          rotation={[0.06, 0.35, 0]}
-          castShadow
-          receiveShadow
-        >
-          <dodecahedronGeometry args={[1.08, 2]} />
-          <meshStandardMaterial
-            map={rockTexture}
-            bumpMap={rockTexture}
-            bumpScale={0.055}
-            color="#64748b"
-            roughness={0.88}
-          />
-        </mesh>
-        <mesh
-          position={[-0.82, 0.62, -0.25]}
+          position={[-0.86, 0.54, -0.28]}
           rotation={[0.12, -0.45, -0.15]}
           castShadow
           receiveShadow
         >
-          <dodecahedronGeometry args={[0.62, 1]} />
+          <dodecahedronGeometry args={[0.52, 1]} />
           <meshStandardMaterial
             map={rockTexture}
             bumpMap={rockTexture}
-            bumpScale={0.045}
-            color="#475569"
+            bumpScale={0.04}
+            color="#57534e"
             roughness={0.9}
           />
         </mesh>
         <mesh
-          position={[0.82, 0.6, -0.25]}
+          position={[0.86, 0.52, -0.28]}
           rotation={[0.1, 0.55, 0.14]}
           castShadow
           receiveShadow
         >
-          <dodecahedronGeometry args={[0.6, 1]} />
+          <dodecahedronGeometry args={[0.5, 1]} />
           <meshStandardMaterial
             map={rockTexture}
             bumpMap={rockTexture}
-            bumpScale={0.045}
-            color="#475569"
+            bumpScale={0.04}
+            color="#57534e"
             roughness={0.9}
           />
         </mesh>
 
-        {/* TRUE 3D VOLUMETRIC SKULL CAVE MESH IN X, Y, AND Z (30,676 Triangles from Higgsfield Soul V2) */}
+        {/* TRUE 3D SCULPTED SKULL MODEL (50,319 Triangles in X, Y, Z with Baked 3D AO & Stone/Bone Texture) */}
         {nodes?.HiggsfieldSkullCave3D && (
-          <mesh
-            geometry={nodes.HiggsfieldSkullCave3D.geometry}
-            position={[0, 0.24, -0.12]}
-            scale={[1.06, 1.04, 1.22]}
-            castShadow
-            receiveShadow
-          >
-            <meshStandardMaterial
-              map={skullCaveTexture}
-              bumpMap={skullCaveTexture}
-              bumpScale={0.085}
-              roughness={0.48}
-              metalness={0.12}
-            />
-          </mesh>
+          <group position={[0, 0.32, -0.14]} rotation={[-0.08, 0, 0]}>
+            <mesh
+              geometry={nodes.HiggsfieldSkullCave3D.geometry}
+              scale={[1.28, 1.28, 1.28]}
+              castShadow
+              receiveShadow
+            >
+              <meshStandardMaterial
+                map={skullAlbedoTexture}
+                bumpMap={skullAlbedoTexture}
+                bumpScale={0.035}
+                color="#f5ead6"
+                roughness={0.58}
+                metalness={0.08}
+              />
+            </mesh>
+
+            {/* Glowing Golden Pirate Eye Orbs deep inside the 3D Skull Eye Sockets */}
+            {[-0.25, 0.25].map((eyeX, idx) => (
+              <mesh key={idx} position={[eyeX, 0.82, 0.72]}>
+                <sphereGeometry args={[0.075, 12, 12]} />
+                <meshStandardMaterial
+                  color="#fde047"
+                  emissive="#f59e0b"
+                  emissiveIntensity={2.2}
+                />
+              </mesh>
+            ))}
+          </group>
         )}
 
         {/* 3D Volumetric Treasure Chest & Gold Doubloon Mounds at the Jaw Entrance of the 3D Skull Cave */}

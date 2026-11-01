@@ -1,106 +1,30 @@
 #!/usr/bin/env python3
 """
-Construit un vrai maillage 3D volumétrique fermé en (X, Y, Z) (format glTF 2.0 binaire .glb)
-à partir de l'asset de la Grotte en Crâne généré par Higgsfield Soul V2 (public/assets/center_skull_cave.png).
-
-Le maillage 3D possède :
-- Une géométrie 3D complète sur les 3 axes X, Y et Z (dôme crânien, arcades sourcilières, pommettes,
-  orbites creusées en 3D, cavité nasale, mâchoire ouverte en caverne 3D avec trésor en relief,
-  et massif rocheux arrière 3D fermé à 360°).
-- Coordonnées UV exactes mappées sur la texture Higgsfield Soul V2.
-- Normales 3D par sommet (nx, ny, nz) pour un éclairage dynamique réaliste sous tous les angles de caméra.
+Construit un vrai modèle 3D de Crâne Pirate (Grotte du Crâne) en 3D complète (X, Y, Z)
+pour l'île centrale du trésor :
+1. Extrait le maillage 3D anatomique haute précision du crâne (POSITION, NORMAL, TEXCOORD_0)
+   ainsi que sa carte d'Ambient Occlusion 3D (AO-thickness).
+2. Simplifie/optimise le maillage par clustering spatial 3D (grille fine) avec recalcul
+   des normales lissées pour un fichier .glb léger (~850 Ko) et ultra-fluide sur mobile.
+3. Génère la texture UV PBR du crâne (public/assets/skull_3d_albedo.jpg) en fusionnant
+   la carte d'Ambient Occlusion 3D du crâne avec la texture de pierre/roche pirate générée par Higgsfield.
 """
+import io
 import json
 import math
 import os
 import shutil
 import struct
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageEnhance
 
-GRID_W = 120
-GRID_H = 120
-
-# Dimensions 3D en unités monde Three.js (X: largeur, Y: hauteur, Z: profondeur)
-WIDTH_X = 2.55
-HEIGHT_Y = 2.45
-DEPTH_Z = 1.95
-
-
-def compute_edt_2d(inside_mask: list[list[bool]], w: int, h: int) -> list[list[float]]:
-    """
-    Calcule la transformée en distance euclidienne (EDT) 2D exacte depuis le bord de la silhouette.
-    Retourne 0.0 à l'extérieur et sur le contour, et la distance en pixels vers l'intérieur.
-    """
-    INF = 1e9
-    dist = [[INF if inside_mask[y][x] else 0.0 for x in range(w)] for y in range(h)]
-
-    # Passe avant (haut-gauche -> bas-droite)
-    for y in range(h):
-        for x in range(w):
-            if not inside_mask[y][x]:
-                continue
-            d = dist[y][x]
-            if x > 0:
-                d = min(d, dist[y][x - 1] + 1.0)
-            if y > 0:
-                d = min(d, dist[y - 1][x] + 1.0)
-            if x > 0 and y > 0:
-                d = min(d, dist[y - 1][x - 1] + 1.41421356)
-            if x < w - 1 and y > 0:
-                d = min(d, dist[y - 1][x + 1] + 1.41421356)
-            dist[y][x] = d
-
-    # Passe arrière (bas-droite -> haut-gauche)
-    for y in range(h - 1, -1, -1):
-        for x in range(w - 1, -1, -1):
-            if not inside_mask[y][x]:
-                continue
-            d = dist[y][x]
-            if x < w - 1:
-                d = min(d, dist[y][x + 1] + 1.0)
-            if y < h - 1:
-                d = min(d, dist[y + 1][x] + 1.0)
-            if x < w - 1 and y < h - 1:
-                d = min(d, dist[y + 1][x + 1] + 1.41421356)
-            if x > 0 and y < h - 1:
-                d = min(d, dist[y + 1][x - 1] + 1.41421356)
-            dist[y][x] = d
-
-    return dist
-
-
-def smooth_field(field: list[list[float]], w: int, h: int, passes: int = 2) -> list[list[float]]:
-    cur = [row[:] for row in field]
-    for _ in range(passes):
-        nxt = [[0.0] * w for _ in range(h)]
-        for y in range(h):
-            for x in range(w):
-                acc = cur[y][x] * 4.0
-                weight = 4.0
-                for dx, dy, wgt in (
-                    (-1, 0, 2.0),
-                    (1, 0, 2.0),
-                    (0, -1, 2.0),
-                    (0, 1, 2.0),
-                    (-1, -1, 1.0),
-                    (1, -1, 1.0),
-                    (-1, 1, 1.0),
-                    (1, 1, 1.0),
-                ):
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        acc += cur[ny][nx] * wgt
-                        weight += wgt
-                nxt[y][x] = acc / weight
-        cur = nxt
-    return cur
+SOURCE_GLB = "/tmp/ScatteringSkull.glb"
 
 
 def normalize_v3(vx: float, vy: float, vz: float) -> tuple[float, float, float]:
-    length = math.sqrt(vx * vx + vy * vy + vz * vz)
-    if length < 1e-8:
+    l = math.sqrt(vx * vx + vy * vy + vz * vz)
+    if l < 1e-8:
         return (0.0, 1.0, 0.0)
-    return (vx / length, vy / length, vz / length)
+    return (vx / l, vy / l, vz / l)
 
 
 def build_glb_bytes(
@@ -109,9 +33,6 @@ def build_glb_bytes(
     uvs: list[tuple[float, float]],
     indices: list[int],
 ) -> bytes:
-    """
-    Encode un maillage 3D (positions, normals, uvs, indices) en fichier binaire glTF 2.0 (.glb) standard.
-    """
     pos_bin = bytearray()
     min_x = min_y = min_z = 1e9
     max_x = max_y = max_z = -1e9
@@ -142,7 +63,6 @@ def build_glb_bytes(
     for idx in indices:
         idx_bin.extend(struct.pack("<I", idx))
 
-    # Alignement sur 4 octets
     def pad4(b: bytearray) -> bytes:
         rem = len(b) % 4
         if rem:
@@ -163,7 +83,7 @@ def build_glb_bytes(
     bin_chunk_data = pos_bytes + norm_bytes + uv_bytes + idx_bytes
 
     gltf_dict = {
-        "asset": {"version": "2.0", "generator": "Higgsfield3DSkullBuilder"},
+        "asset": {"version": "2.0", "generator": "PiratesPlunder3DSkullBuilder"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
         "nodes": [{"mesh": 0, "name": "HiggsfieldSkullCave3D"}],
@@ -258,234 +178,145 @@ def build_glb_bytes(
 
 
 def main() -> None:
-    png_path = "public/assets/center_skull_cave.png"
-    if not os.path.exists(png_path):
-        raise FileNotFoundError(f"Fichier introuvable : {png_path}")
+    with open(SOURCE_GLB, "rb") as f:
+        magic, ver, length = struct.unpack("<III", f.read(12))
+        jlen, jtype = struct.unpack("<II", f.read(8))
+        jdata = json.loads(f.read(jlen).decode("utf-8"))
+        blen, btype = struct.unpack("<II", f.read(8))
+        bdata = f.read(blen)
 
-    img = Image.open(png_path).convert("RGBA")
-    # Échantillonnage sur la grille 3D (GRID_W x GRID_H)
-    small = img.resize((GRID_W, GRID_H), Image.Resampling.LANCZOS)
-    small_blur = small.filter(ImageFilter.GaussianBlur(radius=2.2))
+    prim = jdata["meshes"][0]["primitives"][0]
+    acc_pos = jdata["accessors"][prim["attributes"]["POSITION"]]
+    acc_norm = jdata["accessors"][prim["attributes"]["NORMAL"]]
+    acc_uv = jdata["accessors"][prim["attributes"]["TEXCOORD_0"]]
+    acc_idx = jdata["accessors"][prim["indices"]]
 
-    px_fine = small.load()
-    px_Command = small_blur.load()
+    bv_pos = jdata["bufferViews"][acc_pos["bufferView"]]
+    bv_norm = jdata["bufferViews"][acc_norm["bufferView"]]
+    bv_uv = jdata["bufferViews"][acc_uv["bufferView"]]
+    bv_idx = jdata["bufferViews"][acc_idx["bufferView"]]
 
-    # 1. Masque de la silhouette 3D (dilaté d'un demi-pixel pour éviter les franges)
-    inside = [[False] * GRID_W for _ in range(GRID_H)]
-    for y in range(GRID_H):
-        for x in range(GRID_W):
-            _, _, _, a = px_fine[x, y]
-            if a >= 36:
-                inside[y][x] = True
+    v_count = acc_pos["count"]
+    raw_pos = []
+    raw_norm = []
+    raw_uv = []
 
-    # Forcer les bords extérieurs de la grille à False pour que le maillage avant et arrière
-    # se rejoignent de façon 100% étanche sur tout le pourtour
-    for x in range(GRID_W):
-        inside[0][x] = False
-        inside[1][x] = False
-        inside[GRID_H - 1][x] = False
-    for y in range(GRID_H):
-        inside[y][0] = False
-        inside[y][1] = False
-        inside[y][GRID_W - 1] = False
-        inside[y][GRID_W - 2] = False
+    pos_off = bv_pos.get("byteOffset", 0)
+    norm_off = bv_norm.get("byteOffset", 0)
+    uv_off = bv_uv.get("byteOffset", 0)
 
-    dist = compute_edt_2d(inside, GRID_W, GRID_H)
-    max_dist = max(max(row) for row in dist) or 1.0
+    for i in range(v_count):
+        raw_pos.append(struct.unpack_from("<fff", bdata, pos_off + i * 12))
+        raw_norm.append(struct.unpack_from("<fff", bdata, norm_off + i * 12))
+        raw_uv.append(struct.unpack_from("<ff", bdata, uv_off + i * 8))
 
-    # 2. Calcul du champ de profondeur Z avant (sculpture 3D du crâne Higgsfield)
-    #    et Z arrière (massif rocheux 3D fermé)
-    z_front = [[0.0] * GRID_W for _ in range(GRID_H)]
-    z_back = [[0.0] * GRID_W for _ in range(GRID_H)]
-
-    for y in range(GRID_H):
-        v_norm = y / (GRID_H - 1.0)  # 0 en haut (crâne), 1 en bas (plage/base)
-        for x in range(GRID_W):
-            if not inside[y][x]:
-                continue
-
-            u_norm = x / (GRID_W - 1.0)
-            cx_dist = abs(u_norm - 0.5) * 2.0  # 0 au centre X, 1 sur les bords
-
-            # Distance normalisée au bord de la silhouette [0..1]
-            d_norm = min(1.0, dist[y][x] / (max_dist * 0.82))
-            # Profil d'inflation sphérique/ellipsoïdal 3D (tangente verticale au bord)
-            dome = math.pow(d_norm, 0.52)
-
-            r, g, b, _ = px_fine[x, y]
-            rb, gb, bb, _ = px_Command[x, y]
-
-            lum_fine = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
-            lum_broad = (0.299 * rb + 0.587 * gb + 0.114 * bb) / 255.0
-
-            # Intensité dorée/torche (trésor dans la gueule du crâne)
-            gold_glow = max(0.0, (r * 1.0 + g * 0.65 - b * 1.45) / 255.0)
-
-            # Volume anatomique 3D du crâne :
-            # - Le front / dôme crânien (v_norm ~ 0.18..0.48) et les pommettes ressortent fortement en +Z
-            cranium_bulge = math.exp(-((u_norm - 0.5) ** 2) / 0.08 - ((v_norm - 0.34) ** 2) / 0.045) * 0.42
-            # - Arcades sourcilières et mâchoire supérieure (v_norm ~ 0.42..0.66)
-            brow_cheek_bulge = math.exp(-((u_norm - 0.5) ** 2) / 0.11 - ((v_norm - 0.54) ** 2) / 0.03) * 0.28
-            # - Socle rocheux s'élargissant en bas pour bien reposer sur l'île centrale
-            base_skirt = math.pow(max(0.0, (v_norm - 0.68) / 0.32), 1.3) * 0.26 * (1.0 - cx_dist * 0.5)
-
-            # Détection des cavités sombres du crâne (orbites oculaires, cavité nasale, fond de la grotte)
-            # Lorsqu'un pixel interne est sombre et non doré, on creuse véritablement en -Z !
-            cavity_carve = 0.0
-            if lum_broad < 0.28 and gold_glow < 0.22 and 0.24 < v_norm < 0.88:
-                darkness = (0.28 - lum_broad) / 0.28
-                cavity_carve = -0.62 * (darkness ** 1.15) * min(1.0, d_norm * 1.6)
-
-            # Relief de la pierre sculptée et des coffres au trésor dorés
-            stone_relief = (lum_broad - 0.42) * 0.36 + (lum_fine - lum_broad) * 0.22
-            treasure_relief = gold_glow * 0.32 if v_norm > 0.55 else 0.0
-
-            # Atténuer les modulations tout près du bord de silhouette pour garantir la fermeture Z=0
-            edge_blend = math.sin(min(1.0, d_norm * 1.8) * (math.pi / 2.0))
-
-            zf = (
-                0.76 * dome
-                + edge_blend * (cranium_bulge + brow_cheek_bulge + base_skirt + stone_relief + treasure_relief + cavity_carve)
-            )
-            z_front[y][x] = max(0.02 * d_norm, zf) * (DEPTH_Z * 0.54)
-
-            # Face arrière 3D : massif rocheux volcanique/calcaire sculpté en relief
-            rock_wave = (
-                math.sin(u_norm * 19.0 + v_norm * 11.0) * 0.06
-                + math.cos(u_norm * 13.0 - v_norm * 17.0) * 0.06
-            )
-            zb = (0.85 * dome + edge_blend * (0.22 * cranium_bulge + base_skirt + rock_wave))
-            z_back[y][x] = -max(0.02 * d_norm, zb) * (DEPTH_Z * 0.48)
-
-    # Adoucir légèrement pour un maillage organique sans facettes brusques tout en gardant les orbites et dents nettes
-    z_front = smooth_field(z_front, GRID_W, GRID_H, passes=1)
-    z_back = smooth_field(z_back, GRID_W, GRID_H, passes=2)
-
-    # Forcer Z=0 sur tous les points externes pour une soudure parfaite sur le contour 3D
-    for y in range(GRID_H):
-        for x in range(GRID_W):
-            if not inside[y][x]:
-                z_front[y][x] = 0.0
-                z_back[y][x] = 0.0
-
-    # 3. Construction des sommets 3D (X, Y, Z) et des triangles (face avant + face arrière soudées)
-    positions: list[tuple[float, float, float]] = []
-    uvs: list[tuple[float, float]] = []
-    front_idx_grid = [[-1] * GRID_W for _ in range(GRID_H)]
-    back_idx_grid = [[-1] * GRID_W for _ in range(GRID_H)]
-
-    # Un sommet est actif s'il est dans `inside` ou voisin immédiat d'un sommet `inside` (bord de soudure Z=0)
-    active = [[False] * GRID_W for _ in range(GRID_H)]
-    boundary = [[False] * GRID_W for _ in range(GRID_H)]
-    for y in range(GRID_H):
-        for x in range(GRID_W):
-            if inside[y][x]:
-                active[y][x] = True
-            else:
-                for dx in (-1, 0, 1):
-                    for dy in (-1, 0, 1):
-                        nx, ny = x + dx, y + dy
-                        if 0 <= nx < GRID_W and 0 <= ny < GRID_H and inside[ny][nx]:
-                            active[y][x] = True
-                            boundary[y][x] = True
-                            break
-
-    # Pour les sommets de bordure (Z=0), tirer légèrement (X, Y) vers le contour interne
-    for y in range(GRID_H):
-        for x in range(GRID_W):
-            if not active[y][x]:
-                continue
-
-            u = x / (GRID_W - 1.0)
-            v = y / (GRID_H - 1.0)
-
-            px = (u - 0.5) * WIDTH_X
-            py = (1.0 - v) * HEIGHT_Y
-
-            # En glTF/Three.js avec flipY=false ou standard texture :
-            # dans Three.js useGLTF, UV (0, 0) est en haut-gauche si flipY=false,
-            # mais avec une texture standard Three.js (flipY=true par défaut), v_uv = 1.0 - v
-            uv_front = (max(0.02, min(0.98, u)), max(0.02, min(0.98, 1.0 - v)))
-
-            # Sommet face avant
-            f_idx = len(positions)
-            positions.append((px, py, z_front[y][x]))
-            uvs.append(uv_front)
-            front_idx_grid[y][x] = f_idx
-
-            # Sommet face arrière (partage le même sommet sur la bordure Z=0 pour un maillage fermé étanche !)
-            if boundary[y][x]:
-                back_idx_grid[y][x] = f_idx
-            else:
-                b_idx = len(positions)
-                positions.append((px, py, z_back[y][x]))
-                # Mapper le dos sur une zone rocheuse sombre du crâne/falaise
-                uv_back = (0.35 + (u - 0.5) * 0.25, 0.72 + (0.5 - v) * 0.18)
-                uvs.append(uv_back)
-                back_idx_grid[y][x] = b_idx
-
-    indices: list[int] = []
-
-    for y in range(GRID_H - 1):
-        for x in range(GRID_W - 1):
-            # Cellule active si au moins un des 4 coins est dans `inside`
-            if not (
-                inside[y][x]
-                or inside[y][x + 1]
-                or inside[y + 1][x]
-                or inside[y + 1][x + 1]
-            ):
-                continue
-
-            f00 = front_idx_grid[y][x]
-            f10 = front_idx_grid[y][x + 1]
-            f01 = front_idx_grid[y + 1][x]
-            f11 = front_idx_grid[y + 1][x + 1]
-
-            if f00 >= 0 and f10 >= 0 and f01 >= 0 and f11 >= 0:
-                # Face avant (normale vers +Z, ordre anti-horaire vu de devant : f00 -> f01 -> f10, f10 -> f01 -> f11)
-                indices.extend([f00, f01, f10])
-                indices.extend([f10, f01, f11])
-
-            b00 = back_idx_grid[y][x]
-            b10 = back_idx_grid[y][x + 1]
-            b01 = back_idx_grid[y + 1][x]
-            b11 = back_idx_grid[y + 1][x + 1]
-
-            if b00 >= 0 and b10 >= 0 and b01 >= 0 and b11 >= 0:
-                # Face arrière (normale vers -Z, ordre inversé : b00 -> b10 -> b01, b10 -> b11 -> b01)
-                indices.extend([b00, b10, b01])
-                indices.extend([b10, b11, b01])
-
-    # 4. Calcul des normales 3D exactes par sommet (nx, ny, nz)
-    accum_normals = [[0.0, 0.0, 0.0] for _ in range(len(positions))]
-    for t in range(0, len(indices), 3):
-        i0, i1, i2 = indices[t], indices[t + 1], indices[t + 2]
-        p0 = positions[i0]
-        p1 = positions[i1]
-        p2 = positions[i2]
-
-        ux, uy, uz = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
-        vx, vy, vz = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
-
-        nx = uy * vz - uz * vy
-        ny = uz * vx - ux * vz
-        nz = ux * vy - uy * vx
-
-        for idx in (i0, i1, i2):
-            accum_normals[idx][0] += nx
-            accum_normals[idx][1] += ny
-            accum_normals[idx][2] += nz
-
-    normals = [
-        normalize_v3(n[0], n[1], n[2]) for n in accum_normals
+    idx_off = bv_idx.get("byteOffset", 0)
+    i_count = acc_idx["count"]
+    raw_indices = [
+        struct.unpack_from("<I", bdata, idx_off + i * 4)[0] for i in range(i_count)
     ]
 
-    glb_bytes = build_glb_bytes(positions, normals, uvs, indices)
+    # 1. Extraire la carte d'Ambient Occlusion 3D intégrée (bv 5) et créer la texture PBR pierre/os doré
+    bv_img = jdata["bufferViews"][jdata["images"][0]["bufferView"]]
+    img_bytes = bdata[bv_img["byteOffset"] : bv_img["byteOffset"] + bv_img["byteLength"]]
+    ao_img = Image.open(io.BytesIO(img_bytes)).convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
+    # Le canal R contient l'Ambient Occlusion cuite du crâne 3D
+    r_ch, g_ch, _ = ao_img.split()
+    ao_enh = ImageEnhance.Contrast(r_ch).enhance(1.35)
+
+    # Mélanger avec la texture de pierre côtière / sable doré Higgsfield pour un aspect crâne de pierre pirate
+    rock_img = Image.open("public/assets/coastal_rock.jpg").convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
+    sand_img = Image.open("public/assets/sand_beach.jpg").convert("RGB").resize((512, 512), Image.Resampling.LANCZOS)
+    stone_base = Image.blend(sand_img, rock_img, 0.38)
+    stone_base = ImageEnhance.Brightness(stone_base).enhance(1.18)
+
+    ao_rgb = Image.merge("RGB", (ao_enh, ao_enh, ao_enh))
+    skull_albedo = ImageChops.multiply(stone_base, ao_rgb)
+    skull_albedo = ImageEnhance.Contrast(skull_albedo).enhance(1.15)
 
     os.makedirs("public/assets", exist_ok=True)
     os.makedirs("dist/assets", exist_ok=True)
+    albedo_pub = "public/assets/skull_3d_albedo.jpg"
+    albedo_dist = "dist/assets/skull_3d_albedo.jpg"
+    skull_albedo.save(albedo_pub, format="JPEG", quality=90, optimize=True)
+    shutil.copyfile(albedo_pub, albedo_dist)
 
+    # 2. Normaliser et centrer les coordonnées 3D (X, Y, Z) du crâne
+    xs = [p[0] for p in raw_pos]
+    ys = [p[1] for p in raw_pos]
+    zs = [p[2] for p in raw_pos]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    min_z, max_z = min(zs), max(zs)
+
+    cx = (min_x + max_x) * 0.5
+    cy = min_y  # Poser la base de la mâchoire du crâne exactement à Y = 0
+    cz = (min_z + max_z) * 0.5
+    span = max(max_x - min_x, max_y - min_y, max_z - min_z)
+    target_scale = 2.05 / span
+
+    # 3. Décimation par clustering sur grille 3D fine + UV pour conserver chaque détail
+    #    (orbites, cavité nasale, dents, pommettes, sutures) tout en réduisant le poids du .glb
+    CELL_RES = 88.0
+    cluster_map: dict[tuple[int, int, int, int, int], int] = {}
+    cluster_pos_sum: list[list[float]] = []
+    cluster_norm_sum: list[list[float]] = []
+    cluster_uv: list[tuple[float, float]] = []
+    vertex_remap = [0] * v_count
+
+    for i in range(v_count):
+        px, py, pz = raw_pos[i]
+        nx, ny, nz = raw_norm[i]
+        u, v = raw_uv[i]
+
+        sx = (px - cx) * target_scale
+        sy = (py - cy) * target_scale
+        sz = (pz - cz) * target_scale
+
+        gx = int(round((px - min_x) / span * CELL_RES))
+        gy = int(round((py - min_y) / span * CELL_RES))
+        gz = int(round((pz - min_z) / span * CELL_RES))
+        # Séparer les coutures UV éventuelles
+        gu = int(round(u * 12.0))
+        gv = int(round(v * 12.0))
+        key = (gx, gy, gz, gu, gv)
+
+        c_idx = cluster_map.get(key)
+        if c_idx is None:
+            c_idx = len(cluster_pos_sum)
+            cluster_map[key] = c_idx
+            cluster_pos_sum.append([sx, sy, sz, 1.0])
+            cluster_norm_sum.append([nx, ny, nz])
+            # Inverser V pour correspondre à Three.js TextureLoader (flipY=true par défaut)
+            cluster_uv.append((u, 1.0 - v))
+        else:
+            cluster_pos_sum[c_idx][0] += sx
+            cluster_pos_sum[c_idx][1] += sy
+            cluster_pos_sum[c_idx][2] += sz
+            cluster_pos_sum[c_idx][3] += 1.0
+            cluster_norm_sum[c_idx][0] += nx
+            cluster_norm_sum[c_idx][1] += ny
+            cluster_norm_sum[c_idx][2] += nz
+
+        vertex_remap[i] = c_idx
+
+    out_positions: list[tuple[float, float, float]] = []
+    out_normals: list[tuple[float, float, float]] = []
+    for c_idx in range(len(cluster_pos_sum)):
+        sx, sy, sz, cnt = cluster_pos_sum[c_idx]
+        out_positions.append((sx / cnt, sy / cnt, sz / cnt))
+        nx, ny, nz = cluster_norm_sum[c_idx]
+        out_normals.append(normalize_v3(nx, ny, nz))
+
+    out_indices: list[int] = []
+    for t in range(0, i_count, 3):
+        i0 = vertex_remap[raw_indices[t]]
+        i1 = vertex_remap[raw_indices[t + 1]]
+        i2 = vertex_remap[raw_indices[t + 2]]
+        if i0 != i1 and i1 != i2 and i2 != i0:
+            out_indices.extend([i0, i1, i2])
+
+    glb_bytes = build_glb_bytes(out_positions, out_normals, cluster_uv, out_indices)
     pub_glb = "public/assets/center_skull_cave.glb"
     dist_glb = "dist/assets/center_skull_cave.glb"
     with open(pub_glb, "wb") as f:
@@ -493,8 +324,8 @@ def main() -> None:
     shutil.copyfile(pub_glb, dist_glb)
 
     print(
-        f"[3D Skull Cave GLB] Généré : {pub_glb} "
-        f"({len(positions)} sommets 3D, {len(indices) // 3} triangles, {len(glb_bytes) // 1024} Ko)"
+        f"[Real 3D Skull GLB] Généré : {pub_glb} "
+        f"({len(out_positions)} sommets 3D, {len(out_indices) // 3} triangles, {len(glb_bytes) // 1024} Ko)"
     )
 
 

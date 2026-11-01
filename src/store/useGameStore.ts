@@ -595,6 +595,11 @@ export interface LandedTilePopupData {
   playerId: number;
   eventSummary?: string;
   isInspect?: boolean;
+  rentPayment?: {
+    payerId: number;
+    ownerId: number;
+    amount: number;
+  };
 }
 
 interface GameState {
@@ -1664,12 +1669,23 @@ function evaluateLandedTile(): void {
         if (owner && !owner.bankrupt) {
           const rent = calculateIslandRent(tile, state.tiles);
           soundEffects.playGoldSound();
-          state.addFloatingText(tile.id, `-${rent} Or (Loyer)`, '#f87171');
+          state.addFloatingText(
+            tile.id,
+            `-${rent} Or (${player.name})`,
+            '#f87171'
+          );
+          setTimeout(() => {
+            useGameStore
+              .getState()
+              .addFloatingText(tile.id, `+${rent} Or (${owner.name})`, '#4ade80');
+          }, 220);
+
           state.addLog(
             `⚓ Droit de mouillage : ${player.name} verse ${rent} Doublons à ${owner.name} sur ${tile.name} !`
           );
 
           useGameStore.setState((s) => ({
+            cameraShake: 0.45,
             players: s.players.map((p) => {
               if (p.id === player.id) return { ...p, gold: p.gold - rent };
               if (p.id === owner.id) return { ...p, gold: p.gold + rent };
@@ -1679,8 +1695,14 @@ function evaluateLandedTile(): void {
               tileId: tile.id,
               playerId: player.id,
               eventSummary: `⚓ Droit de mouillage : -${rent} Or versés à ${owner.name}`,
+              rentPayment: {
+                payerId: player.id,
+                ownerId: owner.id,
+                amount: rent,
+              },
             },
           }));
+          setTimeout(() => useGameStore.setState({ cameraShake: 0 }), 380);
           checkPlayerBankruptcy(state.currentPlayerIndex);
         }
         afterTileActionCheckNavalBattle();

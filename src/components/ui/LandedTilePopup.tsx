@@ -4,10 +4,10 @@ import {
   Flag,
   Castle,
   Crosshair,
-  Anchor,
   Coins,
   X,
   Compass,
+  ArrowRight,
 } from 'lucide-react';
 import {
   useGameStore,
@@ -19,6 +19,7 @@ import {
   FORTRESS_LEVEL_IMAGES,
 } from '../../store/useGameStore';
 import { getTileTerrainTheme, TerrainTheme } from '../3d/Tile';
+import { CaptainAvatar } from './CaptainAvatar';
 
 interface ThemeStyleConfig {
   biomeLabel: string;
@@ -377,13 +378,124 @@ export const LandedTilePopup: React.FC = () => {
               </h2>
             </div>
 
-            {/* Event / Arrival Summary Banner */}
-            {landedTilePopup.eventSummary && (
-              <div
-                className={`mt-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${styleCfg.statBoxBg} ${styleCfg.textColor}`}
-              >
-                {landedTilePopup.eventSummary}
-              </div>
+            {/* Animated Enemy Island Rent Payment Transfer (Payer -> Owner) */}
+            {landedTilePopup.rentPayment ? (
+              (() => {
+                const payer = players.find(
+                  (p) => p.id === landedTilePopup.rentPayment!.payerId
+                );
+                const owner = players.find(
+                  (p) => p.id === landedTilePopup.rentPayment!.ownerId
+                );
+                const amount = landedTilePopup.rentPayment.amount;
+                if (!payer || !owner) return null;
+
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.85, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 360, damping: 20 }}
+                    className="mt-2.5 rounded-xl bg-slate-950/90 border-2 border-rose-400/90 p-2.5 shadow-[0_0_24px_rgba(244,63,94,0.5)] text-white"
+                  >
+                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-1.5">
+                      ⚓ Droit de Mouillage — Paiement du Loyer !
+                    </div>
+                    <div className="flex items-center justify-between gap-1.5">
+                      {/* Payer (Losses Gold) */}
+                      <motion.div
+                        animate={{ x: [0, -5, 5, -4, 4, 0] }}
+                        transition={{ duration: 0.55 }}
+                        className="flex-1 bg-rose-950/85 border border-rose-400/70 rounded-lg p-1.5 flex flex-col items-center"
+                      >
+                        <CaptainAvatar
+                          captainId={payer.id}
+                          color={payer.color}
+                          size="sm"
+                        />
+                        <span className="text-[11px] font-black text-white truncate max-w-full mt-0.5">
+                          {payer.name}
+                        </span>
+                        <motion.span
+                          initial={{ scale: 0.5 }}
+                          animate={{ scale: [1.25, 1] }}
+                          transition={{ type: 'spring', stiffness: 400 }}
+                          className="mt-0.5 px-2 py-0.5 rounded-full bg-rose-600 text-white font-black text-xs border border-rose-200 shadow"
+                        >
+                          -{amount} Or
+                        </motion.span>
+                      </motion.div>
+
+                      {/* Animated Flying Gold Coins Stream */}
+                      <div className="flex flex-col items-center justify-center px-1 shrink-0">
+                        <div className="relative w-12 h-6 flex items-center justify-center overflow-hidden">
+                          {[0, 1, 2].map((i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ x: -18, opacity: 0, scale: 0.6 }}
+                              animate={{
+                                x: [-18, 0, 18],
+                                opacity: [0, 1, 0],
+                                scale: [0.7, 1.15, 0.7],
+                              }}
+                              transition={{
+                                repeat: Infinity,
+                                duration: 0.95,
+                                delay: i * 0.28,
+                                ease: 'easeInOut',
+                              }}
+                              className="absolute"
+                            >
+                              <Coins className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.95)]" />
+                            </motion.div>
+                          ))}
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-amber-300 stroke-[3]" />
+                      </div>
+
+                      {/* Island Owner (Gains Gold) */}
+                      <motion.div
+                        animate={{ scale: [1, 1.09, 1] }}
+                        transition={{ duration: 0.65, repeat: 2 }}
+                        className="flex-1 bg-emerald-950/85 border border-emerald-400/80 rounded-lg p-1.5 flex flex-col items-center shadow-[0_0_15px_rgba(16,185,129,0.45)]"
+                      >
+                        <CaptainAvatar
+                          captainId={owner.id}
+                          color={owner.color}
+                          size="sm"
+                        />
+                        <span className="text-[11px] font-black text-white truncate max-w-full mt-0.5">
+                          {owner.name}
+                        </span>
+                        <motion.span
+                          initial={{ scale: 0.5 }}
+                          animate={{ scale: [1.28, 1] }}
+                          transition={{ type: 'spring', stiffness: 400 }}
+                          className="mt-0.5 px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 font-black text-xs border border-white shadow"
+                        >
+                          +{amount} Or
+                        </motion.span>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                );
+              })()
+            ) : (
+              /* Event / Arrival Summary Banner with Gold Gain/Loss Highlight */
+              landedTilePopup.eventSummary && (
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className={`mt-2 px-3 py-1.5 rounded-xl border-2 text-xs font-black shadow-md ${
+                    landedTilePopup.eventSummary.includes('+')
+                      ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                      : landedTilePopup.eventSummary.includes('-')
+                      ? 'bg-rose-950/90 border-rose-400 text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.4)]'
+                      : `${styleCfg.statBoxBg} ${styleCfg.textColor}`
+                  }`}
+                >
+                  {landedTilePopup.eventSummary}
+                </motion.div>
+              )
             )}
 
             {/* Island Statistics Grid OR Special Tile Description */}

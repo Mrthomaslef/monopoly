@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2,
   VolumeX,
@@ -14,6 +14,12 @@ import { useGameStore } from '../../store/useGameStore';
 import { soundEffects } from '../../utils/soundEffects';
 import { CaptainAvatar } from './CaptainAvatar';
 
+interface PlayerDeltaBadge {
+  key: string;
+  goldDelta: number;
+  matDelta: number;
+}
+
 export const TopHUD: React.FC = () => {
   const players = useGameStore((s) => s.players);
   const tiles = useGameStore((s) => s.tiles);
@@ -23,6 +29,64 @@ export const TopHUD: React.FC = () => {
   const setShowSetupModal = useGameStore((s) => s.setShowSetupModal);
 
   const [isMuted, setIsMuted] = useState<boolean>(soundEffects.isMuted());
+  const [deltas, setDeltas] = useState<Record<number, PlayerDeltaBadge>>({});
+  const prevStatsRef = useRef<Record<number, { gold: number; materials: number }>>({});
+
+  useEffect(() => {
+    const prev = prevStatsRef.current;
+    // Detect if a brand new game was initialized (all players back to 1500 gold & position 0)
+    const isFreshReset =
+      players.length > 0 &&
+      players.every((p) => p.gold === 1500 && p.materials === 0 && p.position === 0);
+
+    if (isFreshReset) {
+      const nextSnap: Record<number, { gold: number; materials: number }> = {};
+      players.forEach((p) => {
+        nextSnap[p.id] = { gold: p.gold, materials: p.materials };
+      });
+      prevStatsRef.current = nextSnap;
+      setDeltas({});
+      return;
+    }
+
+    const newDeltas: Record<number, PlayerDeltaBadge> = {};
+    const nextSnap: Record<number, { gold: number; materials: number }> = {};
+
+    players.forEach((p) => {
+      const old = prev[p.id];
+      nextSnap[p.id] = { gold: p.gold, materials: p.materials };
+      if (old) {
+        const gDiff = p.gold - old.gold;
+        const mDiff = p.materials - old.materials;
+        if (gDiff !== 0 || mDiff !== 0) {
+          newDeltas[p.id] = {
+            key: `${p.id}-${Date.now()}-${Math.random()}`,
+            goldDelta: gDiff,
+            matDelta: mDiff,
+          };
+        }
+      }
+    });
+
+    prevStatsRef.current = nextSnap;
+
+    const changedIds = Object.keys(newDeltas).map(Number);
+    if (changedIds.length > 0) {
+      setDeltas((curr) => ({ ...curr, ...newDeltas }));
+      const timer = setTimeout(() => {
+        setDeltas((curr) => {
+          const copy = { ...curr };
+          changedIds.forEach((id) => {
+            if (copy[id]?.key === newDeltas[id].key) {
+              delete copy[id];
+            }
+          });
+          return copy;
+        });
+      }, 2400);
+      return () => clearTimeout(timer);
+    }
+  }, [players]);
 
   const handleToggleMute = () => {
     const muted = soundEffects.toggleMute();
@@ -99,11 +163,25 @@ export const TopHUD: React.FC = () => {
         </div>
       </div>
 
-      {/* Captains Row (2 to 4 Captains) — Clean & High-Contrast */}
+      {/* Captains Row (2 to 4 Captains) — Clean & High-Contrast with Live Gold Delta Popups */}
       <div className={`grid ${gridColsClass} gap-1.5 my-auto`}>
         {players.map((player, index) => {
           const isCurrent = index === currentPlayerIndex && !player.bankrupt;
           const islandCount = tiles.filter((t) => t.ownerId === player.id).length;
+          const delta = deltas[player.id];
+          const isGain = Boolean(delta && delta.goldDelta > 0);
+          const isLoss = Boolean(delta && delta.goldDelta < 0);
+
+          const formatDeltaLabel = (d: PlayerDeltaBadge) => {
+            const parts: string[] = [];
+            if (d.goldDelta !== 0) {
+              parts.push(`${d.goldDelta > 0 ? '+' : ''}${d.goldDelta} Or`);
+            }
+            if (d.matDelta !== 0) {
+              parts.push(`${d.matDelta > 0 ? '+' : ''}${d.matDelta} 🪵`);
+            }
+            return parts.join(' ');
+          };
 
           return (
             <motion.div
@@ -111,17 +189,46 @@ export const TopHUD: React.FC = () => {
               onClick={() =>
                 useGameStore.setState({ focusedTileIndex: player.position })
               }
-              animate={{
-                scale: isCurrent ? 1.02 : 1,
-              }}
-              className={`wood-plank cursor-pointer rounded-xl px-2 py-1 transition-all overflow-hidden flex items-center gap-2 ${
+              animate={
+                isLoss
+                  ? { x: [0, -5, 5, -4, 4, 0], scale: 1.03 }
+                  : isGain
+                  ? { scale: [1, 1.08, 1.03] }
+                  : { scale: isCurrent ? 1.02 : 1, x: 0 }
+              }
+              transition={{ duration: 0.45 }}
+              className={`relative wood-plank cursor-pointer rounded-xl px-2 py-1 transition-all flex items-center gap-2 ${
                 player.bankrupt
                   ? 'opacity-40 grayscale'
+                  : isGain
+                  ? 'ring-2 ring-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.85)] brightness-120'
+                  : isLoss
+                  ? 'ring-2 ring-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.85)]'
                   : isCurrent
                   ? 'ring-2 ring-amber-400 shadow-[0_0_14px_rgba(251,191,36,0.55)] brightness-115'
                   : 'opacity-90 hover:opacity-100'
               }`}
             >
+              {/* Animated Gold / Material Delta Popup Pill */}
+              <AnimatePresence>
+                {delta && (
+                  <motion.div
+                    key={delta.key}
+                    initial={{ opacity: 0, y: 10, scale: 0.5 }}
+                    animate={{ opacity: 1, y: -6, scale: [1.22, 1] }}
+                    exit={{ opacity: 0, y: -16, scale: 0.75 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 18 }}
+                    className={`pointer-events-none absolute -bottom-2.5 right-1 z-30 px-2 py-0.5 rounded-full text-[11px] font-black tracking-tight border-2 shadow-xl whitespace-nowrap ${
+                      delta.goldDelta >= 0
+                        ? 'bg-emerald-400 text-slate-950 border-white shadow-[0_4px_14px_rgba(16,185,129,0.9)]'
+                        : 'bg-rose-600 text-white border-rose-200 shadow-[0_4px_14px_rgba(244,63,94,0.9)]'
+                    }`}
+                  >
+                    {formatDeltaLabel(delta)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Captain Color Dot + Portrait */}
               <div className="relative shrink-0">
                 <CaptainAvatar
@@ -153,14 +260,32 @@ export const TopHUD: React.FC = () => {
                 </div>
 
                 {/* High-Contrast Stats Pill (Gold, Materials, Islands) */}
-                <div className="mt-1 bg-black/60 border border-white/10 rounded-md px-1.5 py-0.5 flex items-center justify-between text-[11px] leading-none gap-1">
-                  <span
-                    className="flex items-center gap-0.5 font-black text-amber-300"
+                <div
+                  className={`mt-1 border rounded-md px-1.5 py-0.5 flex items-center justify-between text-[11px] leading-none gap-1 transition-colors ${
+                    isGain
+                      ? 'bg-emerald-950/90 border-emerald-400/80'
+                      : isLoss
+                      ? 'bg-rose-950/90 border-rose-400/80'
+                      : 'bg-black/60 border-white/10'
+                  }`}
+                >
+                  <motion.span
+                    key={`gold-${player.id}-${player.gold}`}
+                    initial={{ scale: 1.35 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 360, damping: 16 }}
+                    className={`flex items-center gap-0.5 font-black ${
+                      isGain
+                        ? 'text-emerald-300'
+                        : isLoss
+                        ? 'text-rose-300'
+                        : 'text-amber-300'
+                    }`}
                     title="Or (Doublons)"
                   >
                     <Coins className="w-3 h-3 text-amber-400 shrink-0" />
                     {player.gold}
-                  </span>
+                  </motion.span>
                   <span
                     className="flex items-center gap-0.5 font-extrabold text-orange-200"
                     title="Matériaux"
@@ -184,3 +309,4 @@ export const TopHUD: React.FC = () => {
     </header>
   );
 };
+

@@ -180,23 +180,31 @@ const FloatingGoldText3D: React.FC<{ item: FloatingTextItem }> = ({ item }) => {
     if (groupRef.current) {
       groupRef.current.position.set(
         position[0],
-        0.95 + elapsed * 0.75,
+        1.05 + elapsed * 0.85,
         position[2]
       );
+      // Punchy pop-in scale curve
+      const popScale =
+        elapsed < 0.18
+          ? 0.4 + (elapsed / 0.18) * 0.95
+          : elapsed < 0.35
+          ? 1.35 - ((elapsed - 0.18) / 0.17) * 0.25
+          : 1.1;
+      groupRef.current.scale.setScalar(popScale);
       groupRef.current.quaternion.copy(camera.quaternion);
     }
   });
 
   return (
-    <group ref={groupRef} position={[position[0], 0.95, position[2]]}>
+    <group ref={groupRef} position={[position[0], 1.05, position[2]]}>
       <Text
-        font="./assets/fonts/PirataOne-Regular.ttf"
-        fontSize={0.34}
+        font="./assets/fonts/Cinzel-Bold.ttf"
+        fontSize={0.42}
         color={item.color}
         anchorX="center"
         anchorY="middle"
-        outlineWidth={0.035}
-        outlineColor="#0f172a"
+        outlineWidth={0.052}
+        outlineColor="#020617"
       >
         {item.text}
       </Text>

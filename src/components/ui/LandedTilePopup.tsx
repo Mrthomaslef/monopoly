@@ -212,7 +212,6 @@ export const LandedTilePopup: React.FC = () => {
 
   const buyIsland = useGameStore((s) => s.buyIsland);
   const fortifyIsland = useGameStore((s) => s.fortifyIsland);
-  const setShowFortifyModal = useGameStore((s) => s.setShowFortifyModal);
   const triggerManualNavalBattle = useGameStore(
     (s) => s.triggerManualNavalBattle
   );
@@ -257,7 +256,7 @@ export const LandedTilePopup: React.FC = () => {
     tile.ownerId === null &&
     (tile.price ?? 0) <= activePlayer.gold;
 
-  // Player can fortify ANY of their owned islands during their turn (or open the location selector)
+  // Player can fortify this island directly if they own it and have Gold + 1 Material
   const canFortify =
     isHumanTurnActive &&
     tile.type === 'island' &&
@@ -265,18 +264,6 @@ export const LandedTilePopup: React.FC = () => {
     tile.level < MAX_FORTIFY_LEVEL &&
     (tile.upgradeCost ?? 0) <= activePlayer.gold &&
     activePlayer.materials >= FORTIFY_MATERIAL_COST;
-
-  const hasOtherFortifiableIslands =
-    isHumanTurnActive &&
-    activePlayer.materials >= FORTIFY_MATERIAL_COST &&
-    tiles.some(
-      (t) =>
-        t.id !== tile.id &&
-        t.type === 'island' &&
-        t.ownerId === activePlayer.id &&
-        t.level < MAX_FORTIFY_LEVEL &&
-        (t.upgradeCost ?? 0) <= activePlayer.gold
-    );
 
   const rivalsOnTile = activePlayer
     ? players.filter(
@@ -480,7 +467,7 @@ export const LandedTilePopup: React.FC = () => {
               </div>
             )}
 
-            {/* Direct Action Buttons inside the Card */}
+            {/* Direct Action Buttons inside the Card (Clean & Non-Redundant) */}
             <div className="mt-3 flex items-center gap-2">
               {canBuy && (
                 <motion.button
@@ -489,9 +476,9 @@ export const LandedTilePopup: React.FC = () => {
                   onClick={() => {
                     buyIsland();
                   }}
-                  className="flex-1 wood-plank wood-nails py-2.5 px-3 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider text-emerald-300 ring-2 ring-emerald-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Flag className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <Flag className="w-4 h-4 shrink-0" />
                   <span>Acheter ({tile.price} Or)</span>
                 </motion.button>
               )}
@@ -503,26 +490,12 @@ export const LandedTilePopup: React.FC = () => {
                   onClick={() => {
                     fortifyIsland(tile.id);
                   }}
-                  className="flex-1 wood-plank wood-nails py-2.5 px-3 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider text-cyan-200 ring-2 ring-cyan-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Castle className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <Castle className="w-4 h-4 shrink-0" />
                   <span>
-                    {FORTRESS_LEVEL_NAMES[tile.level + 1]} ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)
+                    Fortifier ({tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵)
                   </span>
-                </motion.button>
-              )}
-
-              {hasOtherFortifiableIslands && !canBuy && !canFireCannon && (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  type="button"
-                  onClick={() => {
-                    setShowFortifyModal(true);
-                  }}
-                  className="flex-1 wood-plank wood-nails py-2.5 px-2.5 rounded-xl font-cinzel text-[11px] font-black uppercase tracking-wider text-amber-200 ring-1 ring-cyan-400/70 shadow-lg flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Castle className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span>Choisir l’île à fortifier</span>
                 </motion.button>
               )}
 
@@ -534,9 +507,9 @@ export const LandedTilePopup: React.FC = () => {
                     dismissLandedTilePopup();
                     triggerManualNavalBattle();
                   }}
-                  className="flex-1 wood-plank wood-nails py-2.5 px-3 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider text-rose-200 ring-2 ring-rose-400 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-gradient-to-b from-rose-500 to-red-700 text-white border-2 border-rose-300 shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Crosshair className="w-4 h-4 text-rose-400 shrink-0" />
+                  <Crosshair className="w-4 h-4 shrink-0" />
                   <span>Aborder !</span>
                 </motion.button>
               )}
@@ -546,11 +519,11 @@ export const LandedTilePopup: React.FC = () => {
                 type="button"
                 onClick={dismissLandedTilePopup}
                 className={`${
-                  canBuy || canFortify || canFireCannon ? 'px-3.5' : 'w-full'
-                } py-2.5 rounded-xl font-cinzel text-xs font-black uppercase tracking-wider bg-black/75 hover:bg-black/85 text-amber-200 border border-amber-400/50 shadow flex items-center justify-center gap-1.5 cursor-pointer`}
+                  canBuy || canFortify || canFireCannon ? 'px-4' : 'w-full'
+                } py-2.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider bg-slate-950/85 hover:bg-slate-950 text-amber-200 border border-amber-400/50 shadow flex items-center justify-center gap-1.5 cursor-pointer`}
               >
                 {canBuy || canFortify || canFireCannon ? (
-                  <span>Passer</span>
+                  <span>Fermer</span>
                 ) : (
                   <>
                     <Compass className="w-4 h-4 text-amber-400" />

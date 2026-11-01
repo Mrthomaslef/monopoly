@@ -37,7 +37,7 @@
     height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
-    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 }
 

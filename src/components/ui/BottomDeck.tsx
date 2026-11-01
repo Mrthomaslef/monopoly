@@ -6,6 +6,9 @@ import {
   Crosshair,
   SkipForward,
   ScrollText,
+  Dices,
+  KeyRound,
+  Bot,
 } from 'lucide-react';
 import {
   useGameStore,
@@ -23,7 +26,10 @@ export const BottomDeck: React.FC = () => {
   const phase = useGameStore((s) => s.phase);
   const actionLogs = useGameStore((s) => s.actionLogs);
   const hasAttackedThisTurn = useGameStore((s) => s.hasAttackedThisTurn);
+  const showSetupModal = useGameStore((s) => s.showSetupModal);
 
+  const rollDice = useGameStore((s) => s.rollDice);
+  const payBailAndRoll = useGameStore((s) => s.payBailAndRoll);
   const buyIsland = useGameStore((s) => s.buyIsland);
   const setShowFortifyModal = useGameStore((s) => s.setShowFortifyModal);
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
@@ -31,9 +37,10 @@ export const BottomDeck: React.FC = () => {
   const endTurn = useGameStore((s) => s.endTurn);
 
   const activePlayer = players[currentPlayerIndex];
-  const isHumanTurn = activePlayer && !activePlayer.isAI && !activePlayer.bankrupt;
+  const isHumanTurn = Boolean(
+    activePlayer && !activePlayer.isAI && !activePlayer.bankrupt && !showSetupModal
+  );
 
-  // Show the tile the active player is standing on, or the tile tapped by the user
   const currentTile = tiles[activePlayer ? activePlayer.position : 0];
   const inspectedTile = tiles[focusedTileIndex] ?? currentTile;
   const tileOwner =
@@ -41,15 +48,19 @@ export const BottomDeck: React.FC = () => {
       ? players.find((p) => p.id === inspectedTile.ownerId) ?? null
       : null;
 
-  // Can buy current tile?
+  const canRoll = isHumanTurn && phase === 'IDLE';
+  const canPayBail =
+    canRoll && Boolean(activePlayer?.inJail) && (activePlayer?.gold ?? 0) >= 100;
+
+  const isPostMovePhase =
+    isHumanTurn && (phase === 'TILE_ACTION' || phase === 'END_TURN');
+
   const canBuyCurrent =
-    isHumanTurn &&
-    (phase === 'TILE_ACTION' || phase === 'END_TURN') &&
+    isPostMovePhase &&
     currentTile.type === 'island' &&
     currentTile.ownerId === null &&
-    (currentTile.price ?? 0) <= activePlayer.gold;
+    (currentTile.price ?? 0) <= (activePlayer?.gold ?? 0);
 
-  // Find all islands owned by activePlayer that can be fortified
   const fortifiableIslands = activePlayer
     ? tiles.filter(
         (t) =>
@@ -61,12 +72,10 @@ export const BottomDeck: React.FC = () => {
     : [];
 
   const canFortify =
-    isHumanTurn &&
-    (phase === 'TILE_ACTION' || phase === 'END_TURN') &&
+    isPostMovePhase &&
     fortifiableIslands.length > 0 &&
-    activePlayer.materials >= FORTIFY_MATERIAL_COST;
+    (activePlayer?.materials ?? 0) >= FORTIFY_MATERIAL_COST;
 
-  // Rivals on the active player's tile for "Tirer au Canon" (only 1 attack allowed per turn)
   const rivalsOnCurrentTile = activePlayer
     ? players.filter(
         (p) =>
@@ -77,172 +86,170 @@ export const BottomDeck: React.FC = () => {
     : [];
 
   const canFireCannon =
-    isHumanTurn &&
-    !hasAttackedThisTurn &&
-    (phase === 'TILE_ACTION' || phase === 'END_TURN') &&
-    rivalsOnCurrentTile.length > 0;
-
-  const canEndTurn =
-    isHumanTurn && (phase === 'TILE_ACTION' || phase === 'END_TURN');
+    isPostMovePhase && !hasAttackedThisTurn && rivalsOnCurrentTile.length > 0;
 
   return (
-    <section className="relative z-20 h-[25dvh] min-h-[182px] max-h-[244px] w-full wood-panel border-t-4 border-amber-950 px-3 py-2 flex flex-col justify-between select-none">
-      {/* Top Row: Parchment Tile Inspector Card nailed onto the wooden deck */}
-      <div className="flex items-stretch gap-2">
-        <div className="flex-1 parchment-card rounded-lg px-2.5 py-1.5 border-2 border-amber-900 flex items-center justify-between gap-2 overflow-hidden">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-3.5 h-9 rounded-sm shrink-0 border border-amber-950/60 shadow-inner"
-              style={{ backgroundColor: inspectedTile.color }}
-            />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs sm:text-sm font-black tracking-tight text-amber-950 truncate">
-                  {inspectedTile.name}
-                </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-900/20 text-amber-900 shrink-0">
-                  {inspectedTile.group}
-                </span>
-              </div>
-
-              {inspectedTile.type === 'island' ? (
-                <div className="text-[11px] font-semibold text-amber-900/90 flex flex-wrap items-center gap-x-2">
-                  <span>Prix: {inspectedTile.price} Or</span>
-                  <span>•</span>
-                  <span>
-                    Loyer: {calculateIslandRent(inspectedTile, tiles)} Or
-                  </span>
-                  <span>•</span>
-                  <span className="text-amber-800 font-bold">
-                    {FORTRESS_LEVEL_NAMES[inspectedTile.level] ?? 'Forteresse'}
-                  </span>
-                </div>
-              ) : (
-                <div className="text-[11px] font-medium text-amber-900/85 truncate">
-                  {inspectedTile.description}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Owner Crest Badge */}
-          <div className="shrink-0 text-right">
-            {inspectedTile.type === 'island' ? (
-              tileOwner ? (
-                <div className="flex flex-col items-end">
-                  <span
-                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white shadow"
-                    style={{ backgroundColor: tileOwner.color }}
-                  >
-                    {tileOwner.name}
-                  </span>
-                  {inspectedTile.level < MAX_FORTIFY_LEVEL && (
-                    <span className="text-[10px] font-bold text-amber-900 mt-0.5">
-                      Fortif: {inspectedTile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-800 text-emerald-100">
-                  Île Libre
-                </span>
-              )
-            ) : (
-              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-900/20 text-amber-950">
-                Case #{inspectedTile.id}
+    <section className="relative z-20 w-full wood-panel border-t-4 border-amber-950 px-3 py-2 flex flex-col gap-2 select-none">
+      {/* 1. Fiche de Case Parchemin (Haute Lisibilité) */}
+      <div className="parchment-card rounded-xl px-3 py-2 border-2 border-amber-900 flex items-center justify-between gap-2.5 shadow-md">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="w-3.5 h-10 rounded-md shrink-0 border border-black/40 shadow-xs"
+            style={{ backgroundColor: inspectedTile.color }}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm sm:text-base font-black text-slate-950 truncate leading-tight">
+                {inspectedTile.name}
               </span>
+              <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-950/15 text-amber-950 shrink-0">
+                {inspectedTile.group}
+              </span>
+            </div>
+
+            {inspectedTile.type === 'island' ? (
+              <div className="mt-0.5 text-xs font-extrabold text-amber-950 flex flex-wrap items-center gap-x-2">
+                <span>Prix : {inspectedTile.price} Or</span>
+                <span>•</span>
+                <span>Loyer : {calculateIslandRent(inspectedTile, tiles)} Or</span>
+                {inspectedTile.level > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-amber-900">
+                      {FORTRESS_LEVEL_NAMES[inspectedTile.level]}
+                    </span>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="mt-0.5 text-xs font-semibold text-amber-950/90 truncate">
+                {inspectedTile.description}
+              </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Middle Row: 3 Wooden Plank Command Buttons (Acheter, Fortifier/Canon, Fin du Tour) */}
-      <div className="grid grid-cols-3 gap-2 my-1">
-        {/* 1. Acheter l'Île */}
-        <motion.button
-          whileTap={canBuyCurrent ? { scale: 0.95 } : undefined}
-          type="button"
-          disabled={!canBuyCurrent}
-          onClick={buyIsland}
-          className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-black text-xs transition ${
-            canBuyCurrent
-              ? 'text-emerald-300 ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.45)] brightness-115 cursor-pointer'
-              : 'text-amber-100/35 opacity-55 cursor-not-allowed'
-          }`}
-        >
-          <Flag className="w-4 h-4 shrink-0 text-emerald-400" />
-          <span className="truncate">
-            {canBuyCurrent ? `Acheter (${currentTile.price} Or)` : 'Acheter l’Île'}
-          </span>
-        </motion.button>
-
-        {/* 2. Fortifier OR Tirer au Canon */}
-        {canFireCannon ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            type="button"
-            onClick={triggerManualNavalBattle}
-            className="wood-plank wood-nails col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-black text-xs text-rose-300 ring-2 ring-rose-400 shadow-[0_0_14px_rgba(244,63,94,0.6)] brightness-115 cursor-pointer"
-          >
-            <Crosshair className="w-4 h-4 shrink-0 text-rose-400" />
-            <span className="truncate">Tirer au Canon</span>
-          </motion.button>
-        ) : (
-          <motion.button
-            whileTap={canFortify ? { scale: 0.95 } : undefined}
-            type="button"
-            disabled={!canFortify}
-            onClick={() => setShowFortifyModal(!showFortifyModal)}
-            className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-black text-xs transition ${
-              canFortify
-                ? 'text-cyan-200 ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.45)] brightness-115 cursor-pointer'
-                : 'text-amber-100/35 opacity-55 cursor-not-allowed'
-            }`}
-          >
-            <Castle className="w-4 h-4 shrink-0 text-cyan-400" />
-            <span className="truncate">
-              {canFortify
-                ? `Fortifier (${fortifiableIslands.length} île${
-                    fortifiableIslands.length > 1 ? 's' : ''
-                  } • 1 🪵)`
-                : 'Fortifier (Or + 1 🪵)'}
+        {/* Badge Propriétaire / Statut */}
+        <div className="shrink-0 text-right">
+          {inspectedTile.type === 'island' ? (
+            tileOwner ? (
+              <span
+                className="inline-block text-xs font-black px-2.5 py-1 rounded-full text-white shadow border border-white/40"
+                style={{ backgroundColor: tileOwner.color }}
+              >
+                {tileOwner.name}
+              </span>
+            ) : (
+              <span className="inline-block text-xs font-black uppercase px-2.5 py-1 rounded-full bg-emerald-800 text-white shadow">
+                Île Libre
+              </span>
+            )
+          ) : (
+            <span className="inline-block text-xs font-black uppercase px-2 py-0.5 rounded-md bg-amber-950/15 text-amber-950">
+              Case #{inspectedTile.id}
             </span>
-          </motion.button>
-        )}
-
-        {/* 3. Fin du Tour */}
-        <motion.button
-          whileTap={canEndTurn ? { scale: 0.95 } : undefined}
-          type="button"
-          disabled={!canEndTurn}
-          onClick={endTurn}
-          className={`wood-plank wood-nails col-span-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-black text-xs transition ${
-            canEndTurn
-              ? 'text-orange-200 ring-2 ring-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.45)] brightness-115 cursor-pointer'
-              : 'text-amber-100/35 opacity-55 cursor-not-allowed'
-          }`}
-        >
-          <SkipForward className="w-4 h-4 shrink-0 text-orange-400" />
-          <span className="truncate">Fin du Tour</span>
-        </motion.button>
+          )}
+        </div>
       </div>
 
-      {/* Bottom Row: Carved Wooden Log Plank of the Last 3 Actions */}
-      <div className="wood-plank rounded-lg px-2.5 py-1 flex items-start gap-2 h-11 overflow-y-auto pirate-scroll">
-        <ScrollText className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-        <div className="flex-1 space-y-0.5 text-[11px] leading-tight">
-          {actionLogs.slice(0, 3).map((log, index) => (
-            <div
-              key={index}
-              className={`truncate ${
-                index === 0
-                  ? 'text-amber-200 font-bold'
-                  : 'text-amber-100/70 font-normal'
-              }`}
+      {/* 2. Barre d'Actions Contextuelle (Uniquement les boutons utiles au moment présent) */}
+      <div className="min-h-[46px] flex items-center gap-2">
+        {canRoll && activePlayer ? (
+          <>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              type="button"
+              onClick={rollDice}
+              className="flex-1 py-3 px-4 rounded-xl font-black text-sm sm:text-base uppercase tracking-wider bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-100 shadow-[0_4px_18px_rgba(251,191,36,0.55)] flex items-center justify-center gap-2.5 cursor-pointer"
             >
-              {log}
-            </div>
-          ))}
+              <Dices className="w-5 h-5 shrink-0 animate-bounce" />
+              <span>Lancer les Dés — {activePlayer.name}</span>
+            </motion.button>
+
+            {canPayBail && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={payBailAndRoll}
+                className="wood-plank py-3 px-3 rounded-xl font-black text-xs text-amber-200 border-2 border-amber-400/70 flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Caution (100 Or)</span>
+              </motion.button>
+            )}
+          </>
+        ) : isPostMovePhase ? (
+          <>
+            {canBuyCurrent && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={buyIsland}
+                className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-[0_4px_15px_rgba(16,185,129,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Flag className="w-4 h-4 shrink-0" />
+                <span className="truncate">Acheter ({currentTile.price} Or)</span>
+              </motion.button>
+            )}
+
+            {canFireCannon && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={triggerManualNavalBattle}
+                className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-rose-500 to-red-700 text-white border-2 border-rose-300 shadow-[0_4px_15px_rgba(244,63,94,0.5)] flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Crosshair className="w-4 h-4 shrink-0" />
+                <span className="truncate">Aborder !</span>
+              </motion.button>
+            )}
+
+            {canFortify && (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={() => setShowFortifyModal(!showFortifyModal)}
+                className="flex-1 py-3 px-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-cyan-300 to-cyan-500 text-slate-950 border-2 border-cyan-100 shadow-[0_4px_15px_rgba(6,182,212,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Castle className="w-4 h-4 shrink-0" />
+                <span className="truncate">
+                  Fortifier ({fortifiableIslands.length})
+                </span>
+              </motion.button>
+            )}
+
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              type="button"
+              onClick={endTurn}
+              className="flex-1 py-3 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 to-orange-500 text-slate-950 border-2 border-amber-200 shadow-[0_4px_15px_rgba(249,115,22,0.45)] flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <SkipForward className="w-4 h-4 shrink-0" />
+              <span className="truncate">Fin du Tour</span>
+            </motion.button>
+          </>
+        ) : (
+          <div className="w-full wood-plank rounded-xl py-2.5 px-4 flex items-center justify-center gap-2 text-xs sm:text-sm font-bold text-amber-200 border border-amber-500/30">
+            {activePlayer?.isAI ? (
+              <>
+                <Bot className="w-4 h-4 text-cyan-300 animate-spin shrink-0" />
+                <span>{activePlayer.name} (IA) joue son tour...</span>
+              </>
+            ) : (
+              <>
+                <Dices className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                <span>Déplacement du navire en cours...</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 3. Bandeau Journal de Bord (1 ligne claire et lisible) */}
+      <div className="bg-black/55 border border-amber-500/25 rounded-lg px-3 py-1.5 flex items-center gap-2">
+        <ScrollText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        <div className="text-xs font-bold text-amber-100 truncate">
+          {actionLogs[0] ?? '⚓ Bienvenue dans Pirate’s Plunder !'}
         </div>
       </div>
     </section>

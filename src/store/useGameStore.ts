@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { soundEffects } from '../utils/soundEffects';
 
 export type TileType =
@@ -644,8 +645,10 @@ interface GameState {
   endTurn: () => void;
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
-  players: buildPlayersFromSlots(DEFAULT_CAPTAIN_ROSTER),
+export const useGameStore = create<GameState>()(
+  persist(
+    (set, get) => ({
+      players: buildPlayersFromSlots(DEFAULT_CAPTAIN_ROSTER),
   slotConfigs: DEFAULT_CAPTAIN_ROSTER.map((s) => ({ ...s })),
   showSetupModal: true,
   showFortifyModal: false,
@@ -1338,7 +1341,131 @@ export const useGameStore = create<GameState>((set, get) => ({
       }, 1200);
     }
   },
-}));
+    }),
+    {
+      name: 'pirates-plunder-save-v1',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        players: state.players,
+        slotConfigs: state.slotConfigs,
+        showSetupModal: state.showSetupModal,
+        tiles: state.tiles,
+        currentPlayerIndex: state.currentPlayerIndex,
+        phase: state.phase,
+        dice: state.dice,
+        hasAttackedThisTurn: state.hasAttackedThisTurn,
+        cameraMode: state.cameraMode,
+        focusedTileIndex: state.focusedTileIndex,
+        tortugaJackpot: state.tortugaJackpot,
+        actionLogs: state.actionLogs,
+        activeCard: state.activeCard,
+        landedTilePopup: state.landedTilePopup,
+        navalBattle: state.navalBattle,
+        winner: state.winner,
+        passAndPlay: state.passAndPlay,
+        aiCount: state.aiCount,
+      }),
+      onRehydrateStorage: () => (rehydratedState) => {
+        if (!rehydratedState) return;
+        setTimeout(() => {
+          resumeSavedStateAfterReload();
+        }, 120);
+      },
+    }
+  )
+);
+
+/**
+ * Sanitizes transient animation states and resumes interrupted turns or AI turns after a page reload
+ */
+function resumeSavedStateAfterReload(): void {
+  const state = useGameStore.getState();
+
+  // Merge static tile metadata with saved ownership & fortress level
+  const mergedTiles = INITIAL_TILES.map((baseTile) => {
+    const savedTile = state.tiles.find((t) => t.id === baseTile.id);
+    if (!savedTile) return { ...baseTile };
+    return {
+      ...baseTile,
+      ownerId: savedTile.ownerId ?? null,
+      level: Math.min(MAX_FORTIFY_LEVEL, Math.max(0, savedTile.level ?? 0)),
+    };
+  });
+
+  let nextPhase = state.phase;
+  let nextNavalBattle = state.navalBattle;
+  let shouldEvaluateLandedTile = false;
+
+  // Recover if page was closed mid-dice roll or mid-ship movement
+  if (nextPhase === 'ROLLING') {
+    nextPhase = 'IDLE';
+  } else if (nextPhase === 'MOVING') {
+    shouldEvaluateLandedTile = true;
+  } else if (nextPhase === 'NAVAL_BATTLE') {
+    if (!nextNavalBattle) {
+      nextPhase = 'END_TURN';
+    } else if (nextNavalBattle.phase === 'firing' || nextNavalBattle.phase === 'rolling') {
+      nextNavalBattle = {
+        ...nextNavalBattle,
+        phase: 'ready',
+        attackerRoll: null,
+        defenderRoll: null,
+        winnerId: null,
+        loserId: null,
+      };
+    }
+  }
+
+  const safePlayerIndex =
+    state.currentPlayerIndex >= 0 && state.currentPlayerIndex < state.players.length
+      ? state.currentPlayerIndex
+      : 0;
+  const activePlayer = state.players[safePlayerIndex];
+
+  useGameStore.setState({
+    tiles: mergedTiles,
+    currentPlayerIndex: safePlayerIndex,
+    phase: nextPhase,
+    navalBattle: nextNavalBattle,
+    isRollingDice: false,
+    cameraShake: 0,
+    cannonShot: null,
+    floatingTexts: [],
+    showFortifyModal: false,
+    focusedTileIndex: activePlayer ? activePlayer.position : state.focusedTileIndex,
+  });
+
+  if (state.showSetupModal || nextPhase === 'GAME_OVER') return;
+
+  if (shouldEvaluateLandedTile) {
+    evaluateLandedTile();
+    return;
+  }
+
+  // If the saved turn belongs to an AI captain, resume its automated turn sequence
+  if (activePlayer && activePlayer.isAI && !activePlayer.bankrupt) {
+    if (nextPhase === 'IDLE') {
+      setTimeout(() => runAITurn(), 900);
+    } else if (nextPhase === 'TILE_ACTION') {
+      if (state.activeCard) {
+        setTimeout(() => useGameStore.getState().resolveCardModal(), 900);
+      } else {
+        setTimeout(() => afterTileActionCheckNavalBattle(), 900);
+      }
+    } else if (nextPhase === 'NAVAL_BATTLE') {
+      setTimeout(() => {
+        const cur = useGameStore.getState();
+        if (cur.navalBattle?.phase === 'ready') {
+          cur.rollNavalBattleDice();
+        } else {
+          cur.completeNavalBattle();
+        }
+      }, 900);
+    } else if (nextPhase === 'END_TURN') {
+      setTimeout(() => useGameStore.getState().endTurn(), 900);
+    }
+  }
+}
 
 /**
  * Evaluates the tile where the current player just landed

@@ -18,6 +18,8 @@ export const GameSetupModal: React.FC = () => {
   const showSetupModal = useGameStore((s) => s.showSetupModal);
   const setShowSetupModal = useGameStore((s) => s.setShowSetupModal);
   const slotConfigs = useGameStore((s) => s.slotConfigs);
+  const players = useGameStore((s) => s.players);
+  const tiles = useGameStore((s) => s.tiles);
   const startCustomGame = useGameStore((s) => s.startCustomGame);
 
   const [slots, setSlots] = useState<PlayerSlotConfig[]>(() =>
@@ -250,18 +252,45 @@ export const GameSetupModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Launch Button */}
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              type="button"
-              onClick={() => startCustomGame(slots)}
-              className="w-full py-3 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 border-2 border-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)] flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>
-                Lever l&apos;Ancre ({humanCount} Joueur{humanCount > 1 ? 's' : ''} • {aiCount} IA)
-              </span>
-            </motion.button>
+            {/* Resume Saved Game Button (if a game is already in progress) */}
+            {players.some((p) => p.position !== 0 || p.gold !== 1500 || p.materials > 0) ||
+            tiles.some((t) => t.ownerId !== null) ? (
+              <div className="space-y-2">
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  type="button"
+                  onClick={() => setShowSetupModal(false)}
+                  className="w-full py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-600 text-slate-950 border-2 border-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.45)] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Anchor className="w-4 h-4" />
+                  <span>Reprendre la Partie Sauvegardée</span>
+                </motion.button>
+
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  type="button"
+                  onClick={() => startCustomGame(slots)}
+                  className="w-full py-2.5 px-4 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 border-2 border-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)] flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>
+                    Nouvelle Partie ({humanCount} Joueur{humanCount > 1 ? 's' : ''} • {aiCount} IA)
+                  </span>
+                </motion.button>
+              </div>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={() => startCustomGame(slots)}
+                className="w-full py-3 px-4 rounded-xl font-black text-sm uppercase tracking-wider bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-slate-950 border-2 border-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>
+                  Lever l&apos;Ancre ({humanCount} Joueur{humanCount > 1 ? 's' : ''} • {aiCount} IA)
+                </span>
+              </motion.button>
+            )}
           </motion.div>
         </motion.div>
       )}

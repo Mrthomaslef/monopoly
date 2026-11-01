@@ -1,0 +1,1422 @@
+import { create } from 'zustand';
+import { soundEffects } from '../utils/soundEffects';
+
+export type TileType =
+  | 'start'
+  | 'island'
+  | 'chest'
+  | 'curse'
+  | 'tax'
+  | 'jail'
+  | 'free_parking'
+  | 'go_to_jail';
+
+export interface TileData {
+  id: number;
+  name: string;
+  type: TileType;
+  color: string;
+  group: string;
+  price?: number;
+  baseRent?: number;
+  upgradeCost?: number;
+  ownerId: number | null;
+  level: number; // 0 = base, 1..3 = Avant-poste de contrebandiers, 4 = Forteresse Pirate
+  description?: string;
+}
+
+export interface Player {
+  id: number;
+  name: string;
+  title: string;
+  color: string;
+  sailColor: string;
+  accentColor: string;
+  isAI: boolean;
+  gold: number;
+  position: number;
+  inJail: boolean;
+  jailTurns: number;
+  bankrupt: boolean;
+}
+
+export interface FloatingTextItem {
+  id: string;
+  tileIndex: number;
+  text: string;
+  color: string;
+}
+
+export interface DrawnCard {
+  deck: 'chest' | 'curse';
+  title: string;
+  description: string;
+  goldDelta?: number;
+  moveToTile?: number;
+  goToJail?: boolean;
+}
+
+export interface NavalBattleState {
+  active: boolean;
+  tileIndex: number;
+  attackerId: number;
+  defenderId: number;
+  attackerRoll: number | null;
+  defenderRoll: number | null;
+  phase: 'ready' | 'rolling' | 'firing' | 'resolved';
+  winnerId: number | null;
+  loserId: number | null;
+  plunderAmount: number;
+}
+
+export interface CannonShotData {
+  id: string;
+  fromTile: number;
+  toTile: number;
+  fromOffset: [number, number, number];
+  toOffset: [number, number, number];
+  active: boolean;
+}
+
+export type TurnPhase =
+  | 'IDLE'          // Waiting to roll dice
+  | 'ROLLING'       // Dice jumping in 3D
+  | 'MOVING'        // Ship hopping tile by tile
+  | 'TILE_ACTION'   // Landed on tile: can buy/upgrade or resolving card
+  | 'NAVAL_BATTLE'  // Naval combat modal & 3D cannon shot
+  | 'END_TURN'      // Ready to end turn (and optionally fortify)
+  | 'GAME_OVER';    // Victory screen
+
+export type CameraMode = 'GLOBAL' | 'FOLLOW';
+
+export const BOARD_SPACING = 1.65;
+
+/**
+ * Returns the exact 3D world position [x, y, z] and rotationY for any of the 24 tiles (0..23)
+ * 7 tiles per side (indices 0, 6, 12, 18 are corners)
+ */
+export function getTileTransform(index: number): {
+  position: [number, number, number];
+  rotationY: number;
+  side: 'bottom' | 'left' | 'top' | 'right' | 'corner';
+} {
+  const i = ((index % 24) + 24) % 24;
+  const S = BOARD_SPACING;
+
+  if (i === 0) {
+    return { position: [3 * S, 0, 3 * S], rotationY: 0, side: 'corner' };
+  }
+  if (i > 0 && i < 6) {
+    return { position: [(3 - i) * S, 0, 3 * S], rotationY: 0, side: 'bottom' };
+  }
+  if (i === 6) {
+    return { position: [-3 * S, 0, 3 * S], rotationY: Math.PI / 2, side: 'corner' };
+  }
+  if (i > 6 && i < 12) {
+    const offset = i - 6;
+    return { position: [-3 * S, 0, (3 - offset) * S], rotationY: Math.PI / 2, side: 'left' };
+  }
+  if (i === 12) {
+    return { position: [-3 * S, 0, -3 * S], rotationY: Math.PI, side: 'corner' };
+  }
+  if (i > 12 && i < 18) {
+    const offset = i - 12;
+    return { position: [(-3 + offset) * S, 0, -3 * S], rotationY: Math.PI, side: 'top' };
+  }
+  if (i === 18) {
+    return { position: [3 * S, 0, -3 * S], rotationY: -Math.PI / 2, side: 'corner' };
+  }
+  const offset = i - 18;
+  return { position: [3 * S, 0, (-3 + offset) * S], rotationY: -Math.PI / 2, side: 'right' };
+}
+
+/**
+ * Returns a slight offset on a tile so multiple ships on the same tile remain distinct
+ */
+export function getShipSlotOffset(playerId: number): [number, number, number] {
+  const offsets: [number, number, number][] = [
+    [-0.26, 0, -0.22],
+    [0.26, 0, -0.22],
+    [-0.26, 0, 0.24],
+    [0.26, 0, 0.24],
+  ];
+  return offsets[playerId % 4];
+}
+
+export const INITIAL_TILES: TileData[] = [
+  {
+    id: 0,
+    name: 'Port Royal',
+    type: 'start',
+    color: '#f59e0b',
+    group: 'Corner',
+    ownerId: null,
+    level: 0,
+    description: 'Point de départ. Recevez +200 Doublons à chaque passage !',
+  },
+  {
+    id: 1,
+    name: 'Crique aux Crabes',
+    type: 'island',
+    color: '#a16207',
+    group: 'Récifs Bruns',
+    price: 100,
+    baseRent: 25,
+    upgradeCost: 60,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 2,
+    name: 'Coffre au Trésor',
+    type: 'chest',
+    color: '#eab308',
+    group: 'Event',
+    ownerId: null,
+    level: 0,
+    description: 'Piochez une carte Coffre au Trésor !',
+  },
+  {
+    id: 3,
+    name: 'Baie des Épaves',
+    type: 'island',
+    color: '#a16207',
+    group: 'Récifs Bruns',
+    price: 120,
+    baseRent: 30,
+    upgradeCost: 60,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 4,
+    name: 'Taxe de l’Amirauté',
+    type: 'tax',
+    color: '#dc2626',
+    group: 'Tax',
+    ownerId: null,
+    level: 0,
+    description: 'Versez 120 Doublons au pot de la Taverne de Tortuga.',
+  },
+  {
+    id: 5,
+    name: 'Atoll de Corail',
+    type: 'island',
+    color: '#06b6d4',
+    group: 'Lagons Azur',
+    price: 150,
+    baseRent: 40,
+    upgradeCost: 80,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 6,
+    name: 'Île du Crâne',
+    type: 'jail',
+    color: '#475569',
+    group: 'Corner',
+    ownerId: null,
+    level: 0,
+    description: 'La Cale : Simple visite ou prisonnier des fers.',
+  },
+  {
+    id: 7,
+    name: 'Lagon des Sirènes',
+    type: 'island',
+    color: '#06b6d4',
+    group: 'Lagons Azur',
+    price: 170,
+    baseRent: 45,
+    upgradeCost: 80,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 8,
+    name: 'Malédiction des Mers',
+    type: 'curse',
+    color: '#7c3aed',
+    group: 'Event',
+    ownerId: null,
+    level: 0,
+    description: 'Affrontez les caprices surnaturels de l’océan !',
+  },
+  {
+    id: 9,
+    name: 'Récif des Perles',
+    type: 'island',
+    color: '#ec4899',
+    group: 'Archipel Corail',
+    price: 200,
+    baseRent: 55,
+    upgradeCost: 100,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 10,
+    name: 'Port des Flibustiers',
+    type: 'island',
+    color: '#ec4899',
+    group: 'Archipel Corail',
+    price: 220,
+    baseRent: 60,
+    upgradeCost: 100,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 11,
+    name: 'Coffre au Trésor',
+    type: 'chest',
+    color: '#eab308',
+    group: 'Event',
+    ownerId: null,
+    level: 0,
+    description: 'Piochez une carte Coffre au Trésor !',
+  },
+  {
+    id: 12,
+    name: 'Taverne de Tortuga',
+    type: 'free_parking',
+    color: '#16a34a',
+    group: 'Corner',
+    ownerId: null,
+    level: 0,
+    description: 'Récupérez tout le butin accumulé au centre du plateau !',
+  },
+  {
+    id: 13,
+    name: 'Sanctuaire Vaudou',
+    type: 'island',
+    color: '#f97316',
+    group: 'Îles des Brumes',
+    price: 250,
+    baseRent: 70,
+    upgradeCost: 120,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 14,
+    name: 'Crique du Rhum',
+    type: 'island',
+    color: '#f97316',
+    group: 'Îles des Brumes',
+    price: 270,
+    baseRent: 75,
+    upgradeCost: 120,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 15,
+    name: 'Malédiction des Mers',
+    type: 'curse',
+    color: '#7c3aed',
+    group: 'Event',
+    ownerId: null,
+    level: 0,
+    description: 'Affrontez les caprices surnaturels de l’océan !',
+  },
+  {
+    id: 16,
+    name: 'Volcan d’Émeraude',
+    type: 'island',
+    color: '#10b981',
+    group: 'Émeraude',
+    price: 300,
+    baseRent: 85,
+    upgradeCost: 140,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 17,
+    name: 'Forteresse de Jade',
+    type: 'island',
+    color: '#10b981',
+    group: 'Émeraude',
+    price: 320,
+    baseRent: 95,
+    upgradeCost: 140,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 18,
+    name: 'Embuscade du Kraken',
+    type: 'go_to_jail',
+    color: '#dc2626',
+    group: 'Corner',
+    ownerId: null,
+    level: 0,
+    description: 'Le Kraken vous entraîne directement dans La Cale (Île du Crâne) !',
+  },
+  {
+    id: 19,
+    name: 'Détroit des Tempêtes',
+    type: 'island',
+    color: '#ef4444',
+    group: 'Bastions Sang',
+    price: 350,
+    baseRent: 105,
+    upgradeCost: 160,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 20,
+    name: 'Bastion de Barbe-Noire',
+    type: 'island',
+    color: '#ef4444',
+    group: 'Bastions Sang',
+    price: 380,
+    baseRent: 115,
+    upgradeCost: 160,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 21,
+    name: 'Coffre au Trésor',
+    type: 'chest',
+    color: '#eab308',
+    group: 'Event',
+    ownerId: null,
+    level: 0,
+    description: 'Piochez une carte Coffre au Trésor !',
+  },
+  {
+    id: 22,
+    name: 'Citadelle d’Or',
+    type: 'island',
+    color: '#fbbf24',
+    group: 'Couronne d’Or',
+    price: 420,
+    baseRent: 130,
+    upgradeCost: 180,
+    ownerId: null,
+    level: 0,
+  },
+  {
+    id: 23,
+    name: 'Île du Trésor Maudit',
+    type: 'island',
+    color: '#fbbf24',
+    group: 'Couronne d’Or',
+    price: 460,
+    baseRent: 150,
+    upgradeCost: 200,
+    ownerId: null,
+    level: 0,
+  },
+];
+
+const TREASURE_CHEST_CARDS: Omit<DrawnCard, 'deck'>[] = [
+  {
+    title: 'Galion Espagnol Échoué',
+    description: 'Vos vigies repèrent une cargaison d’or dans les récifs. Recevez +200 Doublons !',
+    goldDelta: 200,
+  },
+  {
+    title: 'Carte au Trésor Secrète',
+    description: 'Vous déterrez le coffre d’un ancien flibustier. Recevez +150 Doublons !',
+    goldDelta: 150,
+  },
+  {
+    title: 'Vents Alizés Favorables',
+    description: 'Cap sur Port Royal toutes voiles dehors ! Avancez jusqu’à Port Royal (+200 Or).',
+    moveToTile: 0,
+  },
+  {
+    title: 'Tournée Générale à Tortuga',
+    description: 'Les contrebandiers vous offrent une part de leur butin : +120 Doublons.',
+    goldDelta: 120,
+  },
+  {
+    title: 'Prise de Corsaire',
+    description: 'Vous revendez des épices rares aux marchands. Recevez +180 Doublons.',
+    goldDelta: 180,
+  },
+];
+
+const SEA_CURSE_CARDS: Omit<DrawnCard, 'deck'>[] = [
+  {
+    title: 'Colère du Hollandais Volant',
+    description: 'Un vaisseau fantôme crible votre coque ! Payez 140 Doublons de réparations au pot de Tortuga.',
+    goldDelta: -140,
+  },
+  {
+    title: 'Chant des Sirènes',
+    description: 'Votre équipage perd le nord et s’échoue à la Taverne de Tortuga.',
+    moveToTile: 12,
+  },
+  {
+    title: 'Tentacules des Abysses',
+    description: 'Le Kraken surgit des profondeurs ! Vous êtes envoyé directement à l’Île du Crâne (La Cale).',
+    goToJail: true,
+  },
+  {
+    title: 'Mutinerie à Bord',
+    description: 'Vous devez calmer l’équipage avec une prime de rhum. Perdez 100 Doublons.',
+    goldDelta: -100,
+  },
+  {
+    title: 'Brouillard Mystique',
+    description: 'Un courant surnaturel vous propulse vers l’Île du Trésor Maudit !',
+    moveToTile: 23,
+  },
+];
+
+export function calculateIslandRent(tile: TileData, allTiles: TileData[]): number {
+  if (!tile.baseRent) return 0;
+  const multipliers = [1, 1.8, 2.8, 4.2, 6.0];
+  let rent = Math.round(tile.baseRent * (multipliers[tile.level] ?? 1));
+
+  // Monopoly bonus if owner controls all islands in the same group
+  if (tile.ownerId !== null) {
+    const groupTiles = allTiles.filter((t) => t.type === 'island' && t.group === tile.group);
+    const ownsAll = groupTiles.length > 1 && groupTiles.every((t) => t.ownerId === tile.ownerId);
+    if (ownsAll && tile.level === 0) {
+      rent = Math.round(rent * 1.5);
+    }
+  }
+  return rent;
+}
+
+function createInitialPlayers(aiCount: number, passAndPlay: boolean): Player[] {
+  const roster = [
+    {
+      id: 0,
+      name: 'Cap. Jack',
+      title: 'Le Faucon Rouge',
+      color: '#ef4444',
+      sailColor: '#dc2626',
+      accentColor: '#fca5a5',
+      isAI: false,
+    },
+    {
+      id: 1,
+      name: 'Anne Bonny',
+      title: 'La Reine Bleue',
+      color: '#3b82f6',
+      sailColor: '#2563eb',
+      accentColor: '#93c5fd',
+      isAI: !passAndPlay,
+    },
+    {
+      id: 2,
+      name: 'Barbe-Verte',
+      title: 'Le Fléau d’Émeraude',
+      color: '#10b981',
+      sailColor: '#059669',
+      accentColor: '#6ee7b7',
+      isAI: !passAndPlay,
+    },
+    {
+      id: 3,
+      name: 'Barbe-Noire',
+      title: 'Terreur Noire & Or',
+      color: '#f59e0b',
+      sailColor: '#1e293b',
+      accentColor: '#fde047',
+      isAI: !passAndPlay,
+    },
+  ];
+
+  const totalPlayers = Math.min(4, Math.max(2, 1 + aiCount));
+  return roster.slice(0, totalPlayers).map((p) => ({
+    ...p,
+    gold: 1500,
+    position: 0,
+    inJail: false,
+    jailTurns: 0,
+    bankrupt: false,
+  }));
+}
+
+interface GameState {
+  players: Player[];
+  tiles: TileData[];
+  currentPlayerIndex: number;
+  phase: TurnPhase;
+  dice: [number, number];
+  isRollingDice: boolean;
+  cameraMode: CameraMode;
+  focusedTileIndex: number;
+  cameraShake: number;
+  tortugaJackpot: number;
+  actionLogs: string[];
+  floatingTexts: FloatingTextItem[];
+  activeCard: DrawnCard | null;
+  navalBattle: NavalBattleState | null;
+  cannonShot: CannonShotData | null;
+  winner: Player | null;
+  passAndPlay: boolean;
+  aiCount: number;
+
+  // Actions
+  initGame: (aiCount?: number, passAndPlay?: boolean) => void;
+  toggleCameraMode: () => void;
+  setCameraMode: (mode: CameraMode) => void;
+  addFloatingText: (tileIndex: number, text: string, color?: string) => void;
+  removeFloatingText: (id: string) => void;
+  addLog: (msg: string) => void;
+  rollDice: () => void;
+  buyIsland: () => void;
+  fortifyIsland: (tileId?: number) => void;
+  payBailAndRoll: () => void;
+  resolveCardModal: () => void;
+  triggerManualNavalBattle: () => void;
+  rollNavalBattleDice: () => void;
+  completeNavalBattle: () => void;
+  endTurn: () => void;
+}
+
+export const useGameStore = create<GameState>((set, get) => ({
+  players: createInitialPlayers(3, false),
+  tiles: INITIAL_TILES.map((t) => ({ ...t })),
+  currentPlayerIndex: 0,
+  phase: 'IDLE',
+  dice: [3, 4],
+  isRollingDice: false,
+  cameraMode: 'GLOBAL',
+  focusedTileIndex: 0,
+  cameraShake: 0,
+  tortugaJackpot: 150,
+  actionLogs: [
+    '⚓ Bienvenue dans Pirate’s Plunder !',
+    '🏴‍☠️ Lancez les dés depuis Port Royal pour conquérir les 24 îles.',
+    '💥 Arrêtez-vous sur un navire ennemi pour déclencher un Abordage !',
+  ],
+  floatingTexts: [],
+  activeCard: null,
+  navalBattle: null,
+  cannonShot: null,
+  winner: null,
+  passAndPlay: false,
+  aiCount: 3,
+
+  initGame: (aiCount = 3, passAndPlay = false) => {
+    set({
+      players: createInitialPlayers(aiCount, passAndPlay),
+      tiles: INITIAL_TILES.map((t) => ({ ...t, ownerId: null, level: 0 })),
+      currentPlayerIndex: 0,
+      phase: 'IDLE',
+      dice: [1, 1],
+      isRollingDice: false,
+      focusedTileIndex: 0,
+      cameraShake: 0,
+      tortugaJackpot: 150,
+      activeCard: null,
+      navalBattle: null,
+      cannonShot: null,
+      winner: null,
+      passAndPlay,
+      aiCount,
+      actionLogs: [
+        '⚓ Nouvelle expédition lancée dans les Caraïbes !',
+        '💰 Chaque capitaine débute avec 1500 Doublons d’or.',
+        '💣 Abordez les galions adverses pour piller 150 Doublons !',
+      ],
+    });
+  },
+
+  toggleCameraMode: () => {
+    set((state) => ({
+      cameraMode: state.cameraMode === 'GLOBAL' ? 'FOLLOW' : 'GLOBAL',
+    }));
+  },
+
+  setCameraMode: (mode) => set({ cameraMode: mode }),
+
+  addFloatingText: (tileIndex, text, color = '#fbbf24') => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    set((state) => ({
+      floatingTexts: [...state.floatingTexts, { id, tileIndex, text, color }],
+    }));
+    setTimeout(() => {
+      get().removeFloatingText(id);
+    }, 2200);
+  },
+
+  removeFloatingText: (id) => {
+    set((state) => ({
+      floatingTexts: state.floatingTexts.filter((f) => f.id !== id),
+    }));
+  },
+
+  addLog: (msg) => {
+    set((state) => ({
+      actionLogs: [msg, ...state.actionLogs.slice(0, 19)],
+    }));
+  },
+
+  payBailAndRoll: () => {
+    const state = get();
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || !player.inJail || state.phase !== 'IDLE') return;
+    if (player.gold < 100) return;
+
+    soundEffects.playGoldSound();
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex
+        ? { ...p, gold: p.gold - 100, inJail: false, jailTurns: 0 }
+        : p
+    );
+    state.addFloatingText(player.position, '-100 Or (Caution)', '#f87171');
+    state.addLog(`🗝️ ${player.name} verse 100 Or de caution au geôlier de l'Île du Crâne.`);
+    set({
+      players: updatedPlayers,
+      tortugaJackpot: state.tortugaJackpot + 100,
+    });
+    setTimeout(() => {
+      get().rollDice();
+    }, 250);
+  },
+
+  rollDice: () => {
+    const state = get();
+    if (state.phase !== 'IDLE') return;
+
+    const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer || currentPlayer.bankrupt) return;
+
+    soundEffects.playDiceRollSound();
+
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    const total = d1 + d2;
+
+    set({
+      phase: 'ROLLING',
+      isRollingDice: true,
+      dice: [d1, d2],
+      focusedTileIndex: currentPlayer.position,
+    });
+
+    setTimeout(() => {
+      const latest = get();
+      const player = latest.players[latest.currentPlayerIndex];
+      set({ isRollingDice: false });
+
+      // Check Jail status
+      if (player.inJail) {
+        if (d1 === d2 || player.jailTurns >= 1) {
+          const reason = d1 === d2 ? `un double (${d1}+${d2})` : 'sa peine purgée';
+          latest.addLog(`🔓 ${player.name} sort de La Cale grâce à ${reason} et avance de ${total} cases !`);
+          set((s) => ({
+            players: s.players.map((p, idx) =>
+              idx === s.currentPlayerIndex ? { ...p, inJail: false, jailTurns: 0 } : p
+            ),
+          }));
+        } else {
+          latest.addLog(`⛓️ ${player.name} fait ${d1}+${d2} et reste aux fers sur l'Île du Crâne.`);
+          latest.addFloatingText(player.position, 'Aux Fers !', '#94a3b8');
+          set((s) => ({
+            players: s.players.map((p, idx) =>
+              idx === s.currentPlayerIndex ? { ...p, jailTurns: p.jailTurns + 1 } : p
+            ),
+            phase: 'END_TURN',
+          }));
+          if (player.isAI) {
+            setTimeout(() => get().endTurn(), 1200);
+          }
+          return;
+        }
+      } else {
+        latest.addLog(`🎲 ${player.name} lance ${d1} + ${d2} = ${total} !`);
+      }
+
+      // Start step-by-step movement
+      set({ phase: 'MOVING' });
+      let stepsRemaining = total;
+      let stepCount = 0;
+
+      const stepInterval = setInterval(() => {
+        const st = get();
+        const activePlayer = st.players[st.currentPlayerIndex];
+        if (!activePlayer) {
+          clearInterval(stepInterval);
+          return;
+        }
+
+        const nextPos = (activePlayer.position + 1) % 24;
+        const passedStart = nextPos === 0;
+        soundEffects.playHopSound(stepCount);
+        stepCount++;
+        stepsRemaining--;
+
+        set((s) => ({
+          focusedTileIndex: nextPos,
+          players: s.players.map((p, idx) =>
+            idx === s.currentPlayerIndex
+              ? {
+                  ...p,
+                  position: nextPos,
+                  gold: passedStart ? p.gold + 200 : p.gold,
+                }
+              : p
+          ),
+        }));
+
+        if (passedStart) {
+          soundEffects.playGoldSound();
+          st.addFloatingText(0, '+200 Or (Port Royal)', '#4ade80');
+          st.addLog(`⚓ ${activePlayer.name} franchit Port Royal et touche +200 Doublons !`);
+        }
+
+        if (stepsRemaining <= 0) {
+          clearInterval(stepInterval);
+          setTimeout(() => {
+            evaluateLandedTile();
+          }, 260);
+        }
+      }, 185);
+    }, 750);
+  },
+
+  buyIsland: () => {
+    const state = get();
+    if (state.phase !== 'TILE_ACTION' && state.phase !== 'END_TURN') return;
+
+    const player = state.players[state.currentPlayerIndex];
+    const tile = state.tiles[player.position];
+
+    if (!tile || tile.type !== 'island' || tile.ownerId !== null || !tile.price) return;
+    if (player.gold < tile.price) return;
+
+    soundEffects.playGoldSound();
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex ? { ...p, gold: p.gold - tile.price! } : p
+    );
+    const updatedTiles = state.tiles.map((t) =>
+      t.id === tile.id ? { ...t, ownerId: player.id, level: 0 } : t
+    );
+
+    state.addFloatingText(tile.id, `-${tile.price} Or`, '#fbbf24');
+    state.addLog(`🏴‍☠️ ${player.name} annexe ${tile.name} pour ${tile.price} Doublons !`);
+
+    set({
+      players: updatedPlayers,
+      tiles: updatedTiles,
+      phase: 'END_TURN',
+    });
+  },
+
+  fortifyIsland: (tileId) => {
+    const state = get();
+    if (state.phase !== 'TILE_ACTION' && state.phase !== 'END_TURN') return;
+
+    const player = state.players[state.currentPlayerIndex];
+    const targetTileId = tileId !== undefined ? tileId : player.position;
+    const tile = state.tiles[targetTileId];
+
+    if (!tile || tile.type !== 'island' || tile.ownerId !== player.id) return;
+    if (tile.level >= 4 || !tile.upgradeCost) return;
+    if (player.gold < tile.upgradeCost) return;
+
+    soundEffects.playBuildSound();
+    const newLevel = tile.level + 1;
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === state.currentPlayerIndex ? { ...p, gold: p.gold - tile.upgradeCost! } : p
+    );
+    const updatedTiles = state.tiles.map((t) =>
+      t.id === tile.id ? { ...t, level: newLevel } : t
+    );
+
+    const buildLabel =
+      newLevel === 4 ? 'Forteresse Pirate !' : `Avant-poste Niv.${newLevel}`;
+
+    state.addFloatingText(tile.id, `🏰 ${buildLabel}`, '#38bdf8');
+    state.addLog(
+      `🛠️ ${player.name} construit ${buildLabel} sur ${tile.name} (-${tile.upgradeCost} Or).`
+    );
+
+    set({
+      players: updatedPlayers,
+      tiles: updatedTiles,
+      phase: 'END_TURN',
+    });
+  },
+
+  resolveCardModal: () => {
+    const state = get();
+    const card = state.activeCard;
+    if (!card) return;
+
+    const player = state.players[state.currentPlayerIndex];
+    set({ activeCard: null });
+
+    if (card.goldDelta) {
+      const delta = card.goldDelta;
+      if (delta > 0) {
+        soundEffects.playGoldSound();
+        state.addFloatingText(player.position, `+${delta} Or`, '#4ade80');
+        state.addLog(`💰 ${player.name} gagne ${delta} Doublons (${card.title}).`);
+        set((s) => ({
+          players: s.players.map((p, idx) =>
+            idx === s.currentPlayerIndex ? { ...p, gold: p.gold + delta } : p
+          ),
+        }));
+      } else {
+        const loss = Math.abs(delta);
+        soundEffects.playCannonSound();
+        state.addFloatingText(player.position, `-${loss} Or`, '#f87171');
+        state.addLog(`💀 ${player.name} perd ${loss} Doublons (${card.title}).`);
+        set((s) => ({
+          tortugaJackpot: s.tortugaJackpot + loss,
+          players: s.players.map((p, idx) =>
+            idx === s.currentPlayerIndex ? { ...p, gold: p.gold - loss } : p
+          ),
+        }));
+      }
+      checkPlayerBankruptcy(state.currentPlayerIndex);
+      afterTileActionCheckNavalBattle();
+      return;
+    }
+
+    if (card.goToJail) {
+      soundEffects.playKrakenSound();
+      state.addFloatingText(6, 'En Cale !', '#ef4444');
+      state.addLog(`🦑 ${player.name} est entraîné dans La Cale (Île du Crâne) !`);
+      set((s) => ({
+        focusedTileIndex: 6,
+        players: s.players.map((p, idx) =>
+          idx === s.currentPlayerIndex
+            ? { ...p, position: 6, inJail: true, jailTurns: 0 }
+            : p
+        ),
+        phase: 'END_TURN',
+      }));
+      if (player.isAI) {
+        setTimeout(() => get().endTurn(), 1200);
+      }
+      return;
+    }
+
+    if (card.moveToTile !== undefined) {
+      const dest = card.moveToTile;
+      const passedStart = dest === 0;
+      soundEffects.playHopSound(4);
+      if (passedStart) soundEffects.playGoldSound();
+
+      set((s) => ({
+        focusedTileIndex: dest,
+        players: s.players.map((p, idx) =>
+          idx === s.currentPlayerIndex
+            ? {
+                ...p,
+                position: dest,
+                gold: passedStart ? p.gold + 200 : p.gold,
+              }
+            : p
+        ),
+      }));
+      if (passedStart) {
+        state.addFloatingText(0, '+200 Or', '#4ade80');
+      }
+      setTimeout(() => {
+        evaluateLandedTile();
+      }, 350);
+      return;
+    }
+
+    afterTileActionCheckNavalBattle();
+  },
+
+  triggerManualNavalBattle: () => {
+    const state = get();
+    const player = state.players[state.currentPlayerIndex];
+    if (!player) return;
+
+    const rivalsOnTile = state.players.filter(
+      (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
+    );
+    if (rivalsOnTile.length === 0) return;
+
+    const defender = rivalsOnTile[0];
+    set({
+      phase: 'NAVAL_BATTLE',
+      focusedTileIndex: player.position,
+      navalBattle: {
+        active: true,
+        tileIndex: player.position,
+        attackerId: player.id,
+        defenderId: defender.id,
+        attackerRoll: null,
+        defenderRoll: null,
+        phase: 'ready',
+        winnerId: null,
+        loserId: null,
+        plunderAmount: 150,
+      },
+    });
+  },
+
+  rollNavalBattleDice: () => {
+    const state = get();
+    const battle = state.navalBattle;
+    if (!battle || battle.phase !== 'ready') return;
+
+    soundEffects.playDiceRollSound();
+
+    // Generate two distinct rolls so there's always a clear winner in 1 roll
+    let atkRoll = Math.floor(Math.random() * 6) + 1;
+    let defRoll = Math.floor(Math.random() * 6) + 1;
+    if (atkRoll === defRoll) {
+      if (atkRoll < 6) atkRoll += 1;
+      else defRoll -= 1;
+    }
+
+    const winnerId = atkRoll > defRoll ? battle.attackerId : battle.defenderId;
+    const loserId = atkRoll > defRoll ? battle.defenderId : battle.attackerId;
+
+    set({
+      navalBattle: {
+        ...battle,
+        attackerRoll: atkRoll,
+        defenderRoll: defRoll,
+        phase: 'firing',
+        winnerId,
+        loserId,
+      },
+    });
+
+    // Trigger 3D Cannonball shot & Camera Shake
+    setTimeout(() => {
+      const st = get();
+      if (!st.navalBattle) return;
+      soundEffects.playCannonSound();
+
+      set({
+        cameraShake: 1.0,
+        cannonShot: {
+          id: `shot-${Date.now()}`,
+          fromTile: battle.tileIndex,
+          toTile: battle.tileIndex,
+          fromOffset: getShipSlotOffset(winnerId),
+          toOffset: getShipSlotOffset(loserId),
+          active: true,
+        },
+      });
+
+      setTimeout(() => {
+        set({ cameraShake: 0 });
+      }, 500);
+
+      // Apply 150 Doublons plunder after cannonball impact
+      setTimeout(() => {
+        const cur = get();
+        const b = cur.navalBattle;
+        if (!b || b.winnerId === null || b.loserId === null) return;
+
+        const winner = cur.players.find((p) => p.id === b.winnerId)!;
+        const loser = cur.players.find((p) => p.id === b.loserId)!;
+        const plunder = Math.min(150, Math.max(50, loser.gold));
+
+        soundEffects.playGoldSound();
+        cur.addFloatingText(b.tileIndex, `+${plunder} Or (${winner.name})`, '#4ade80');
+        setTimeout(() => {
+          get().addFloatingText(b.tileIndex, `-${plunder} Or (${loser.name})`, '#f87171');
+        }, 220);
+
+        cur.addLog(
+          `💥 Abordage ! ${winner.name} (${b.attackerId === winner.id ? b.attackerRoll : b.defenderRoll}) canonne ${loser.name} (${b.attackerId === loser.id ? b.attackerRoll : b.defenderRoll}) et pille ${plunder} Doublons !`
+        );
+
+        set((s) => ({
+          cannonShot: null,
+          players: s.players.map((p) => {
+            if (p.id === b.winnerId) return { ...p, gold: p.gold + plunder };
+            if (p.id === b.loserId) return { ...p, gold: p.gold - plunder };
+            return p;
+          }),
+          navalBattle: s.navalBattle
+            ? { ...s.navalBattle, phase: 'resolved', plunderAmount: plunder }
+            : null,
+        }));
+
+        checkPlayerBankruptcy(b.loserId);
+
+        const activePlayer = get().players[get().currentPlayerIndex];
+        if (activePlayer?.isAI) {
+          setTimeout(() => {
+            get().completeNavalBattle();
+          }, 1200);
+        }
+      }, 750);
+    }, 450);
+  },
+
+  completeNavalBattle: () => {
+    const state = get();
+    if (state.phase === 'GAME_OVER') return;
+
+    const activePlayer = state.players[state.currentPlayerIndex];
+    const currentTile = activePlayer ? state.tiles[activePlayer.position] : null;
+    const canStillActOnTile =
+      activePlayer &&
+      !activePlayer.isAI &&
+      currentTile?.type === 'island' &&
+      (currentTile.ownerId === null || currentTile.ownerId === activePlayer.id);
+
+    set({
+      navalBattle: null,
+      cannonShot: null,
+      phase: canStillActOnTile ? 'TILE_ACTION' : 'END_TURN',
+    });
+
+    const latestPlayer = get().players[get().currentPlayerIndex];
+    if (latestPlayer && latestPlayer.isAI) {
+      setTimeout(() => {
+        get().endTurn();
+      }, 900);
+    }
+  },
+
+  endTurn: () => {
+    const state = get();
+    if (state.phase === 'GAME_OVER') return;
+
+    const alivePlayers = state.players.filter((p) => !p.bankrupt);
+    if (alivePlayers.length <= 1) {
+      soundEffects.playVictoryFanfare();
+      set({
+        phase: 'GAME_OVER',
+        winner: alivePlayers[0] ?? state.players[0],
+      });
+      return;
+    }
+
+    let nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
+    let safety = 0;
+    while (state.players[nextIndex].bankrupt && safety < 10) {
+      nextIndex = (nextIndex + 1) % state.players.length;
+      safety++;
+    }
+
+    const nextPlayer = state.players[nextIndex];
+    set({
+      currentPlayerIndex: nextIndex,
+      phase: 'IDLE',
+      focusedTileIndex: nextPlayer.position,
+      activeCard: null,
+      navalBattle: null,
+    });
+
+    if (nextPlayer.isAI) {
+      setTimeout(() => {
+        runAITurn();
+      }, 1200);
+    }
+  },
+}));
+
+/**
+ * Evaluates the tile where the current player just landed
+ */
+function evaluateLandedTile(): void {
+  const state = useGameStore.getState();
+  const player = state.players[state.currentPlayerIndex];
+  if (!player || player.bankrupt) return;
+
+  const tile = state.tiles[player.position];
+
+  switch (tile.type) {
+    case 'start': {
+      state.addLog(`⚓ ${player.name} mouille l'ancre à Port Royal.`);
+      afterTileActionCheckNavalBattle();
+      break;
+    }
+
+    case 'jail': {
+      state.addLog(`💀 ${player.name} inspecte les cachots de l'Île du Crâne (Simple visite).`);
+      afterTileActionCheckNavalBattle();
+      break;
+    }
+
+    case 'free_parking': {
+      const jackpot = Math.max(100, state.tortugaJackpot);
+      soundEffects.playGoldSound();
+      state.addFloatingText(12, `+${jackpot} Or (Butin)`, '#4ade80');
+      state.addLog(
+        `🍻 ${player.name} rafle le butin de la Taverne de Tortuga : +${jackpot} Doublons !`
+      );
+      useGameStore.setState((s) => ({
+        tortugaJackpot: 100, // Reset with 100 base pot
+        players: s.players.map((p, idx) =>
+          idx === s.currentPlayerIndex ? { ...p, gold: p.gold + jackpot } : p
+        ),
+      }));
+      afterTileActionCheckNavalBattle();
+      break;
+    }
+
+    case 'go_to_jail': {
+      soundEffects.playKrakenSound();
+      state.addFloatingText(18, 'Kraken ! En Cale !', '#ef4444');
+      state.addLog(
+        `🦑 Embuscade du Kraken ! ${player.name} est envoyé aux fers sur l'Île du Crâne !`
+      );
+      useGameStore.setState((s) => ({
+        cameraShake: 0.8,
+        focusedTileIndex: 6,
+        players: s.players.map((p, idx) =>
+          idx === s.currentPlayerIndex
+            ? { ...p, position: 6, inJail: true, jailTurns: 0 }
+            : p
+        ),
+        phase: 'END_TURN',
+      }));
+      setTimeout(() => useGameStore.setState({ cameraShake: 0 }), 450);
+      if (player.isAI) {
+        setTimeout(() => useGameStore.getState().endTurn(), 1200);
+      }
+      break;
+    }
+
+    case 'tax': {
+      const taxAmount = 120;
+      soundEffects.playCannonSound();
+      state.addFloatingText(tile.id, `-${taxAmount} Or (Taxe)`, '#f87171');
+      state.addLog(
+        `👑 ${player.name} paie ${taxAmount} Doublons de Taxe à l'Amirauté (ajoutés à Tortuga).`
+      );
+      useGameStore.setState((s) => ({
+        tortugaJackpot: s.tortugaJackpot + taxAmount,
+        players: s.players.map((p, idx) =>
+          idx === s.currentPlayerIndex ? { ...p, gold: p.gold - taxAmount } : p
+        ),
+      }));
+      checkPlayerBankruptcy(state.currentPlayerIndex);
+      afterTileActionCheckNavalBattle();
+      break;
+    }
+
+    case 'chest':
+    case 'curse': {
+      const deckPool = tile.type === 'chest' ? TREASURE_CHEST_CARDS : SEA_CURSE_CARDS;
+      const picked = deckPool[Math.floor(Math.random() * deckPool.length)];
+      const drawn: DrawnCard = {
+        deck: tile.type,
+        ...picked,
+      };
+      useGameStore.setState({
+        phase: 'TILE_ACTION',
+        activeCard: drawn,
+      });
+
+      if (player.isAI) {
+        setTimeout(() => {
+          useGameStore.getState().resolveCardModal();
+        }, 1400);
+      }
+      break;
+    }
+
+    case 'island': {
+      if (tile.ownerId === null) {
+        // Available to purchase
+        useGameStore.setState({ phase: 'TILE_ACTION' });
+        if (player.isAI) {
+          setTimeout(() => {
+            const st = useGameStore.getState();
+            const ai = st.players[st.currentPlayerIndex];
+            const t = st.tiles[ai.position];
+            // AI buys island if it can afford it with at least 120 gold buffer
+            if (t.price && ai.gold >= t.price + 120) {
+              st.buyIsland();
+            }
+            setTimeout(() => {
+              afterTileActionCheckNavalBattle();
+            }, 600);
+          }, 1200);
+        } else {
+          // Human player: if there is also a rival ship here, let them buy or trigger naval battle
+          checkAutomaticNavalBattlePrompt();
+        }
+      } else if (tile.ownerId === player.id) {
+        // Player owns this island: can fortify it!
+        useGameStore.setState({ phase: 'TILE_ACTION' });
+        if (player.isAI) {
+          setTimeout(() => {
+            const st = useGameStore.getState();
+            const ai = st.players[st.currentPlayerIndex];
+            const t = st.tiles[ai.position];
+            if (t.upgradeCost && t.level < 4 && ai.gold >= t.upgradeCost + 200) {
+              st.fortifyIsland(t.id);
+            }
+            setTimeout(() => {
+              afterTileActionCheckNavalBattle();
+            }, 600);
+          }, 1200);
+        } else {
+          checkAutomaticNavalBattlePrompt();
+        }
+      } else {
+        // Owned by rival captain -> pay anchorage rent!
+        const owner = state.players.find((p) => p.id === tile.ownerId);
+        if (owner && !owner.bankrupt) {
+          const rent = calculateIslandRent(tile, state.tiles);
+          soundEffects.playGoldSound();
+          state.addFloatingText(tile.id, `-${rent} Or (Loyer)`, '#f87171');
+          state.addLog(
+            `⚓ Droit de mouillage : ${player.name} verse ${rent} Doublons à ${owner.name} sur ${tile.name} !`
+          );
+
+          useGameStore.setState((s) => ({
+            players: s.players.map((p) => {
+              if (p.id === player.id) return { ...p, gold: p.gold - rent };
+              if (p.id === owner.id) return { ...p, gold: p.gold + rent };
+              return p;
+            }),
+          }));
+          checkPlayerBankruptcy(state.currentPlayerIndex);
+        }
+        afterTileActionCheckNavalBattle();
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * Checks if the player landed on a tile with rival ship(s) to trigger Naval Battle
+ */
+function afterTileActionCheckNavalBattle(): void {
+  const state = useGameStore.getState();
+  if (state.phase === 'GAME_OVER') return;
+
+  const player = state.players[state.currentPlayerIndex];
+  if (!player || player.bankrupt) {
+    state.endTurn();
+    return;
+  }
+
+  // Do not trigger naval battle inside Jail if player is locked up
+  const rivals = state.players.filter(
+    (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
+  );
+
+  if (rivals.length > 0) {
+    const defender = rivals[0];
+    state.addLog(
+      `⚔️ BATAILLE NAVALE sur ${state.tiles[player.position].name} : ${player.name} aborde ${defender.name} !`
+    );
+    useGameStore.setState({
+      phase: 'NAVAL_BATTLE',
+      focusedTileIndex: player.position,
+      navalBattle: {
+        active: true,
+        tileIndex: player.position,
+        attackerId: player.id,
+        defenderId: defender.id,
+        attackerRoll: null,
+        defenderRoll: null,
+        phase: 'ready',
+        winnerId: null,
+        loserId: null,
+        plunderAmount: 150,
+      },
+    });
+
+    if (player.isAI) {
+      setTimeout(() => {
+        useGameStore.getState().rollNavalBattleDice();
+      }, 1200);
+    }
+    return;
+  }
+
+  useGameStore.setState({ phase: 'END_TURN' });
+  if (player.isAI) {
+    setTimeout(() => {
+      useGameStore.getState().endTurn();
+    }, 1200);
+  }
+}
+
+function checkAutomaticNavalBattlePrompt(): void {
+  const state = useGameStore.getState();
+  const player = state.players[state.currentPlayerIndex];
+  if (!player) return;
+
+  const rivals = state.players.filter(
+    (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
+  );
+  if (rivals.length > 0) {
+    const defender = rivals[0];
+    state.addLog(
+      `⚔️ BATAILLE NAVALE sur ${state.tiles[player.position].name} : ${player.name} aborde ${defender.name} !`
+    );
+    useGameStore.setState({
+      phase: 'NAVAL_BATTLE',
+      focusedTileIndex: player.position,
+      navalBattle: {
+        active: true,
+        tileIndex: player.position,
+        attackerId: player.id,
+        defenderId: defender.id,
+        attackerRoll: null,
+        defenderRoll: null,
+        phase: 'ready',
+        winnerId: null,
+        loserId: null,
+        plunderAmount: 150,
+      },
+    });
+  }
+}
+
+function checkPlayerBankruptcy(playerIndex: number): void {
+  const state = useGameStore.getState();
+  const player = state.players[playerIndex];
+  if (!player || player.bankrupt) return;
+
+  if (player.gold < 0) {
+    soundEffects.playBankruptSound();
+    state.addFloatingText(player.position, 'NAUFRAGE !', '#ef4444');
+    state.addLog(
+      `🏴‍☠️ Naufrage ! ${player.name} fait faillite. Ses îles redeviennent sauvages !`
+    );
+
+    const updatedPlayers = state.players.map((p, idx) =>
+      idx === playerIndex ? { ...p, gold: 0, bankrupt: true } : p
+    );
+    const updatedTiles = state.tiles.map((t) =>
+      t.ownerId === player.id ? { ...t, ownerId: null, level: 0 } : t
+    );
+
+    const remaining = updatedPlayers.filter((p) => !p.bankrupt);
+    if (remaining.length <= 1) {
+      soundEffects.playVictoryFanfare();
+      useGameStore.setState({
+        players: updatedPlayers,
+        tiles: updatedTiles,
+        phase: 'GAME_OVER',
+        winner: remaining[0] ?? null,
+      });
+    } else {
+      useGameStore.setState({
+        players: updatedPlayers,
+        tiles: updatedTiles,
+      });
+    }
+  }
+}
+
+function runAITurn(): void {
+  const state = useGameStore.getState();
+  const ai = state.players[state.currentPlayerIndex];
+  if (!ai || !ai.isAI || ai.bankrupt || state.phase !== 'IDLE') return;
+
+  if (ai.inJail && ai.gold >= 350) {
+    state.payBailAndRoll();
+    return;
+  }
+
+  state.rollDice();
+}

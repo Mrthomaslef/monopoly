@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Dices, Users, Eye, Compass, Crosshair, FastForward } from 'lucide-react';
+import { Coins, Dices, Users, Eye, Compass, Crosshair } from 'lucide-react';
 import { Scene } from './components/3d/Scene';
 import { TopHUD } from './components/ui/TopHUD';
 import { BottomDeck } from './components/ui/BottomDeck';
@@ -27,11 +27,9 @@ export const App: React.FC = () => {
   const showFortifyModal = useGameStore((s) => s.showFortifyModal);
   const diceStowed = useGameStore((s) => s.diceStowed);
   const cameraMode = useGameStore((s) => s.cameraMode);
-  const botSpeed = useGameStore((s) => s.botSpeed);
   const spotlightPlayerId = useGameStore((s) => s.spotlightPlayerId);
   const setDiceStowed = useGameStore((s) => s.setDiceStowed);
   const setCameraMode = useGameStore((s) => s.setCameraMode);
-  const toggleBotSpeed = useGameStore((s) => s.toggleBotSpeed);
   const focusOnPlayer = useGameStore((s) => s.focusOnPlayer);
   const rollDice = useGameStore((s) => s.rollDice);
 
@@ -39,7 +37,6 @@ export const App: React.FC = () => {
   const isHumanTurn = Boolean(
     activePlayer && !activePlayer.isAI && !activePlayer.bankrupt
   );
-  const hasAIPlayers = players.some((p) => p.isAI && !p.bankrupt);
   const humanPlayersCount = players.filter((p) => !p.isAI && !p.bankrupt).length;
   const isLocalMultiplayer = humanPlayersCount >= 2;
 
@@ -62,9 +59,6 @@ export const App: React.FC = () => {
 
   const showDiceStowToggle =
     isHumanTurn && phase === 'IDLE' && !showSetupModal && !landedTilePopup && !showFortifyModal;
-
-  const showBotSpeedToggle =
-    hasAIPlayers && !showSetupModal && phase !== 'GAME_OVER';
 
   const isFreeCameraActive =
     isHumanTurn &&
@@ -205,40 +199,9 @@ export const App: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* Bottom-Right Controls: Bot Speed Accelerator & Free Board Camera Toggle */}
+        {/* Bottom-Right Control: Free Board Camera Toggle */}
         <div className="pointer-events-none absolute bottom-3 right-3 z-30 flex flex-col items-end gap-2">
           <AnimatePresence>
-            {showBotSpeedToggle && (
-              <motion.button
-                key="bot-speed-toggle"
-                initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                whileTap={{ scale: 0.92 }}
-                type="button"
-                onClick={toggleBotSpeed}
-                title={
-                  botSpeed === 'FAST'
-                    ? 'Vitesse des bots accélérée (cliquer pour revenir à la vitesse normale)'
-                    : 'Accélérer la vitesse des bots'
-                }
-                className={`pointer-events-auto flex items-center gap-1.5 px-3 py-2 rounded-2xl border-2 shadow-[0_10px_25px_rgba(0,0,0,0.85)] cursor-pointer transition-colors ${
-                  botSpeed === 'FAST'
-                    ? 'bg-gradient-to-b from-cyan-400 to-cyan-600 text-slate-950 border-cyan-100'
-                    : 'wood-panel text-amber-200 border-amber-400/70 hover:border-amber-300'
-                }`}
-              >
-                <FastForward
-                  className={`w-4 h-4 shrink-0 ${
-                    botSpeed === 'FAST' ? 'text-slate-950 animate-pulse' : 'text-cyan-300'
-                  }`}
-                />
-                <span className="text-[11px] font-black uppercase tracking-wider">
-                  {botSpeed === 'FAST' ? 'Bots Rapides' : 'Accélérer Bots'}
-                </span>
-              </motion.button>
-            )}
-
             {showDiceStowToggle && (
               <motion.button
                 key="stow-dice-toggle"

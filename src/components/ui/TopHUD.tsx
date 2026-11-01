@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  FastForward,
   Volume2,
   VolumeX,
   Camera,
@@ -26,6 +27,9 @@ export const TopHUD: React.FC = () => {
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const cameraMode = useGameStore((s) => s.cameraMode);
   const toggleCameraMode = useGameStore((s) => s.toggleCameraMode);
+  const botSpeed = useGameStore((s) => s.botSpeed);
+  const toggleBotSpeed = useGameStore((s) => s.toggleBotSpeed);
+  const phase = useGameStore((s) => s.phase);
   const setShowSetupModal = useGameStore((s) => s.setShowSetupModal);
 
   const [isMuted, setIsMuted] = useState<boolean>(soundEffects.isMuted());
@@ -135,6 +139,28 @@ export const TopHUD: React.FC = () => {
                 : 'Modes'}
             </span>
           </button>
+
+          {/* Bot Speed Accelerator Icon Button */}
+          {players.some((p) => p.isAI) && phase !== 'GAME_OVER' && (
+            <button
+              type="button"
+              onClick={toggleBotSpeed}
+              aria-pressed={botSpeed === 'FAST'}
+              aria-label="Accélérer les bots"
+              title={
+                botSpeed === 'FAST'
+                  ? 'Bots rapides (cliquer pour revenir à la vitesse normale)'
+                  : 'Accélérer les bots'
+              }
+              className={`p-1.5 rounded-lg active:scale-95 transition cursor-pointer ${
+                botSpeed === 'FAST'
+                  ? 'bg-gradient-to-b from-cyan-400 to-cyan-600 text-slate-950'
+                  : 'wood-plank text-cyan-300 hover:brightness-110'
+              }`}
+            >
+              <FastForward className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Camera Mode Toggle Icon Button */}
           <button

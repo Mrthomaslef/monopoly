@@ -1,6 +1,6 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text, useTexture } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   TileData,
@@ -28,9 +28,6 @@ export type TerrainTheme =
   | 'taverne'
   | 'tresor'
   | 'malediction';
-
-const PIRATA_FONT_URL = './assets/fonts/PirataOne-Regular.ttf';
-const CINZEL_FONT_URL = './assets/fonts/Cinzel-Bold.ttf';
 
 const TERRAIN_TEXTURE_MAP: Record<TerrainTheme, string> = {
   plage: './assets/tile_plage.jpg?v=terrain2',
@@ -76,6 +73,426 @@ export function getTileTerrainTheme(tile: TileData): TerrainTheme {
   return 'plage';
 }
 
+/**
+ * Draws text character-by-character along a bottom circular arc centered at (cx, cy)
+ * with multi-layered 3D embossed golden-brown ("texte brun doré en relief") styling.
+ */
+function drawCurvedEmbossedText(
+  colorCtx: CanvasRenderingContext2D,
+  bumpCtx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  cy: number,
+  radius: number,
+  baseFontSize: number,
+  maxArcSpanRad: number,
+  variant: 'title' | 'subtitle',
+  accentColor?: string
+) {
+  const fontFamily =
+    variant === 'title'
+      ? '"CinzelBold", "PirataOne", Georgia, serif'
+      : '"CinzelBold", Georgia, serif';
+
+  let fontSize = baseFontSize;
+  const letterSpacing = variant === 'title' ? 4.5 : 3.0;
+
+  colorCtx.font = `900 ${fontSize}px ${fontFamily}`;
+  const chars = Array.from(text);
+
+  const measureTotalWidth = (
+    fSize: number
+  ): { widths: number[]; total: number } => {
+    colorCtx.font = `900 ${fSize}px ${fontFamily}`;
+    const widths = chars.map(
+      (ch) => colorCtx.measureText(ch).width + letterSpacing
+    );
+    const total = widths.reduce((acc, w) => acc + w, 0);
+    return { widths, total };
+  };
+
+  let { widths, total } = measureTotalWidth(fontSize);
+  const maxArcLength = radius * maxArcSpanRad;
+  if (total > maxArcLength && total > 0) {
+    fontSize = Math.max(
+      variant === 'title' ? 40 : 28,
+      Math.floor(fontSize * (maxArcLength / total))
+    );
+    ({ widths, total } = measureTotalWidth(fontSize));
+  }
+
+  bumpCtx.font = `900 ${fontSize}px ${fontFamily}`;
+
+  const totalAngle = total / radius;
+  let currentAlpha = totalAngle / 2;
+
+  colorCtx.textAlign = 'center';
+  colorCtx.textBaseline = 'middle';
+  bumpCtx.textAlign = 'center';
+  bumpCtx.textBaseline = 'middle';
+
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const w = widths[i];
+    const charAlpha = currentAlpha - (w * 0.5) / radius;
+
+    const px = cx - radius * Math.sin(charAlpha);
+    const py = cy + radius * Math.cos(charAlpha);
+
+    // 1. Render on Color Canvas with deep 3D Golden-Brown Relief ("Brun Doré en Relief")
+    colorCtx.save();
+    colorCtx.translate(px, py);
+    colorCtx.rotate(charAlpha);
+
+    // Cast shadow onto the dark carved wooden plaque
+    colorCtx.shadowColor = 'rgba(0, 0, 0, 0.92)';
+    colorCtx.shadowBlur = variant === 'title' ? 9 : 6;
+    colorCtx.shadowOffsetX = 0;
+    colorCtx.shadowOffsetY = variant === 'title' ? 7 : 5;
+
+    // 3D Extruded Roasted-Brown & Bronze Block Depth Stack
+    const depthSteps = variant === 'title' ? 7 : 4;
+    for (let d = depthSteps; d >= 1; d--) {
+      colorCtx.lineJoin = 'round';
+      colorCtx.miterLimit = 2;
+      colorCtx.lineWidth = variant === 'title' ? 11 : 7;
+      colorCtx.strokeStyle =
+        d > 4 ? '#160701' : d > 2 ? '#2e1103' : '#4a1d06';
+      colorCtx.strokeText(ch, 0, d * 1.15);
+    }
+
+    colorCtx.shadowColor = 'transparent';
+    colorCtx.shadowBlur = 0;
+    colorCtx.shadowOffsetY = 0;
+
+    // Outer Dark Burnished Umber Bevel Contour
+    colorCtx.lineWidth = variant === 'title' ? 11 : 7.5;
+    colorCtx.strokeStyle = '#290f02';
+    colorCtx.strokeText(ch, 0, 0);
+
+    // Warm Golden-Brown Mid-Bevel Rim
+    colorCtx.lineWidth = variant === 'title' ? 5.5 : 3.8;
+    colorCtx.strokeStyle = '#78350f';
+    colorCtx.strokeText(ch, 0, -0.5);
+
+    // Main Sculpted Golden-Brown ("Brun Doré") Metallic Gradient Fill
+    const grad = colorCtx.createLinearGradient(
+      0,
+      -fontSize * 0.54,
+      0,
+      fontSize * 0.48
+    );
+    if (variant === 'title') {
+      grad.addColorStop(0.0, '#fef9c3'); // Sunlit gold crest
+      grad.addColorStop(0.24, '#fbbf24'); // Warm imperial gold
+      grad.addColorStop(0.52, '#b45309'); // Rich golden-brown ("brun doré")
+      grad.addColorStop(0.78, '#78350f'); // Deep burnished brown-gold core
+      grad.addColorStop(1.0, '#f59e0b'); // Reflected gold bottom bevel
+    } else if (accentColor) {
+      grad.addColorStop(0.0, '#ffffff');
+      grad.addColorStop(0.45, accentColor);
+      grad.addColorStop(1.0, '#b45309');
+    } else {
+      grad.addColorStop(0.0, '#fef9c3');
+      grad.addColorStop(0.45, '#fde047');
+      grad.addColorStop(0.85, '#b45309');
+      grad.addColorStop(1.0, '#78350f');
+    }
+
+    colorCtx.fillStyle = grad;
+    colorCtx.fillText(ch, 0, -1);
+
+    // Chiseled Specular Highlight along the top ridge of the letter
+    colorCtx.lineWidth = variant === 'title' ? 1.8 : 1.2;
+    colorCtx.strokeStyle = 'rgba(254, 249, 195, 0.85)';
+    colorCtx.strokeText(ch, 0, -2.2);
+
+    colorCtx.restore();
+
+    // 2. Render matching 3D Height/Bump Map for Three.js Normal Lighting
+    bumpCtx.save();
+    bumpCtx.translate(px, py);
+    bumpCtx.rotate(charAlpha);
+    bumpCtx.lineJoin = 'round';
+    bumpCtx.lineWidth = variant === 'title' ? 12 : 8;
+    bumpCtx.strokeStyle = '#999999';
+    bumpCtx.strokeText(ch, 0, 1);
+    bumpCtx.lineWidth = variant === 'title' ? 5 : 3;
+    bumpCtx.strokeStyle = '#dddddd';
+    bumpCtx.strokeText(ch, 0, 0);
+    bumpCtx.fillStyle = '#ffffff';
+    bumpCtx.fillText(ch, 0, -1);
+    bumpCtx.restore();
+
+    currentAlpha -= w / radius;
+  }
+}
+
+/**
+ * Curved 3D Embossed Golden-Brown Rim Banner ("Arrondi suivant le bord de la case en texte brun doré en relief")
+ */
+const CurvedGoldenReliefBanner: React.FC<{
+  tile: TileData;
+  subtitleText: string;
+  levelStars: string;
+  ownerColor: string | null;
+  isFocused: boolean;
+  isCorner: boolean;
+  baseRadius: number;
+}> = ({
+  tile,
+  subtitleText,
+  levelStars,
+  ownerColor,
+  isFocused,
+  isCorner,
+  baseRadius,
+}) => {
+  const [fontsLoadedTick, setFontsLoadedTick] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      Promise.all([
+        document.fonts.load('900 68px "CinzelBold"'),
+        document.fonts.load('400 68px "PirataOne"'),
+      ])
+        .then(() => {
+          if (active) setFontsLoadedTick((t) => t + 1);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const { colorTexture, bumpTexture } = useMemo(() => {
+    const W = 1024;
+    const H = 560;
+
+    const colorCanvas = document.createElement('canvas');
+    colorCanvas.width = W;
+    colorCanvas.height = H;
+    const ctx = colorCanvas.getContext('2d')!;
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = W;
+    bumpCanvas.height = H;
+    const bCtx = bumpCanvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, W, H);
+    bCtx.clearRect(0, 0, W, H);
+
+    // Center of curvature matching the circular island tile
+    const cx = W / 2;
+    const cy = 44;
+    const bandRadius = 402;
+    const arcHalfSpan = 0.78; // ~44.7° on each side -> 89.4° curved arc hugging the tile rim
+    const startAngle = Math.PI / 2 - arcHalfSpan;
+    const endAngle = Math.PI / 2 + arcHalfSpan;
+
+    // 1. Curved Dark Espresso & Burnished Golden-Brown Plaque following the circular tile edge
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    // Deep drop shadow under the curved rim plaque
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 14;
+    ctx.shadowOffsetY = 8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
+    ctx.lineWidth = 148;
+    ctx.strokeStyle = '#140601';
+    ctx.stroke();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Burnished Golden-Brown ("Brun Doré") Outer Bevel Frame along the curve
+    const frameGrad = ctx.createLinearGradient(0, 260, 0, 520);
+    frameGrad.addColorStop(0.0, isFocused ? '#fde047' : '#fbbf24');
+    frameGrad.addColorStop(0.35, '#b45309');
+    frameGrad.addColorStop(0.7, '#78350f');
+    frameGrad.addColorStop(1.0, '#d97706');
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
+    ctx.lineWidth = 136;
+    ctx.strokeStyle = frameGrad;
+    ctx.stroke();
+
+    // Inner Recessed Dark Roasted Walnut & Leather Channel (high contrast for golden-brown text)
+    const innerGrad = ctx.createLinearGradient(0, 275, 0, 510);
+    innerGrad.addColorStop(0.0, '#2e1205');
+    innerGrad.addColorStop(0.5, '#1c0a02');
+    innerGrad.addColorStop(1.0, '#2b1003');
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
+    ctx.lineWidth = 116;
+    ctx.strokeStyle = innerGrad;
+    ctx.stroke();
+
+    // Curved Color-Group Accent Ribbon along the inner edge of the arc
+    ctx.beginPath();
+    ctx.arc(cx, cy, bandRadius - 56, startAngle + 0.03, endAngle - 0.03);
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = isFocused ? '#fde047' : tile.color;
+    ctx.stroke();
+
+    // Fine Golden Filigree Divider between Title Arc and Price/ID Arc
+    ctx.beginPath();
+    ctx.arc(cx, cy, bandRadius + 14, startAngle + 0.06, endAngle - 0.06);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(217, 119, 6, 0.55)';
+    ctx.stroke();
+
+    // Left & Right 3D Embossed Golden-Brown Rivets at the ends of the curved plaque
+    for (const sign of [-1, 1]) {
+      const rAlpha = sign * (arcHalfSpan - 0.02);
+      const rx = cx - bandRadius * Math.sin(rAlpha);
+      const ry = cy + bandRadius * Math.cos(rAlpha);
+      const rivGrad = ctx.createRadialGradient(rx - 4, ry - 4, 2, rx, ry, 16);
+      rivGrad.addColorStop(0.0, '#fef9c3');
+      rivGrad.addColorStop(0.55, '#d97706');
+      rivGrad.addColorStop(1.0, '#451a03');
+      ctx.beginPath();
+      ctx.arc(rx, ry, 15, 0, Math.PI * 2);
+      ctx.fillStyle = rivGrad;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#1c0a02';
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Bump map base for the curved plaque
+    bCtx.save();
+    bCtx.lineCap = 'round';
+    bCtx.beginPath();
+    bCtx.arc(cx, cy, bandRadius, startAngle, endAngle);
+    bCtx.lineWidth = 136;
+    bCtx.strokeStyle = '#888888';
+    bCtx.stroke();
+    bCtx.beginPath();
+    bCtx.arc(cx, cy, bandRadius, startAngle, endAngle);
+    bCtx.lineWidth = 116;
+    bCtx.strokeStyle = '#444444';
+    bCtx.stroke();
+    bCtx.restore();
+
+    // 2. Curved Embossed Golden-Brown Tile Name ("Texte brun doré en relief")
+    const fullTitle = `${tile.name.toUpperCase()}${levelStars}`;
+    drawCurvedEmbossedText(
+      ctx,
+      bCtx,
+      fullTitle,
+      cx,
+      cy,
+      bandRadius - 14, // Title arc radius = 388
+      isCorner ? 64 : 60,
+      arcHalfSpan * 1.86,
+      'title'
+    );
+
+    // 3. Curved Embossed Subtitle (#ID • Price / Rent) along the outer concentric arc
+    drawCurvedEmbossedText(
+      ctx,
+      bCtx,
+      `#${tile.id} • ${subtitleText.toUpperCase()}`,
+      cx,
+      cy,
+      bandRadius + 40, // Outer subtitle arc radius = 442
+      36,
+      arcHalfSpan * 1.72,
+      'subtitle',
+      ownerColor ? '#4ade80' : '#fde047'
+    );
+
+    const cTex = new THREE.CanvasTexture(colorCanvas);
+    cTex.colorSpace = THREE.SRGBColorSpace;
+    cTex.anisotropy = 8;
+    cTex.needsUpdate = true;
+
+    const bTex = new THREE.CanvasTexture(bumpCanvas);
+    bTex.anisotropy = 4;
+    bTex.needsUpdate = true;
+
+    return { colorTexture: cTex, bumpTexture: bTex };
+  }, [
+    tile.id,
+    tile.name,
+    tile.color,
+    subtitleText,
+    levelStars,
+    ownerColor,
+    isFocused,
+    isCorner,
+    fontsLoadedTick,
+  ]);
+
+  const planeW = baseRadius * 2.28;
+  const planeH = planeW * (560 / 1024);
+
+  return (
+    <group
+      position={[0, 0.21, baseRadius * 0.24]}
+      rotation={[-Math.PI / 2 + 0.28, 0, 0]}
+    >
+      {/* 4 Stacked 3D Relief Layers for true volumetric depth on the curved plaque & letters */}
+      <mesh position={[0, 0, -0.036]} castShadow>
+        <planeGeometry args={[planeW, planeH]} />
+        <meshStandardMaterial
+          map={colorTexture}
+          color="#1c0a02"
+          transparent
+          alphaTest={0.12}
+          roughness={0.85}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[0, 0, -0.024]} castShadow>
+        <planeGeometry args={[planeW, planeH]} />
+        <meshStandardMaterial
+          map={colorTexture}
+          color="#451a03"
+          transparent
+          alphaTest={0.12}
+          roughness={0.7}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[0, 0, -0.012]} castShadow>
+        <planeGeometry args={[planeW, planeH]} />
+        <meshStandardMaterial
+          map={colorTexture}
+          color="#92400e"
+          transparent
+          alphaTest={0.12}
+          roughness={0.5}
+          metalness={0.2}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+        <planeGeometry args={[planeW, planeH]} />
+        <meshStandardMaterial
+          map={colorTexture}
+          bumpMap={bumpTexture}
+          bumpScale={0.055}
+          transparent
+          alphaTest={0.08}
+          roughness={0.32}
+          metalness={0.28}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  );
+};
+
 export const Tile: React.FC<TileProps> = ({
   tile,
   allTiles,
@@ -94,18 +511,11 @@ export const Tile: React.FC<TileProps> = ({
   const isMixedCove =
     theme === 'port' || theme === 'temple' || theme === 'eldorado';
 
-  const [
-    tileArtTexture,
-    propTexture,
-    sandTexture,
-    rockTexture,
-    woodTexture,
-  ] = useTexture([
+  const [tileArtTexture, propTexture, sandTexture, rockTexture] = useTexture([
     TERRAIN_TEXTURE_MAP[theme],
     PROP_TEXTURE_MAP[theme],
     './assets/sand_beach.jpg',
     './assets/coastal_rock.jpg',
-    './assets/wood_planks.jpg',
   ]);
 
   const currentRent =
@@ -137,12 +547,11 @@ export const Tile: React.FC<TileProps> = ({
   });
 
   const baseRadius = isCorner ? 0.88 : 0.78;
-  const ribbonWidth = isCorner ? 1.5 : 1.4;
   const propSize = isCorner ? 0.78 : 0.68;
 
   const levelStars =
     tile.level >= 4
-      ? ' ★ FORTERESSE'
+      ? ' ★4'
       : tile.level > 0
       ? ` ${'★'.repeat(tile.level)}`
       : '';
@@ -153,7 +562,7 @@ export const Tile: React.FC<TileProps> = ({
         ? `Loyer ${currentRent} Or${levelStars}`
         : `${tile.price} Or`
       : tile.type === 'start'
-      ? '+200 Or'
+      ? '+200 Or & +1 🪵'
       : tile.type === 'jail'
       ? 'La Cale'
       : tile.type === 'free_parking'
@@ -228,7 +637,7 @@ export const Tile: React.FC<TileProps> = ({
         </mesh>
       )}
 
-      {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop & Border Ribbon */}
+      {/* 3. Viewer-Aligned Island Surface, Off-Center Coastal Relief Prop & Curved Golden-Brown Relief Title */}
       <group rotation={[0, -rotationY, 0]}>
         {/* Open Central Island Terrace for Ship Circulation & Red Treasure Trail */}
         <mesh position={[0, 0.125, -0.02]} receiveShadow castShadow>
@@ -243,9 +652,10 @@ export const Tile: React.FC<TileProps> = ({
           />
         </mesh>
 
-        {/* Off-Center Coastal Outcrop Lobe on the Back Rim supporting the 3D Landmark */}
+        {/* Off-Center Elevated Coastal Mound under the 3D Landmark */}
         <mesh
-          position={[propOffsetX, 0.095, propOffsetZ]}
+          position={[propOffsetX, 0.175, propOffsetZ]}
+          rotation={[0, islandSeedAngle, 0]}
           receiveShadow
           castShadow
         >
@@ -317,81 +727,16 @@ export const Tile: React.FC<TileProps> = ({
           </mesh>
         </group>
 
-        {/* 4. STYLIZED DRIFTWOOD & PARCHMENT COASTAL RIM BANNER ("EN BORD DE CASE") */}
-        <group
-          position={[0, 0.145, baseRadius * 0.72]}
-          rotation={[-Math.PI / 2 + 0.34, 0, 0]}
-        >
-          {/* Thin Color-Group Crest Trim along the Top Edge of the Border */}
-          <mesh position={[0, 0.165, -0.005]} castShadow>
-            <boxGeometry args={[ribbonWidth, 0.05, 0.03]} />
-            <meshStandardMaterial
-              color={isFocused ? '#fde047' : tile.color}
-              emissive={isFocused ? '#f59e0b' : tile.color}
-              emissiveIntensity={isFocused ? 0.85 : 0.45}
-              roughness={0.35}
-            />
-          </mesh>
-
-          {/* Sculpted Weathered Driftwood Plank along the Tile Edge */}
-          <mesh position={[0, 0, 0]} castShadow receiveShadow>
-            <boxGeometry args={[ribbonWidth, 0.29, 0.032]} />
-            <meshStandardMaterial
-              map={woodTexture}
-              color="#78350f"
-              roughness={0.78}
-            />
-          </mesh>
-
-          {/* Recessed Warm Parchment Scroll Strip inside the Driftwood Border */}
-          <mesh position={[0, 0.03, 0.018]}>
-            <planeGeometry args={[ribbonWidth - 0.08, 0.18]} />
-            <meshStandardMaterial color="#fef3c7" roughness={0.65} />
-          </mesh>
-
-          {/* Left & Right Brass Corner Rivets on the Driftwood Border */}
-          {[-ribbonWidth * 0.45, ribbonWidth * 0.45].map((xPos, idx) => (
-            <mesh key={idx} position={[xPos, 0.03, 0.022]}>
-              <sphereGeometry args={[0.024, 8, 8]} />
-              <meshStandardMaterial
-                color="#fbbf24"
-                metalness={0.85}
-                roughness={0.2}
-              />
-            </mesh>
-          ))}
-
-          {/* Stylized Calligraphic Pirate Font (Pirata One) for the Tile Name */}
-          <Text
-            font={PIRATA_FONT_URL}
-            position={[0, 0.032, 0.024]}
-            fontSize={isCorner ? 0.16 : 0.15}
-            maxWidth={ribbonWidth - 0.14}
-            lineHeight={0.95}
-            textAlign="center"
-            color="#271206"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.008}
-            outlineColor="#fef3c7"
-          >
-            {tile.name}
-          </Text>
-
-          {/* Engraved Nautical Capitals (Cinzel Bold) on the Lower Mahogany Rim for #ID & Price */}
-          <Text
-            font={CINZEL_FONT_URL}
-            position={[0, -0.1, 0.024]}
-            fontSize={0.11}
-            color={owner ? '#4ade80' : '#fde047'}
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.018}
-            outlineColor="#1c0d04"
-          >
-            {`#${tile.id}  •  ${subtitleText}`}
-          </Text>
-        </group>
+        {/* 4. CURVED GOLDEN-BROWN 3D RELIEF BANNER HUGGING THE ROUNDED TILE EDGE */}
+        <CurvedGoldenReliefBanner
+          tile={tile}
+          subtitleText={subtitleText}
+          levelStars={levelStars}
+          ownerColor={owner?.color ?? null}
+          isFocused={isFocused}
+          isCorner={isCorner}
+          baseRadius={baseRadius}
+        />
       </group>
     </group>
   );

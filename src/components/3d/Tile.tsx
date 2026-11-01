@@ -75,7 +75,8 @@ export function getTileTerrainTheme(tile: TileData): TerrainTheme {
 
 /**
  * Draws text character-by-character along a bottom circular arc centered at (cx, cy)
- * with multi-layered 3D embossed golden-brown ("texte brun doré en relief") styling.
+ * using 3 separate passes (1: 3D Extrusion & Shadow, 2: Bevel Contour, 3: Golden-Brown Metallic Face)
+ * so adjacent characters' shadows/strokes never overlap or clip each other's golden fill.
  */
 function drawCurvedEmbossedText(
   colorCtx: CanvasRenderingContext2D,
@@ -89,16 +90,21 @@ function drawCurvedEmbossedText(
   variant: 'title' | 'subtitle',
   accentColor?: string
 ) {
-  const fontFamily =
+  const fontFamily = '"CinzelBold", "PirataOne", Georgia, serif';
+  const chars = Array.from(text);
+  if (chars.length === 0) return;
+
+  // Adaptive letter spacing so long tile names stay large and legible
+  const letterSpacing =
     variant === 'title'
-      ? '"CinzelBold", "PirataOne", Georgia, serif'
-      : '"CinzelBold", Georgia, serif';
+      ? chars.length > 17
+        ? 1.2
+        : chars.length > 13
+        ? 2.2
+        : 3.5
+      : 2.0;
 
   let fontSize = baseFontSize;
-  const letterSpacing = variant === 'title' ? 4.5 : 3.0;
-
-  colorCtx.font = `900 ${fontSize}px ${fontFamily}`;
-  const chars = Array.from(text);
 
   const measureTotalWidth = (
     fSize: number
@@ -115,121 +121,142 @@ function drawCurvedEmbossedText(
   const maxArcLength = radius * maxArcSpanRad;
   if (total > maxArcLength && total > 0) {
     fontSize = Math.max(
-      variant === 'title' ? 40 : 28,
+      variant === 'title' ? 52 : 36,
       Math.floor(fontSize * (maxArcLength / total))
     );
     ({ widths, total } = measureTotalWidth(fontSize));
   }
 
+  colorCtx.font = `900 ${fontSize}px ${fontFamily}`;
   bumpCtx.font = `900 ${fontSize}px ${fontFamily}`;
-
-  const totalAngle = total / radius;
-  let currentAlpha = totalAngle / 2;
 
   colorCtx.textAlign = 'center';
   colorCtx.textBaseline = 'middle';
   bumpCtx.textAlign = 'center';
   bumpCtx.textBaseline = 'middle';
 
+  // Precompute each character's exact arc position & tangent angle
+  const totalAngle = total / radius;
+  let currentAlpha = totalAngle / 2;
+  const placements: Array<{
+    ch: string;
+    px: number;
+    py: number;
+    angle: number;
+  }> = [];
+
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i];
     const w = widths[i];
     const charAlpha = currentAlpha - (w * 0.5) / radius;
-
     const px = cx - radius * Math.sin(charAlpha);
     const py = cy + radius * Math.cos(charAlpha);
+    placements.push({ ch, px, py, angle: charAlpha });
+    currentAlpha -= w / radius;
+  }
 
-    // 1. Render on Color Canvas with deep 3D Golden-Brown Relief ("Brun Doré en Relief")
+  // PASS 1: 3D Extruded Roasted-Brown Block Depth & Drop Shadow (drawn behind all letters)
+  const depthSteps = variant === 'title' ? 7 : 4;
+  for (const { ch, px, py, angle } of placements) {
     colorCtx.save();
     colorCtx.translate(px, py);
-    colorCtx.rotate(charAlpha);
+    colorCtx.rotate(angle);
+    colorCtx.lineJoin = 'round';
+    colorCtx.miterLimit = 2;
 
-    // Cast shadow onto the dark carved wooden plaque
-    colorCtx.shadowColor = 'rgba(0, 0, 0, 0.92)';
-    colorCtx.shadowBlur = variant === 'title' ? 9 : 6;
+    colorCtx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+    colorCtx.shadowBlur = variant === 'title' ? 8 : 5;
     colorCtx.shadowOffsetX = 0;
-    colorCtx.shadowOffsetY = variant === 'title' ? 7 : 5;
+    colorCtx.shadowOffsetY = variant === 'title' ? 6 : 4;
 
-    // 3D Extruded Roasted-Brown & Bronze Block Depth Stack
-    const depthSteps = variant === 'title' ? 7 : 4;
     for (let d = depthSteps; d >= 1; d--) {
-      colorCtx.lineJoin = 'round';
-      colorCtx.miterLimit = 2;
       colorCtx.lineWidth = variant === 'title' ? 11 : 7;
       colorCtx.strokeStyle =
-        d > 4 ? '#160701' : d > 2 ? '#2e1103' : '#4a1d06';
+        d > 4 ? '#120501' : d > 2 ? '#290f02' : '#451a03';
       colorCtx.strokeText(ch, 0, d * 1.15);
     }
+    colorCtx.restore();
+  }
 
-    colorCtx.shadowColor = 'transparent';
-    colorCtx.shadowBlur = 0;
-    colorCtx.shadowOffsetY = 0;
+  // PASS 2: Sculpted Dark Umber & Warm Golden-Brown Bevel Contours (all letters)
+  for (const { ch, px, py, angle } of placements) {
+    colorCtx.save();
+    colorCtx.translate(px, py);
+    colorCtx.rotate(angle);
+    colorCtx.lineJoin = 'round';
+    colorCtx.miterLimit = 2;
 
-    // Outer Dark Burnished Umber Bevel Contour
-    colorCtx.lineWidth = variant === 'title' ? 11 : 7.5;
-    colorCtx.strokeStyle = '#290f02';
+    // Outer Dark Burnished Umber Bevel
+    colorCtx.lineWidth = variant === 'title' ? 10 : 6.5;
+    colorCtx.strokeStyle = '#230b01';
     colorCtx.strokeText(ch, 0, 0);
 
-    // Warm Golden-Brown Mid-Bevel Rim
-    colorCtx.lineWidth = variant === 'title' ? 5.5 : 3.8;
+    // Mid Golden-Brown ("Brun Doré") Bronze Bevel
+    colorCtx.lineWidth = variant === 'title' ? 5.0 : 3.2;
     colorCtx.strokeStyle = '#78350f';
     colorCtx.strokeText(ch, 0, -0.5);
+    colorCtx.restore();
+  }
 
-    // Main Sculpted Golden-Brown ("Brun Doré") Metallic Gradient Fill
+  // PASS 3: Luminous Golden-Brown ("Brun Doré") Metallic Face & Top Specular Ridge (all letters)
+  for (const { ch, px, py, angle } of placements) {
+    colorCtx.save();
+    colorCtx.translate(px, py);
+    colorCtx.rotate(angle);
+    colorCtx.lineJoin = 'round';
+    colorCtx.miterLimit = 2;
+
     const grad = colorCtx.createLinearGradient(
       0,
-      -fontSize * 0.54,
+      -fontSize * 0.52,
       0,
       fontSize * 0.48
     );
     if (variant === 'title') {
-      grad.addColorStop(0.0, '#fef9c3'); // Sunlit gold crest
-      grad.addColorStop(0.24, '#fbbf24'); // Warm imperial gold
-      grad.addColorStop(0.52, '#b45309'); // Rich golden-brown ("brun doré")
-      grad.addColorStop(0.78, '#78350f'); // Deep burnished brown-gold core
-      grad.addColorStop(1.0, '#f59e0b'); // Reflected gold bottom bevel
+      grad.addColorStop(0.0, '#fef9c3'); // Bright sunlit gold crest
+      grad.addColorStop(0.28, '#fde047'); // Warm imperial gold
+      grad.addColorStop(0.58, '#d97706'); // Rich golden-amber
+      grad.addColorStop(0.84, '#92400e'); // Sculpted golden-brown ("brun doré")
+      grad.addColorStop(1.0, '#f59e0b'); // Reflected gold lower rim
     } else if (accentColor) {
       grad.addColorStop(0.0, '#ffffff');
-      grad.addColorStop(0.45, accentColor);
-      grad.addColorStop(1.0, '#b45309');
+      grad.addColorStop(0.48, accentColor);
+      grad.addColorStop(1.0, '#d97706');
     } else {
       grad.addColorStop(0.0, '#fef9c3');
-      grad.addColorStop(0.45, '#fde047');
-      grad.addColorStop(0.85, '#b45309');
-      grad.addColorStop(1.0, '#78350f');
+      grad.addColorStop(0.5, '#fde047');
+      grad.addColorStop(1.0, '#b45309');
     }
 
     colorCtx.fillStyle = grad;
     colorCtx.fillText(ch, 0, -1);
 
-    // Chiseled Specular Highlight along the top ridge of the letter
-    colorCtx.lineWidth = variant === 'title' ? 1.8 : 1.2;
-    colorCtx.strokeStyle = 'rgba(254, 249, 195, 0.85)';
-    colorCtx.strokeText(ch, 0, -2.2);
-
+    // Crisp Specular Highlight along the upper ridge
+    colorCtx.lineWidth = variant === 'title' ? 1.5 : 1.0;
+    colorCtx.strokeStyle = 'rgba(254, 249, 195, 0.9)';
+    colorCtx.strokeText(ch, 0, -2.0);
     colorCtx.restore();
 
-    // 2. Render matching 3D Height/Bump Map for Three.js Normal Lighting
+    // Matching 3D Height/Bump Map for Three.js Normal Lighting
     bumpCtx.save();
     bumpCtx.translate(px, py);
-    bumpCtx.rotate(charAlpha);
+    bumpCtx.rotate(angle);
     bumpCtx.lineJoin = 'round';
-    bumpCtx.lineWidth = variant === 'title' ? 12 : 8;
-    bumpCtx.strokeStyle = '#999999';
+    bumpCtx.lineWidth = variant === 'title' ? 11 : 7;
+    bumpCtx.strokeStyle = '#909090';
     bumpCtx.strokeText(ch, 0, 1);
-    bumpCtx.lineWidth = variant === 'title' ? 5 : 3;
-    bumpCtx.strokeStyle = '#dddddd';
+    bumpCtx.lineWidth = variant === 'title' ? 4.5 : 3;
+    bumpCtx.strokeStyle = '#d8d8d8';
     bumpCtx.strokeText(ch, 0, 0);
     bumpCtx.fillStyle = '#ffffff';
     bumpCtx.fillText(ch, 0, -1);
     bumpCtx.restore();
-
-    currentAlpha -= w / radius;
   }
 }
 
 /**
  * Curved 3D Embossed Golden-Brown Rim Banner ("Arrondi suivant le bord de la case en texte brun doré en relief")
+ * Positioned cleanly above the front rim of each island with zero clipping into terrain, props, or neighboring tiles.
  */
 const CurvedGoldenReliefBanner: React.FC<{
   tile: TileData;
@@ -254,8 +281,8 @@ const CurvedGoldenReliefBanner: React.FC<{
     let active = true;
     if (typeof document !== 'undefined' && 'fonts' in document) {
       Promise.all([
-        document.fonts.load('900 68px "CinzelBold"'),
-        document.fonts.load('400 68px "PirataOne"'),
+        document.fonts.load('900 74px "CinzelBold"'),
+        document.fonts.load('400 74px "PirataOne"'),
       ])
         .then(() => {
           if (active) setFontsLoadedTick((t) => t + 1);
@@ -269,7 +296,7 @@ const CurvedGoldenReliefBanner: React.FC<{
 
   const { colorTexture, bumpTexture } = useMemo(() => {
     const W = 1024;
-    const H = 560;
+    const H = 384;
 
     const colorCanvas = document.createElement('canvas');
     colorCanvas.width = W;
@@ -284,106 +311,107 @@ const CurvedGoldenReliefBanner: React.FC<{
     ctx.clearRect(0, 0, W, H);
     bCtx.clearRect(0, 0, W, H);
 
-    // Center of curvature matching the circular island tile
+    // Gentle circular arc geometry that fills the 1024x384 canvas with zero edge clipping:
+    // Center at (512, -810), radius = 1060, arcHalfSpan = 0.36 rad (~41.2° total curve)
     const cx = W / 2;
-    const cy = 44;
-    const bandRadius = 402;
-    const arcHalfSpan = 0.78; // ~44.7° on each side -> 89.4° curved arc hugging the tile rim
+    const cy = -810;
+    const bandRadius = 1060;
+    const arcHalfSpan = 0.36;
     const startAngle = Math.PI / 2 - arcHalfSpan;
     const endAngle = Math.PI / 2 + arcHalfSpan;
 
-    // 1. Curved Dark Espresso & Burnished Golden-Brown Plaque following the circular tile edge
+    // 1. Curved Dark Espresso & Burnished Golden-Brown Plaque following the island rim
     ctx.save();
     ctx.lineCap = 'round';
 
-    // Deep drop shadow under the curved rim plaque
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    ctx.shadowBlur = 14;
-    ctx.shadowOffsetY = 8;
+    // Outer Dark Espresso Rim & Drop Shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.88)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 6;
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    ctx.lineWidth = 148;
-    ctx.strokeStyle = '#140601';
+    ctx.lineWidth = 188;
+    ctx.strokeStyle = '#120501';
     ctx.stroke();
 
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Burnished Golden-Brown ("Brun Doré") Outer Bevel Frame along the curve
-    const frameGrad = ctx.createLinearGradient(0, 260, 0, 520);
-    frameGrad.addColorStop(0.0, isFocused ? '#fde047' : '#fbbf24');
-    frameGrad.addColorStop(0.35, '#b45309');
-    frameGrad.addColorStop(0.7, '#78350f');
-    frameGrad.addColorStop(1.0, '#d97706');
+    // Sculpted Golden-Brown ("Brun Doré") Metallic Frame
+    const frameGrad = ctx.createLinearGradient(0, 75, 0, 355);
+    frameGrad.addColorStop(0.0, isFocused ? '#fef08a' : '#fde047');
+    frameGrad.addColorStop(0.32, '#d97706');
+    frameGrad.addColorStop(0.68, '#78350f');
+    frameGrad.addColorStop(1.0, '#f59e0b');
 
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    ctx.lineWidth = 136;
+    ctx.lineWidth = 172;
     ctx.strokeStyle = frameGrad;
     ctx.stroke();
 
-    // Inner Recessed Dark Roasted Walnut & Leather Channel (high contrast for golden-brown text)
-    const innerGrad = ctx.createLinearGradient(0, 275, 0, 510);
-    innerGrad.addColorStop(0.0, '#2e1205');
-    innerGrad.addColorStop(0.5, '#1c0a02');
-    innerGrad.addColorStop(1.0, '#2b1003');
+    // Inner Recessed Dark Roasted Walnut Plaque (high contrast backdrop for golden-brown relief text)
+    const innerGrad = ctx.createLinearGradient(0, 90, 0, 340);
+    innerGrad.addColorStop(0.0, '#2a1004');
+    innerGrad.addColorStop(0.5, '#170701');
+    innerGrad.addColorStop(1.0, '#260e03');
 
     ctx.beginPath();
     ctx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    ctx.lineWidth = 116;
+    ctx.lineWidth = 148;
     ctx.strokeStyle = innerGrad;
     ctx.stroke();
 
-    // Curved Color-Group Accent Ribbon along the inner edge of the arc
+    // Property Color-Group Accent Ribbon along the upper inner curve
     ctx.beginPath();
-    ctx.arc(cx, cy, bandRadius - 56, startAngle + 0.03, endAngle - 0.03);
-    ctx.lineWidth = 12;
+    ctx.arc(cx, cy, bandRadius - 68, startAngle + 0.015, endAngle - 0.015);
+    ctx.lineWidth = 14;
     ctx.strokeStyle = isFocused ? '#fde047' : tile.color;
     ctx.stroke();
 
-    // Fine Golden Filigree Divider between Title Arc and Price/ID Arc
+    // Subtle Golden Filigree Divider between Tile Name and Price/Rent
     ctx.beginPath();
-    ctx.arc(cx, cy, bandRadius + 14, startAngle + 0.06, endAngle - 0.06);
+    ctx.arc(cx, cy, bandRadius + 18, startAngle + 0.03, endAngle - 0.03);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(217, 119, 6, 0.55)';
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
     ctx.stroke();
 
-    // Left & Right 3D Embossed Golden-Brown Rivets at the ends of the curved plaque
+    // Left & Right 3D Embossed Golden-Brown Rivets
     for (const sign of [-1, 1]) {
-      const rAlpha = sign * (arcHalfSpan - 0.02);
+      const rAlpha = sign * (arcHalfSpan - 0.012);
       const rx = cx - bandRadius * Math.sin(rAlpha);
       const ry = cy + bandRadius * Math.cos(rAlpha);
-      const rivGrad = ctx.createRadialGradient(rx - 4, ry - 4, 2, rx, ry, 16);
+      const rivGrad = ctx.createRadialGradient(rx - 4, ry - 4, 2, rx, ry, 18);
       rivGrad.addColorStop(0.0, '#fef9c3');
       rivGrad.addColorStop(0.55, '#d97706');
       rivGrad.addColorStop(1.0, '#451a03');
       ctx.beginPath();
-      ctx.arc(rx, ry, 15, 0, Math.PI * 2);
+      ctx.arc(rx, ry, 16, 0, Math.PI * 2);
       ctx.fillStyle = rivGrad;
       ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#1c0a02';
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = '#140601';
       ctx.stroke();
     }
     ctx.restore();
 
-    // Bump map base for the curved plaque
+    // Matching 3D Bump Map for the curved plaque
     bCtx.save();
     bCtx.lineCap = 'round';
     bCtx.beginPath();
     bCtx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    bCtx.lineWidth = 136;
-    bCtx.strokeStyle = '#888888';
+    bCtx.lineWidth = 172;
+    bCtx.strokeStyle = '#909090';
     bCtx.stroke();
     bCtx.beginPath();
     bCtx.arc(cx, cy, bandRadius, startAngle, endAngle);
-    bCtx.lineWidth = 116;
-    bCtx.strokeStyle = '#444444';
+    bCtx.lineWidth = 148;
+    bCtx.strokeStyle = '#404040';
     bCtx.stroke();
     bCtx.restore();
 
-    // 2. Curved Embossed Golden-Brown Tile Name ("Texte brun doré en relief")
+    // 2. Prominent Curved Embossed Golden-Brown Tile Name ("Texte brun doré en relief")
     const fullTitle = `${tile.name.toUpperCase()}${levelStars}`;
     drawCurvedEmbossedText(
       ctx,
@@ -391,22 +419,22 @@ const CurvedGoldenReliefBanner: React.FC<{
       fullTitle,
       cx,
       cy,
-      bandRadius - 14, // Title arc radius = 388
-      isCorner ? 64 : 60,
-      arcHalfSpan * 1.86,
+      bandRadius - 18, // Main title arc radius = 1042
+      isCorner ? 82 : 78,
+      arcHalfSpan * 1.9,
       'title'
     );
 
-    // 3. Curved Embossed Subtitle (#ID • Price / Rent) along the outer concentric arc
+    // 3. Curved Embossed Subtitle (Price / Rent / Bonus) along the lower concentric arc
     drawCurvedEmbossedText(
       ctx,
       bCtx,
-      `#${tile.id} • ${subtitleText.toUpperCase()}`,
+      subtitleText.toUpperCase(),
       cx,
       cy,
-      bandRadius + 40, // Outer subtitle arc radius = 442
-      36,
-      arcHalfSpan * 1.72,
+      bandRadius + 48, // Subtitle arc radius = 1108
+      48,
+      arcHalfSpan * 1.8,
       'subtitle',
       ownerColor ? '#4ade80' : '#fde047'
     );
@@ -433,60 +461,44 @@ const CurvedGoldenReliefBanner: React.FC<{
     fontsLoadedTick,
   ]);
 
-  const planeW = baseRadius * 2.28;
-  const planeH = planeW * (560 / 1024);
+  // Compact width (< 1.65 tile spacing) and elevated front-rim placement so it never clips terrain or neighbors
+  const planeW = isCorner ? 1.38 : 1.28;
+  const planeH = planeW * (384 / 1024);
 
   return (
     <group
-      position={[0, 0.21, baseRadius * 0.24]}
-      rotation={[-Math.PI / 2 + 0.28, 0, 0]}
+      position={[0, 0.31, baseRadius * 0.52]}
+      rotation={[-Math.PI / 2 + 0.42, 0, 0]}
     >
-      {/* 4 Stacked 3D Relief Layers for true volumetric depth on the curved plaque & letters */}
-      <mesh position={[0, 0, -0.036]} castShadow>
+      {/* Subtle 3D Dark Carved Wood Backing Plate (no text ghosting, no shadow map artifacts) */}
+      <mesh position={[0, -0.008, -0.014]} renderOrder={9}>
         <planeGeometry args={[planeW, planeH]} />
         <meshStandardMaterial
           map={colorTexture}
-          color="#1c0a02"
+          color="#1c0802"
           transparent
-          alphaTest={0.12}
+          alphaTest={0.25}
           roughness={0.85}
-          side={THREE.DoubleSide}
+          polygonOffset
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={-2}
         />
       </mesh>
-      <mesh position={[0, 0, -0.024]} castShadow>
-        <planeGeometry args={[planeW, planeH]} />
-        <meshStandardMaterial
-          map={colorTexture}
-          color="#451a03"
-          transparent
-          alphaTest={0.12}
-          roughness={0.7}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <mesh position={[0, 0, -0.012]} castShadow>
-        <planeGeometry args={[planeW, planeH]} />
-        <meshStandardMaterial
-          map={colorTexture}
-          color="#92400e"
-          transparent
-          alphaTest={0.12}
-          roughness={0.5}
-          metalness={0.2}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+
+      {/* Main High-Contrast Curved 3D Golden-Brown Relief Plaque */}
+      <mesh position={[0, 0, 0]} renderOrder={10}>
         <planeGeometry args={[planeW, planeH]} />
         <meshStandardMaterial
           map={colorTexture}
           bumpMap={bumpTexture}
-          bumpScale={0.055}
+          bumpScale={0.065}
           transparent
-          alphaTest={0.08}
-          roughness={0.32}
-          metalness={0.28}
-          side={THREE.DoubleSide}
+          alphaTest={0.1}
+          roughness={0.28}
+          metalness={0.25}
+          polygonOffset
+          polygonOffsetFactor={-4}
+          polygonOffsetUnits={-4}
         />
       </mesh>
     </group>

@@ -26,19 +26,25 @@ export const FortifySelectorModal: React.FC = () => {
     return null;
   }
 
-  const ownedIslands = tiles.filter(
-    (t) => t.type === 'island' && t.ownerId === activePlayer.id
+  const upgradableIslands = tiles.filter(
+    (t) =>
+      t.type === 'island' &&
+      t.ownerId === activePlayer.id &&
+      t.level < MAX_FORTIFY_LEVEL
   );
 
+  if (upgradableIslands.length === 0) {
+    return null;
+  }
+
   const focusedOwnedIsland =
-    ownedIslands.find((t) => t.id === focusedTileIndex) ??
-    ownedIslands.find(
+    upgradableIslands.find((t) => t.id === focusedTileIndex) ??
+    upgradableIslands.find(
       (t) =>
-        t.level < MAX_FORTIFY_LEVEL &&
         (t.upgradeCost ?? 0) <= activePlayer.gold &&
         activePlayer.materials >= FORTIFY_MATERIAL_COST
     ) ??
-    ownedIslands[0] ??
+    upgradableIslands[0] ??
     null;
 
   const canFortifyTile = (tile: TileData) =>
@@ -97,22 +103,19 @@ export const FortifySelectorModal: React.FC = () => {
             </span>
           </div>
 
-          {/* Scrollable List of Owned Islands */}
+          {/* Scrollable List of Upgradable Owned Islands */}
           <div className="p-2.5 space-y-2 overflow-y-auto pirate-scroll max-h-[34dvh]">
-            {ownedIslands.map((tile) => {
+            {upgradableIslands.map((tile) => {
               const isSelected = focusedOwnedIsland?.id === tile.id;
               const eligible = canFortifyTile(tile);
               const currentRent = calculateIslandRent(tile, tiles);
-              const nextLevel = Math.min(MAX_FORTIFY_LEVEL, tile.level + 1);
+              const nextLevel = tile.level + 1;
               const nextLevelTile: TileData = {
                 ...tile,
                 level: nextLevel,
               };
               const nextRent = calculateIslandRent(nextLevelTile, tiles);
-              const previewImg =
-                FORTRESS_LEVEL_IMAGES[
-                  tile.level < MAX_FORTIFY_LEVEL ? nextLevel : tile.level
-                ];
+              const previewImg = FORTRESS_LEVEL_IMAGES[nextLevel];
 
               return (
                 <div
@@ -155,59 +158,45 @@ export const FortifySelectorModal: React.FC = () => {
                       </div>
 
                       <div className="text-[10px] font-bold text-amber-900/95 truncate mt-0.5">
-                        {tile.level < MAX_FORTIFY_LEVEL ? (
-                          <span>
-                            Prochain :{' '}
-                            <strong className="text-amber-950">
-                              {FORTRESS_LEVEL_NAMES[nextLevel]}
-                            </strong>
-                          </span>
-                        ) : (
-                          <span className="text-amber-950 font-black">
-                            🏰 {FORTRESS_LEVEL_NAMES[MAX_FORTIFY_LEVEL]}
-                          </span>
-                        )}
+                        <span>
+                          Prochain :{' '}
+                          <strong className="text-amber-950">
+                            {FORTRESS_LEVEL_NAMES[nextLevel]}
+                          </strong>
+                        </span>
                       </div>
 
-                      {tile.level < MAX_FORTIFY_LEVEL && (
-                        <div className="text-[10px] font-extrabold text-emerald-900 inline-flex items-center gap-0.5">
-                          Loyer {currentRent} <ArrowRight className="w-2.5 h-2.5" />{' '}
-                          {nextRent} Or
-                        </div>
-                      )}
+                      <div className="text-[10px] font-extrabold text-emerald-900 inline-flex items-center gap-0.5">
+                        Loyer {currentRent} <ArrowRight className="w-2.5 h-2.5" />{' '}
+                        {nextRent} Or
+                      </div>
                     </div>
                   </div>
 
                   {/* Direct Fortify Action Button for this Island */}
                   <div className="shrink-0">
-                    {tile.level >= MAX_FORTIFY_LEVEL ? (
-                      <span className="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-amber-900/20 text-amber-900">
-                        Max ★★★
+                    <button
+                      type="button"
+                      disabled={!eligible}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fortifyIsland(tile.id);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex flex-col items-end leading-tight transition ${
+                        eligible
+                          ? 'bg-gradient-to-b from-cyan-500 to-teal-700 text-white border border-cyan-200 shadow cursor-pointer hover:brightness-110'
+                          : 'bg-amber-950/20 text-amber-900/50 border border-amber-900/20 cursor-not-allowed'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1">
+                        <Castle className="w-3 h-3" />
+                        <span>Construire</span>
                       </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={!eligible}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fortifyIsland(tile.id);
-                        }}
-                        className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex flex-col items-end leading-tight transition ${
-                          eligible
-                            ? 'bg-gradient-to-b from-cyan-500 to-teal-700 text-white border border-cyan-200 shadow cursor-pointer hover:brightness-110'
-                            : 'bg-amber-950/20 text-amber-900/50 border border-amber-900/20 cursor-not-allowed'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1">
-                          <Castle className="w-3 h-3" />
-                          <span>Construire</span>
-                        </span>
-                        <span className="text-[9px] font-extrabold opacity-95 flex items-center gap-0.5">
-                          <Coins className="w-2.5 h-2.5" />
-                          {tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
-                        </span>
-                      </button>
-                    )}
+                      <span className="text-[9px] font-extrabold opacity-95 flex items-center gap-0.5">
+                        <Coins className="w-2.5 h-2.5" />
+                        {tile.upgradeCost} Or + {FORTIFY_MATERIAL_COST} 🪵
+                      </span>
+                    </button>
                   </div>
                 </div>
               );

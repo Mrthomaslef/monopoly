@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { useGameStore } from '../../store/useGameStore';
@@ -20,6 +21,58 @@ function getRotationForDieValue(val: number): [number, number, number] {
       return [0, 0, 0];
   }
 }
+
+const CORNER_SIGNS: [number, number, number][] = [
+  [-1, -1, -1],
+  [-1, -1, 1],
+  [-1, 1, -1],
+  [-1, 1, 1],
+  [1, -1, -1],
+  [1, -1, 1],
+  [1, 1, -1],
+  [1, 1, 1],
+];
+
+const PipWithGoldRim: React.FC<{
+  position: [number, number, number];
+  axis: 'x' | 'y' | 'z';
+  isAce?: boolean;
+}> = ({ position, axis, isAce = false }) => {
+  const r = isAce ? 0.062 : 0.046;
+  const rot: [number, number, number] =
+    axis === 'y'
+      ? [Math.PI / 2, 0, 0]
+      : axis === 'x'
+      ? [0, Math.PI / 2, 0]
+      : [0, 0, 0];
+
+  return (
+    <group position={position}>
+      {/* Golden Rim Ring around the pip */}
+      <mesh rotation={rot}>
+        <torusGeometry args={[r * 1.12, 0.011, 8, 16]} />
+        <meshStandardMaterial
+          color="#fbbf24"
+          emissive="#d97706"
+          emissiveIntensity={0.35}
+          metalness={0.85}
+          roughness={0.2}
+        />
+      </mesh>
+      {/* Gem / Enamel Pip Core */}
+      <mesh>
+        <sphereGeometry args={[r, 12, 12]} />
+        <meshStandardMaterial
+          color={isAce ? '#dc2626' : '#0f172a'}
+          emissive={isAce ? '#991b1b' : '#1e293b'}
+          emissiveIntensity={isAce ? 0.55 : 0.2}
+          metalness={isAce ? 0.35 : 0.5}
+          roughness={0.18}
+        />
+      </mesh>
+    </group>
+  );
+};
 
 const SingleDie: React.FC<{
   value: number;
@@ -88,51 +141,71 @@ const SingleDie: React.FC<{
     }
   });
 
-  const pipRadius = 0.048;
-  const faceDist = 0.255;
+  const faceDist = 0.258;
+  const cornerDist = 0.215;
 
   return (
     <group ref={dieRef} position={basePosition}>
-      {/* Ivory / Bone Cube Body */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
+      {/* Stylized Beveled Pirate Bone / Ivory Die Body */}
+      <RoundedBox
+        args={[0.52, 0.52, 0.52]}
+        radius={0.075}
+        smoothness={4}
+        castShadow
+        receiveShadow
+      >
         <meshStandardMaterial
           color="#fef3c7"
-          roughness={0.32}
-          metalness={0.08}
+          roughness={0.26}
+          metalness={0.12}
         />
-      </mesh>
+      </RoundedBox>
 
-      {/* Subtle Chamfer / Trim Inner Cube */}
-      <mesh>
-        <boxGeometry args={[0.48, 0.48, 0.48]} />
-        <meshStandardMaterial color="#fde68a" roughness={0.48} />
-      </mesh>
+      {/* Inner Warm Aged Gold / Bronze Core Trim visible along bevels */}
+      <RoundedBox args={[0.502, 0.502, 0.502]} radius={0.055} smoothness={3}>
+        <meshStandardMaterial
+          color="#d97706"
+          metalness={0.65}
+          roughness={0.32}
+        />
+      </RoundedBox>
 
-      {/* FACE 1 (+Y and -Y) : 1 center crimson pirate pip */}
-      <mesh position={[0, faceDist, 0]}>
-        <sphereGeometry args={[pipRadius * 1.25, 8, 8]} />
-        <meshStandardMaterial color="#dc2626" />
-      </mesh>
-      <mesh position={[0, -faceDist, 0]}>
-        <sphereGeometry args={[pipRadius * 1.25, 8, 8]} />
-        <meshStandardMaterial color="#dc2626" />
-      </mesh>
+      {/* 8 Golden Brass Pirate Corner Studs */}
+      {CORNER_SIGNS.map(([sx, sy, sz], idx) => (
+        <mesh
+          key={`stud-${idx}`}
+          position={[sx * cornerDist, sy * cornerDist, sz * cornerDist]}
+        >
+          <sphereGeometry args={[0.036, 8, 8]} />
+          <meshStandardMaterial
+            color="#fbbf24"
+            emissive="#b45309"
+            emissiveIntensity={0.35}
+            metalness={0.88}
+            roughness={0.22}
+          />
+        </mesh>
+      ))}
 
-      {/* FACE 2 (+Z and -Z) : 2 pips */}
+      {/* FACE 1 (+Y and -Y) : Crimson Ruby Ace Pip with Golden Rim */}
+      <PipWithGoldRim position={[0, faceDist, 0]} axis="y" isAce />
+      <PipWithGoldRim position={[0, -faceDist, 0]} axis="y" isAce />
+
+      {/* FACE 2 (+Z and -Z) : 2 Obsidian Pips with Golden Rim */}
       {[
         [-0.12, 0.12, faceDist],
         [0.12, -0.12, faceDist],
         [-0.12, 0.12, -faceDist],
         [0.12, -0.12, -faceDist],
       ].map((pos, idx) => (
-        <mesh key={`f2-${idx}`} position={pos as [number, number, number]}>
-          <sphereGeometry args={[pipRadius, 8, 8]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
+        <PipWithGoldRim
+          key={`f2-${idx}`}
+          position={pos as [number, number, number]}
+          axis="z"
+        />
       ))}
 
-      {/* FACE 3 (+X and -X) : 3 pips */}
+      {/* FACE 3 (+X and -X) : 3 Obsidian Pips with Golden Rim */}
       {[
         [faceDist, 0.13, 0.13],
         [faceDist, 0, 0],
@@ -141,10 +214,11 @@ const SingleDie: React.FC<{
         [-faceDist, 0, 0],
         [-faceDist, -0.13, -0.13],
       ].map((pos, idx) => (
-        <mesh key={`f3-${idx}`} position={pos as [number, number, number]}>
-          <sphereGeometry args={[pipRadius, 8, 8]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
+        <PipWithGoldRim
+          key={`f3-${idx}`}
+          position={pos as [number, number, number]}
+          axis="x"
+        />
       ))}
     </group>
   );

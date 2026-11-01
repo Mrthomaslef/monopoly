@@ -504,8 +504,8 @@ const CurvedGoldenReliefBanner: React.FC<{
       position={[0, bannerY, bannerZ]}
       rotation={[-Math.PI / 2 + 0.44, 0, 0]}
     >
-      {/* Subtle 3D Dark Carved Wood Backing Plate (always visible in front of fortifications) */}
-      <mesh position={[0, -0.008, -0.014]} renderOrder={24}>
+      {/* Subtle 3D Dark Carved Wood Backing Plate */}
+      <mesh position={[0, -0.008, -0.014]} renderOrder={9}>
         <planeGeometry args={[planeW, planeH]} />
         <meshStandardMaterial
           map={colorTexture}
@@ -513,13 +513,14 @@ const CurvedGoldenReliefBanner: React.FC<{
           transparent
           alphaTest={0.25}
           roughness={0.85}
-          depthTest={false}
-          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={-2}
         />
       </mesh>
 
       {/* Main High-Contrast Curved 3D Golden-Brown Relief Plaque */}
-      <mesh position={[0, 0, 0]} renderOrder={25}>
+      <mesh position={[0, 0, 0]} renderOrder={10}>
         <planeGeometry args={[planeW, planeH]} />
         <meshStandardMaterial
           map={colorTexture}
@@ -531,8 +532,9 @@ const CurvedGoldenReliefBanner: React.FC<{
           alphaTest={0.1}
           roughness={0.28}
           metalness={0.25}
-          depthTest={false}
-          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-4}
+          polygonOffsetUnits={-4}
         />
       </mesh>
     </group>

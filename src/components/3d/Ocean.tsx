@@ -356,127 +356,6 @@ function PeripheralTropicalIsland({
   );
 }
 
-function SkullRock() {
-  return (
-    <group position={[-0.58, 0.52, -0.38]} rotation={[0, 0.45, 0]}>
-      {/* Main Crag / Skull Cranium */}
-      <mesh position={[0, 0.44, 0]} castShadow>
-        <dodecahedronGeometry args={[0.58, 1]} />
-        <meshStandardMaterial color="#94a3b8" roughness={0.8} flatShading />
-      </mesh>
-      {/* Cheekbones & Jaw Cavern */}
-      <mesh position={[0, 0.08, 0.16]} castShadow>
-        <boxGeometry args={[0.68, 0.38, 0.6]} />
-        <meshStandardMaterial color="#64748b" roughness={0.85} flatShading />
-      </mesh>
-      {/* Crossed Gold Cutlasses / Torch Posts */}
-      <mesh position={[-0.2, 0.44, 0.49]}>
-        <sphereGeometry args={[0.11, 10, 10]} />
-        <meshStandardMaterial
-          color="#f59e0b"
-          emissive="#f59e0b"
-          emissiveIntensity={1.8}
-        />
-      </mesh>
-      <mesh position={[0.2, 0.44, 0.49]}>
-        <sphereGeometry args={[0.11, 10, 10]} />
-        <meshStandardMaterial
-          color="#f59e0b"
-          emissive="#f59e0b"
-          emissiveIntensity={1.8}
-        />
-      </mesh>
-      {/* Nose cavity */}
-      <mesh position={[0, 0.27, 0.52]} rotation={[0.2, 0, 0]}>
-        <coneGeometry args={[0.08, 0.18, 3]} />
-        <meshStandardMaterial color="#1e293b" roughness={1} />
-      </mesh>
-    </group>
-  );
-}
-
-function GiantTreasureChest() {
-  const chestGlowRef = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    if (chestGlowRef.current) {
-      chestGlowRef.current.intensity =
-        1.4 + Math.sin(clock.getElapsedTime() * 3) * 0.45;
-    }
-  });
-
-  return (
-    <group position={[0.58, 0.38, 0.38]} rotation={[0, -0.5, 0]}>
-      <pointLight
-        ref={chestGlowRef}
-        position={[0, 0.48, 0]}
-        color="#fbbf24"
-        intensity={1.4}
-        distance={3.8}
-      />
-      {/* Chest Wooden Base */}
-      <mesh position={[0, 0.18, 0]} castShadow>
-        <boxGeometry args={[0.78, 0.36, 0.52]} />
-        <meshStandardMaterial color="#7c2d12" roughness={0.65} />
-      </mesh>
-      {/* Gold Trim Bands */}
-      <mesh position={[-0.28, 0.18, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.38, 0.55]} />
-        <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[0.28, 0.18, 0]} castShadow>
-        <boxGeometry args={[0.07, 0.38, 0.55]} />
-        <meshStandardMaterial color="#fbbf24" metalness={0.8} roughness={0.2} />
-      </mesh>
-      {/* Open Lid tilted back */}
-      <group position={[0, 0.35, -0.24]} rotation={[-0.85, 0, 0]}>
-        <mesh
-          position={[0, 0.08, 0.24]}
-          rotation={[0, 0, Math.PI / 2]}
-          castShadow
-        >
-          <cylinderGeometry
-            args={[0.26, 0.26, 0.78, 10, 1, false, 0, Math.PI]}
-          />
-          <meshStandardMaterial color="#9a3412" roughness={0.6} />
-        </mesh>
-      </group>
-      {/* Overflowing Gold Heap */}
-      <mesh position={[0, 0.37, 0.02]}>
-        <sphereGeometry args={[0.26, 12, 10]} />
-        <meshStandardMaterial
-          color="#facc15"
-          emissive="#ca8a04"
-          emissiveIntensity={0.5}
-          metalness={0.85}
-          roughness={0.18}
-        />
-      </mesh>
-      <mesh position={[0.16, 0.38, 0.06]}>
-        <sphereGeometry args={[0.16, 10, 10]} />
-        <meshStandardMaterial
-          color="#fde047"
-          emissive="#eab308"
-          emissiveIntensity={0.45}
-          metalness={0.85}
-          roughness={0.18}
-        />
-      </mesh>
-      {/* Ruby Gem */}
-      <mesh position={[-0.12, 0.48, 0.08]}>
-        <octahedronGeometry args={[0.1, 0]} />
-        <meshStandardMaterial
-          color="#ef4444"
-          emissive="#dc2626"
-          emissiveIntensity={0.8}
-          metalness={0.35}
-          roughness={0.1}
-        />
-      </mesh>
-    </group>
-  );
-}
-
 const CARIBBEAN_WATER_VERTEX = /* glsl */ `
   uniform float uTime;
   varying vec2 vWorldXZ;
@@ -650,7 +529,7 @@ export const Ocean: React.FC = () => {
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow
         >
-          <circleGeometry args={[1.55, 32]} />
+          <circleGeometry args={[1.58, 32]} />
           <meshStandardMaterial
             map={compassTexture}
             roughness={0.55}
@@ -658,28 +537,22 @@ export const Ocean: React.FC = () => {
           />
         </mesh>
 
-        {/* Skull Rock Formation */}
-        <SkullRock />
-
-        {/* Giant Overflowing Treasure Chest */}
-        <GiantTreasureChest />
-
-        {/* Curved Caribbean Palm Trees */}
+        {/* Curved Caribbean Palm Trees on the Outer Rim */}
         <LowPolyPalmTree
-          position={[1.05, 0.34, -0.75]}
-          scale={0.95}
+          position={[1.48, 0.24, -1.05]}
+          scale={0.88}
           lean={0.22}
           rotationY={0.6}
         />
         <LowPolyPalmTree
-          position={[-1.08, 0.32, 0.72]}
-          scale={0.85}
+          position={[-1.48, 0.24, 0.95]}
+          scale={0.82}
           lean={-0.2}
           rotationY={-0.8}
         />
         <LowPolyPalmTree
-          position={[0.15, 0.36, -1.15]}
-          scale={0.78}
+          position={[-0.2, 0.26, -1.65]}
+          scale={0.76}
           lean={0.18}
           rotationY={2.1}
         />

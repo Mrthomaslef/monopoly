@@ -23,6 +23,7 @@ import {
   canAccessUpgradesShop,
   getCulverinTargets,
 } from '../../store/useGameStore';
+import { soundEffects } from '../../utils/soundEffects';
 
 const PrimaryButton: React.FC<{
   onClick: () => void;
@@ -49,7 +50,10 @@ const SecondaryButton: React.FC<{
   <motion.button
     whileTap={{ scale: 0.96 }}
     type="button"
-    onClick={onClick}
+    onClick={() => {
+      soundEffects.playButtonClickSound('wood');
+      onClick();
+    }}
     title={title}
     className={`flex-1 min-w-0 py-1 px-0.5 rounded-xl font-black text-[11px] leading-tight text-center border-2 shadow-md flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 cursor-pointer ${className}`}
   >

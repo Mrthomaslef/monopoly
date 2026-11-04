@@ -4,6 +4,7 @@ import {
   FastForward,
   Volume2,
   VolumeX,
+  Music,
   Camera,
   Compass,
   Coins,
@@ -33,8 +34,16 @@ export const TopHUD: React.FC = () => {
   const setShowSetupModal = useGameStore((s) => s.setShowSetupModal);
 
   const [isMuted, setIsMuted] = useState<boolean>(soundEffects.isMuted());
+  const [isMusicOn, setIsMusicOn] = useState<boolean>(soundEffects.isMusicEnabled());
   const [deltas, setDeltas] = useState<Record<number, PlayerDeltaBadge>>({});
   const prevStatsRef = useRef<Record<number, { gold: number; materials: number }>>({});
+
+  useEffect(() => {
+    return soundEffects.subscribe(() => {
+      setIsMuted(soundEffects.isMuted());
+      setIsMusicOn(soundEffects.isMusicEnabled());
+    });
+  }, []);
 
   useEffect(() => {
     const prev = prevStatsRef.current;
@@ -100,6 +109,13 @@ export const TopHUD: React.FC = () => {
   const handleToggleMute = () => {
     const muted = soundEffects.toggleMute();
     setIsMuted(muted);
+    setIsMusicOn(soundEffects.isMusicEnabled());
+  };
+
+  const handleToggleMusic = () => {
+    const musicActive = soundEffects.toggleMusic();
+    setIsMusicOn(musicActive);
+    setIsMuted(soundEffects.isMuted());
   };
 
   const gridColsClass =
@@ -128,7 +144,10 @@ export const TopHUD: React.FC = () => {
           {/* Crew / Players, Solo & Local Multiplayer Setup Button */}
           <button
             type="button"
-            onClick={() => setShowSetupModal(true)}
+            onClick={() => {
+              soundEffects.playButtonClickSound('wood');
+              setShowSetupModal(true);
+            }}
             className="wood-plank flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold text-amber-100 hover:brightness-110 active:scale-95 transition cursor-pointer border border-emerald-400/40"
             title="Mode Solo ou Multijoueur Local (2 à 4 joueurs)"
           >
@@ -180,6 +199,26 @@ export const TopHUD: React.FC = () => {
             )}
           </button>
 
+          {/* Symphonic Pirates Background Music Toggle Button */}
+          <button
+            type="button"
+            onClick={handleToggleMusic}
+            aria-pressed={isMusicOn}
+            aria-label={isMusicOn ? 'Couper la musique' : 'Activer la musique'}
+            title={
+              isMusicOn
+                ? 'Musique Pirates des Caraïbes activée (cliquer pour couper)'
+                : 'Activer la musique Pirates des Caraïbes'
+            }
+            className={`p-1.5 rounded-lg active:scale-95 transition cursor-pointer ${
+              isMusicOn
+                ? 'bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_0_10px_rgba(251,191,36,0.55)]'
+                : 'wood-plank text-amber-300/60 opacity-75 hover:opacity-100'
+            }`}
+          >
+            <Music className="w-4 h-4" />
+          </button>
+
           {/* Audio Mute/Unmute Icon Button */}
           <button
             type="button"
@@ -187,7 +226,7 @@ export const TopHUD: React.FC = () => {
             className={`wood-plank p-1.5 rounded-lg active:scale-95 transition cursor-pointer ${
               isMuted ? 'text-rose-300 opacity-80' : 'text-amber-200 hover:brightness-110'
             }`}
-            title={isMuted ? 'Activer le son' : 'Couper le son'}
+            title={isMuted ? 'Activer les effets sonores' : 'Couper tout le son'}
           >
             {isMuted ? (
               <VolumeX className="w-4 h-4" />

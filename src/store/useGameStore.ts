@@ -1016,7 +1016,7 @@ export const useGameStore = create<GameState>()(
     const goldToProposer = offer.receiveGold - offer.giveGold;
     const materialsToProposer = offer.receiveMaterials - offer.giveMaterials;
 
-    soundEffects.playGoldSound();
+    soundEffects.playTradeSound();
     state.addLog(`🤝 Échange conclu entre ${proposer.name} et ${partner.name} !`);
     set({
       tiles: applyTradeToTiles(offer, proposer.id, state.tiles),
@@ -1095,6 +1095,7 @@ export const useGameStore = create<GameState>()(
   inspectTileCard: (tileId) => {
     const state = get();
     const activePlayer = state.players[state.currentPlayerIndex];
+    soundEffects.playButtonClickSound('parchment');
     // If the player is in fortification location-picker mode, clicking a tile on the 3D board selects it in the picker
     if (state.showFortifyModal) {
       set({ focusedTileIndex: tileId });
@@ -1114,6 +1115,7 @@ export const useGameStore = create<GameState>()(
 
   focusOnPlayer: (playerId) => {
     const state = get();
+    soundEffects.playButtonClickSound('wood');
     if (playerId === null) {
       set({ spotlightPlayerId: null });
       return;
@@ -1193,6 +1195,7 @@ export const useGameStore = create<GameState>()(
   },
 
   toggleCameraMode: () => {
+    soundEffects.playButtonClickSound('wood');
     set((state) => ({
       cameraMode: state.cameraMode === 'GLOBAL' ? 'FOLLOW' : 'GLOBAL',
       spotlightPlayerId: null,
@@ -1202,6 +1205,7 @@ export const useGameStore = create<GameState>()(
   setCameraMode: (mode) => set({ cameraMode: mode, spotlightPlayerId: null }),
 
   toggleBotSpeed: () => {
+    soundEffects.playButtonClickSound('brass');
     set((state) => ({
       botSpeed: state.botSpeed === 'FAST' ? 'NORMAL' : 'FAST',
     }));
@@ -1289,6 +1293,7 @@ export const useGameStore = create<GameState>()(
 
       // Stop dice spin so the final faces stay clearly visible in front of the camera
       set({ isRollingDice: false });
+      soundEffects.playDiceLandSound(d1, d2);
 
       if (!player.inJail) {
         latest.addLog(`🎲 ${player.name} lance ${d1} + ${d2} = ${total} cases !`);
@@ -1398,7 +1403,6 @@ export const useGameStore = create<GameState>()(
     if (!tile || tile.type !== 'island' || tile.ownerId !== null || !tile.price) return;
     if (player.gold < tile.price) return;
 
-    soundEffects.playGoldSound();
     const updatedTiles = state.tiles.map((t) =>
       t.id === tile.id ? { ...t, ownerId: player.id, level: 0 } : t
     );
@@ -1411,6 +1415,8 @@ export const useGameStore = create<GameState>()(
       groupIslands.length > 1 &&
       groupIslands.every((t) => t.ownerId === player.id);
     const bonusMaterials = completedSet ? 2 : 0;
+
+    soundEffects.playBuyIslandSound(completedSet);
 
     const updatedPlayers = state.players.map((p, idx) =>
       idx === state.currentPlayerIndex
@@ -1469,8 +1475,8 @@ export const useGameStore = create<GameState>()(
       return;
     }
 
-    soundEffects.playBuildSound();
     const newLevel = tile.level + 1;
+    soundEffects.playBuildSound(newLevel);
     const updatedPlayers = state.players.map((p, idx) =>
       idx === state.currentPlayerIndex
         ? {
@@ -1830,6 +1836,7 @@ export const useGameStore = create<GameState>()(
     );
     if (rivalsOnTile.length === 0) return;
 
+    soundEffects.playSwordClashSound();
     const defender = rivalsOnTile[0];
     set({
       phase: 'NAVAL_BATTLE',
@@ -2015,6 +2022,9 @@ export const useGameStore = create<GameState>()(
     }
 
     const nextPlayer = state.players[nextIndex];
+    if (!nextPlayer.isAI) {
+      soundEffects.playTurnStartSound();
+    }
     const beachHarvest = hasSetBonus('plages', nextPlayer.id, state.tiles)
       ? BEACH_MATERIALS_PER_TURN
       : 0;
@@ -2315,6 +2325,7 @@ function evaluateLandedTile(): void {
 
     case 'chest':
     case 'curse': {
+      soundEffects.playCardFlipSound(tile.type);
       const deckPool = tile.type === 'chest' ? TREASURE_CHEST_CARDS : SEA_CURSE_CARDS;
       const picked = deckPool[Math.floor(Math.random() * deckPool.length)];
       const drawn: DrawnCard = {
@@ -2581,6 +2592,7 @@ function afterTileActionCheckNavalBattle(): void {
   );
 
   if (rivals.length > 0 && !latestState.hasAttackedThisTurn) {
+    soundEffects.playSwordClashSound();
     const defender = rivals[0];
     latestState.addLog(
       `⚔️ BATAILLE NAVALE sur ${latestState.tiles[latestPlayer.position].name} : ${latestPlayer.name} aborde ${defender.name} !`
@@ -2631,6 +2643,7 @@ function checkAutomaticNavalBattlePrompt(): void {
     (p) => p.id !== player.id && !p.bankrupt && p.position === player.position
   );
   if (rivals.length > 0) {
+    soundEffects.playSwordClashSound();
     const defender = rivals[0];
     state.addLog(
       `⚔️ BATAILLE NAVALE sur ${state.tiles[player.position].name} : ${player.name} aborde ${defender.name} !`

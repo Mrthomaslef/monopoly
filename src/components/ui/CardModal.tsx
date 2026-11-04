@@ -25,7 +25,7 @@ export const CardModal: React.FC = () => {
           className="safe-modal fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
         >
           <div
-            className={`w-full max-w-xs flex flex-col rounded-2xl border-4 overflow-hidden text-center shadow-2xl relative ${
+            className={`w-full max-w-xs max-h-[88dvh] flex flex-col rounded-2xl border-4 overflow-y-auto pirate-scroll text-center shadow-2xl relative ${
               activeCard.deck === 'chest'
                 ? 'parchment-card border-yellow-400'
                 : 'border-purple-400 bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 text-purple-50'

@@ -187,7 +187,7 @@ export const PlayerAcquisitionsModal: React.FC = () => {
           exit={{ opacity: 0, scale: 0.92, y: 12 }}
           transition={{ type: 'spring', stiffness: 380, damping: 28 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-[440px] flex flex-col rounded-2xl wood-panel border-2 shadow-[0_20px_50px_rgba(0,0,0,0.95)] overflow-hidden text-white"
+          className="relative w-full max-w-[440px] max-h-[88dvh] flex flex-col rounded-2xl wood-panel border-2 shadow-[0_20px_50px_rgba(0,0,0,0.95)] overflow-hidden text-white"
           style={{ borderColor: player.color }}
         >
           {/* Compact Top Captain Switcher + Identity Header */}
@@ -289,8 +289,8 @@ export const PlayerAcquisitionsModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Condensed Body (No Scroll Needed): Active Bonuses + Acquisitions */}
-          <div className="p-2 space-y-1.5">
+          {/* Scrollable Body on Mac trackpad & mouse wheel: Active Bonuses + Acquisitions */}
+          <div className="p-2 space-y-1.5 min-h-0 flex-1 overflow-y-auto pirate-scroll">
             {/* Active Bonuses Section (2-column compact chips) */}
             {activeBonuses.length > 0 && (
               <div className="rounded-xl bg-slate-950/85 border border-amber-400/55 px-2 py-1.5 shadow">

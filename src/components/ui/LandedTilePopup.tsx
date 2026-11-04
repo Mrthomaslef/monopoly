@@ -340,7 +340,7 @@ export const LandedTilePopup: React.FC = () => {
         className="absolute inset-0 z-30 flex items-end justify-center p-2 pointer-events-none"
       >
         <div
-          className={`pointer-events-auto relative w-full max-w-[340px] flex flex-col rounded-2xl border-3 ${styleCfg.borderClass} overflow-hidden shadow-2xl`}
+          className={`pointer-events-auto relative w-full max-w-[340px] max-h-[84dvh] flex flex-col rounded-2xl border-3 ${styleCfg.borderClass} overflow-hidden shadow-2xl`}
           style={{
             background: styleCfg.cardBg,
             boxShadow: `0 14px 36px rgba(0,0,0,0.85), 0 0 24px ${styleCfg.glowColor}`,
@@ -398,8 +398,8 @@ export const LandedTilePopup: React.FC = () => {
             />
           </div>
 
-          {/* Minimalist, High-Clarity Card Body */}
-          <div className="shrink-0 px-2.5 sm:px-3 pt-2 text-center">
+          {/* Minimalist, High-Clarity Card Body (Scrollable if needed) */}
+          <div className="min-h-0 flex-1 overflow-y-auto pirate-scroll px-2.5 sm:px-3 pt-2 text-center">
             {/* Tile Name + Group Dot */}
             <div className="flex items-center justify-center gap-1.5">
               <span
